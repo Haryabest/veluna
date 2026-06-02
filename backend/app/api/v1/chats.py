@@ -1,0 +1,58 @@
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import get_current_user
+from app.database.session import get_db
+from app.schemas import ChatCreate, ChatResponse, MessageCreate, MessageResponse, PaginatedResponse, UserResponse
+from app.services.chat_service import ChatService
+
+router = APIRouter()
+
+
+@router.get("", response_model=PaginatedResponse)
+async def list_chats(
+    page: int = Query(1, ge=1),
+    user: UserResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    service = ChatService(session)
+    chats, total = await service.list_user_chats(user.id, page=page)
+    page_size = 20
+    return PaginatedResponse(
+        items=chats, total=total, page=page, page_size=page_size,
+        pages=(total + page_size - 1) // page_size,
+    )
+
+
+@router.post("", response_model=ChatResponse)
+async def create_chat(
+    data: ChatCreate,
+    user: UserResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    service = ChatService(session)
+    return await service.get_or_create_chat(user.id, data.character_id)
+
+
+@router.get("/{chat_id}/messages", response_model=list[MessageResponse])
+async def get_messages(
+    chat_id: UUID,
+    limit: int = Query(50, ge=1, le=100),
+    user: UserResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    service = ChatService(session)
+    return await service.get_messages(user.id, chat_id, limit=limit)
+
+
+@router.post("/{chat_id}/messages", response_model=MessageResponse)
+async def send_message(
+    chat_id: UUID,
+    data: MessageCreate,
+    user: UserResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    service = ChatService(session)
+    return await service.send_message(user.id, chat_id, data.content)
