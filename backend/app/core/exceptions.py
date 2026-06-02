@@ -31,6 +31,11 @@ class RateLimitError(VelunaError):
         super().__init__("Rate limit exceeded", code="RATE_LIMIT")
 
 
+class ValidationError(VelunaError):
+    def __init__(self, message: str):
+        super().__init__(message, code="VALIDATION_ERROR")
+
+
 def veluna_error_handler(_request, exc: VelunaError):
     status_map = {
         "NOT_FOUND": status.HTTP_404_NOT_FOUND,

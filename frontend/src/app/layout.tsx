@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
+import { AppBackground } from "@/components/layout/AppBackground";
 import { Providers } from "@/components/shared/Providers";
 import { AuthGuard } from "@/features/auth/AuthGuard";
-import { BottomNav } from "@/components/widgets/BottomNav";
 import "@/styles/globals.css";
 
 const manrope = Manrope({
@@ -34,8 +34,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans antialiased">
         <Providers>
           <AuthGuard>
-            <main className="min-h-screen">{children}</main>
-            <BottomNav />
+            <AppBackground />
+            <main className="relative z-[1] min-h-screen">{children}</main>
           </AuthGuard>
         </Providers>
       </body>

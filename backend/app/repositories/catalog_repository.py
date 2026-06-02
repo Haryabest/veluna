@@ -237,3 +237,8 @@ class CatalogRepository:
 
     async def delete_product(self, product: ShopProduct) -> None:
         await self._session.delete(product)
+
+    async def get_purchase(self, purchase_id: UUID) -> Purchase | None:
+        return (
+            await self._session.execute(select(Purchase).where(Purchase.id == purchase_id))
+        ).scalar_one_or_none()

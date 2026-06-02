@@ -59,7 +59,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       aria-label={checked ? "Выключить" : "Включить"}
     >
       <div
-        className={`mx-1 h-4 w-4 rounded-full bg-white transition-transform ${
+        className={`mx-1 h-4 w-4 rounded-full bg-text-primary transition-transform ${
           checked ? "translate-x-4" : "translate-x-0"
         }`}
       />

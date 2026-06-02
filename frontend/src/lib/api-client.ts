@@ -5,7 +5,10 @@ import { translateApiError } from "./i18n";
 export const apiClient = axios.create({
   baseURL: API_URL,
   timeout: 30000,
-  headers: { "Content-Type": "application/json" },
+  headers: {
+    "Content-Type": "application/json",
+    ...(API_URL.includes("ngrok") ? { "ngrok-skip-browser-warning": "1" } : {}),
+  },
 });
 
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {

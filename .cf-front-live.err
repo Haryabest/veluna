@@ -1,81 +1,728 @@
-2026-06-02T11:54:10Z INF Thank you for trying Cloudflare Tunnel. Doing so, without a Cloudflare account, is a quick way to experiment and try it out. However, be aware that these account-less Tunnels have no uptime guarantee, are subject to the Cloudflare Online Services Terms of Use (https://www.cloudflare.com/website-terms/), and Cloudflare reserves the right to investigate your use of Tunnels for violations of such terms. If you intend to use Tunnels in production you should use a pre-created named tunnel by following: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps
-2026-06-02T11:54:10Z INF Requesting new quick Tunnel on trycloudflare.com...
-2026-06-02T11:54:15Z INF +--------------------------------------------------------------------------------------------+
-2026-06-02T11:54:15Z INF |  Your quick Tunnel has been created! Visit it at (it may take some time to be reachable):  |
-2026-06-02T11:54:15Z INF |  https://streets-plymouth-radiation-signed.trycloudflare.com                               |
-2026-06-02T11:54:15Z INF +--------------------------------------------------------------------------------------------+
-2026-06-02T11:54:15Z INF Cannot determine default configuration path. No file [config.yml config.yaml] in [~/.cloudflared ~/.cloudflare-warp ~/cloudflare-warp]
-2026-06-02T11:54:15Z INF Version 2026.5.2 (Checksum 20b9638f685333d623798e733effbad2487093f15ba592f6c7752360ff3b7ab7)
-2026-06-02T11:54:15Z INF GOOS: windows, GOVersion: go1.26.3, GoArch: amd64
-2026-06-02T11:54:15Z INF Settings: map[ha-connections:1 p:http2 protocol:http2 url:http://127.0.0.1:3000]
-2026-06-02T11:54:15Z INF cloudflared will not automatically update on Windows systems.
-2026-06-02T11:54:15Z INF Generated Connector ID: b5696d95-6514-4f2f-abdf-ba94d312d75f
-2026-06-02T11:54:15Z INF Initial protocol http2
-2026-06-02T11:54:15Z INF ICMP proxy will use 198.18.0.1 as source for IPv4
-2026-06-02T11:54:16Z INF ICMP proxy will use fe80::57b5:99f8:84dc:292 in zone FlClashX as source for IPv6
-2026-06-02T11:54:16Z INF cloudflared does not support loading the system root certificate pool on Windows. Please use --origin-ca-pool <PATH> to specify the path to the certificate pool
-2026-06-02T11:54:16Z INF ICMP proxy will use 198.18.0.1 as source for IPv4
-2026-06-02T11:54:16Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.233
-2026-06-02T11:54:16Z INF ICMP proxy will use fe80::57b5:99f8:84dc:292 in zone FlClashX as source for IPv6
-2026-06-02T11:54:16Z INF Starting metrics server on 127.0.0.1:20242/metrics
-2026-06-02T11:54:17Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.233
-2026-06-02T11:54:17Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.233
-2026-06-02T11:54:17Z INF Retrying connection in up to 2s connIndex=0 event=0 ip=198.41.200.233
-2026-06-02T11:54:18Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.13
-2026-06-02T11:54:19Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.13
-2026-06-02T11:54:19Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.13
-2026-06-02T11:54:19Z INF Retrying connection in up to 4s connIndex=0 event=0 ip=198.41.200.13
-2026-06-02T11:54:23Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.192.167
-2026-06-02T11:54:24Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.192.167
-2026-06-02T11:54:24Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.192.167
-2026-06-02T11:54:24Z INF Retrying connection in up to 8s connIndex=0 event=0 ip=198.41.192.167
-2026-06-02T11:54:26Z INF +----------------------------------------------------------------------------------------------------+
-2026-06-02T11:54:26Z INF |                                      CONNECTIVITY PRE-CHECKS                                       |
-2026-06-02T11:54:26Z INF +----------------------------------------------------------------------------------------------------+
-2026-06-02T11:54:26Z INF |  COMPONENT         TARGET                     STATUS  DETAILS                                      |
-2026-06-02T11:54:26Z INF |  DNS Resolution    region1.v2.argotunnel.com  PASS    DNS Resolved successfully                    |
-2026-06-02T11:54:26Z INF |  DNS Resolution    region2.v2.argotunnel.com  PASS    DNS Resolved successfully                    |
-2026-06-02T11:54:26Z INF |  UDP Connectivity  region1.v2.argotunnel.com  FAIL    QUIC connection failed                       |
-2026-06-02T11:54:26Z INF |  UDP Connectivity  region2.v2.argotunnel.com  FAIL    QUIC connection failed                       |
-2026-06-02T11:54:26Z INF |  TCP Connectivity  region1.v2.argotunnel.com  FAIL    HTTP/2 connection is blocked or unreachable  |
-2026-06-02T11:54:26Z INF |  TCP Connectivity  region2.v2.argotunnel.com  FAIL    HTTP/2 connection is blocked or unreachable  |
-2026-06-02T11:54:26Z INF |  Cloudflare API    api.cloudflare.com:443     PASS    API is reachable                             |
-2026-06-02T11:54:26Z INF |  ERROR: Allow outbound QUIC traffic on port 7844 or use HTTP2.                                     |
-2026-06-02T11:54:26Z INF |  ERROR: Allow outbound QUIC traffic on port 7844 or use HTTP2.                                     |
-2026-06-02T11:54:26Z INF |  ERROR: Allow outbound TCP on port 7844.                                                           |
-2026-06-02T11:54:26Z INF |  ERROR: Allow outbound TCP on port 7844.                                                           |
-2026-06-02T11:54:26Z INF |                                                                                                    |
-2026-06-02T11:54:26Z INF |  SUMMARY: Environment has critical failures. cloudflared may not be able to establish a tunnel.    |
-2026-06-02T11:54:26Z INF +----------------------------------------------------------------------------------------------------+
-2026-06-02T11:54:26Z INF precheck component="DNS Resolution" details="DNS Resolved successfully" run_id=feba8aa3-f152-4e57-aeab-dbee2c13143d status=pass target=region1.v2.argotunnel.com
-2026-06-02T11:54:26Z INF precheck component="DNS Resolution" details="DNS Resolved successfully" run_id=feba8aa3-f152-4e57-aeab-dbee2c13143d status=pass target=region2.v2.argotunnel.com
-2026-06-02T11:54:26Z INF precheck component="UDP Connectivity" details="QUIC connection failed" run_id=feba8aa3-f152-4e57-aeab-dbee2c13143d status=fail target=region1.v2.argotunnel.com
-2026-06-02T11:54:26Z INF precheck component="UDP Connectivity" details="QUIC connection failed" run_id=feba8aa3-f152-4e57-aeab-dbee2c13143d status=fail target=region2.v2.argotunnel.com
-2026-06-02T11:54:26Z INF precheck component="TCP Connectivity" details="HTTP/2 connection is blocked or unreachable" run_id=feba8aa3-f152-4e57-aeab-dbee2c13143d status=fail target=region1.v2.argotunnel.com
-2026-06-02T11:54:26Z INF precheck component="TCP Connectivity" details="HTTP/2 connection is blocked or unreachable" run_id=feba8aa3-f152-4e57-aeab-dbee2c13143d status=fail target=region2.v2.argotunnel.com
-2026-06-02T11:54:26Z INF precheck component="Cloudflare API" details="API is reachable" run_id=feba8aa3-f152-4e57-aeab-dbee2c13143d status=pass target=api.cloudflare.com:443
-2026-06-02T11:54:26Z INF precheck complete hard_fail=true run_id=feba8aa3-f152-4e57-aeab-dbee2c13143d
-2026-06-02T11:54:30Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.113
-2026-06-02T11:54:31Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.113
-2026-06-02T11:54:31Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.113
-2026-06-02T11:54:31Z INF Retrying connection in up to 16s connIndex=0 event=0 ip=198.41.200.113
-2026-06-02T11:54:42Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.233
-2026-06-02T11:54:43Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.233
-2026-06-02T11:54:43Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.233
-2026-06-02T11:54:43Z INF Retrying connection in up to 32s connIndex=0 event=0 ip=198.41.200.233
-2026-06-02T11:55:10Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.63
-2026-06-02T11:55:11Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.63
-2026-06-02T11:55:11Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.63
-2026-06-02T11:55:11Z INF Retrying connection in up to 1m4s connIndex=0 event=0 ip=198.41.200.63
-2026-06-02T11:55:16Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.13
-2026-06-02T11:55:17Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.13
-2026-06-02T11:55:17Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.13
-2026-06-02T11:55:17Z INF Retrying connection in up to 1m4s connIndex=0 event=0 ip=198.41.200.13
-2026-06-02T11:55:33Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
-2026-06-02T11:55:35Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.193
-2026-06-02T11:55:35Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.193
-2026-06-02T11:55:35Z INF Retrying connection in up to 1m4s connIndex=0 event=0 ip=198.41.200.193
-2026-06-02T11:55:43Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.192.47
-2026-06-02T11:55:45Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.192.47
-2026-06-02T11:55:45Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.192.47
-2026-06-02T11:55:45Z INF Retrying connection in up to 1m4s connIndex=0 event=0 ip=198.41.192.47
+2026-06-02T15:22:24Z INF Thank you for trying Cloudflare Tunnel. Doing so, without a Cloudflare account, is a quick way to experiment and try it out. However, be aware that these account-less Tunnels have no uptime guarantee, are subject to the Cloudflare Online Services Terms of Use (https://www.cloudflare.com/website-terms/), and Cloudflare reserves the right to investigate your use of Tunnels for violations of such terms. If you intend to use Tunnels in production you should use a pre-created named tunnel by following: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps
+2026-06-02T15:22:24Z INF Requesting new quick Tunnel on trycloudflare.com...
+2026-06-02T15:22:30Z INF +--------------------------------------------------------------------------------------------+
+2026-06-02T15:22:30Z INF |  Your quick Tunnel has been created! Visit it at (it may take some time to be reachable):  |
+2026-06-02T15:22:30Z INF |  https://listings-execute-physician-checked.trycloudflare.com                              |
+2026-06-02T15:22:30Z INF +--------------------------------------------------------------------------------------------+
+2026-06-02T15:22:30Z INF Cannot determine default configuration path. No file [config.yml config.yaml] in [~/.cloudflared ~/.cloudflare-warp ~/cloudflare-warp]
+2026-06-02T15:22:30Z INF Version 2026.5.2 (Checksum 20b9638f685333d623798e733effbad2487093f15ba592f6c7752360ff3b7ab7)
+2026-06-02T15:22:30Z INF GOOS: windows, GOVersion: go1.26.3, GoArch: amd64
+2026-06-02T15:22:30Z INF Settings: map[ha-connections:1 p:http2 protocol:http2 url:http://127.0.0.1:3000]
+2026-06-02T15:22:30Z INF cloudflared will not automatically update on Windows systems.
+2026-06-02T15:22:30Z INF Generated Connector ID: 53e74b22-922c-45a5-bab6-fc0ed0e9fc63
+2026-06-02T15:22:30Z INF Initial protocol http2
+2026-06-02T15:22:30Z INF ICMP proxy will use 192.168.1.2 as source for IPv4
+2026-06-02T15:22:30Z INF ICMP proxy will use fe80::12d4:72aa:6824:682a in zone Ethernet as source for IPv6
+2026-06-02T15:22:30Z INF cloudflared does not support loading the system root certificate pool on Windows. Please use --origin-ca-pool <PATH> to specify the path to the certificate pool
+2026-06-02T15:22:30Z INF ICMP proxy will use 192.168.1.2 as source for IPv4
+2026-06-02T15:22:30Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.33
+2026-06-02T15:22:30Z INF ICMP proxy will use fe80::12d4:72aa:6824:682a in zone Ethernet as source for IPv6
+2026-06-02T15:22:30Z INF Starting metrics server on 127.0.0.1:20242/metrics
+2026-06-02T15:22:30Z INF +-------------------------------------------------------------------------------------+
+2026-06-02T15:22:30Z INF |                               CONNECTIVITY PRE-CHECKS                               |
+2026-06-02T15:22:30Z INF +-------------------------------------------------------------------------------------+
+2026-06-02T15:22:30Z INF |  COMPONENT         TARGET                     STATUS  DETAILS                       |
+2026-06-02T15:22:30Z INF |  DNS Resolution    region1.v2.argotunnel.com  PASS    DNS Resolved successfully     |
+2026-06-02T15:22:30Z INF |  DNS Resolution    region2.v2.argotunnel.com  PASS    DNS Resolved successfully     |
+2026-06-02T15:22:30Z INF |  UDP Connectivity  region1.v2.argotunnel.com  PASS    QUIC connection successful    |
+2026-06-02T15:22:30Z INF |  UDP Connectivity  region2.v2.argotunnel.com  PASS    QUIC connection successful    |
+2026-06-02T15:22:30Z INF |  TCP Connectivity  region1.v2.argotunnel.com  PASS    HTTP/2 connection successful  |
+2026-06-02T15:22:30Z INF |  TCP Connectivity  region2.v2.argotunnel.com  PASS    HTTP/2 connection successful  |
+2026-06-02T15:22:30Z INF |  Cloudflare API    api.cloudflare.com:443     PASS    API is reachable              |
+2026-06-02T15:22:30Z INF |                                                                                     |
+2026-06-02T15:22:30Z INF |  SUMMARY: Environment is healthy. cloudflared will use 'quic' as primary protocol.  |
+2026-06-02T15:22:30Z INF +-------------------------------------------------------------------------------------+
+2026-06-02T15:22:30Z INF precheck component="DNS Resolution" details="DNS Resolved successfully" run_id=7416bd1f-237e-441e-9097-74818eaca57b status=pass target=region1.v2.argotunnel.com
+2026-06-02T15:22:30Z INF precheck component="DNS Resolution" details="DNS Resolved successfully" run_id=7416bd1f-237e-441e-9097-74818eaca57b status=pass target=region2.v2.argotunnel.com
+2026-06-02T15:22:30Z INF precheck component="UDP Connectivity" details="QUIC connection successful" run_id=7416bd1f-237e-441e-9097-74818eaca57b status=pass target=region1.v2.argotunnel.com
+2026-06-02T15:22:30Z INF precheck component="UDP Connectivity" details="QUIC connection successful" run_id=7416bd1f-237e-441e-9097-74818eaca57b status=pass target=region2.v2.argotunnel.com
+2026-06-02T15:22:30Z INF precheck component="TCP Connectivity" details="HTTP/2 connection successful" run_id=7416bd1f-237e-441e-9097-74818eaca57b status=pass target=region1.v2.argotunnel.com
+2026-06-02T15:22:30Z INF precheck component="TCP Connectivity" details="HTTP/2 connection successful" run_id=7416bd1f-237e-441e-9097-74818eaca57b status=pass target=region2.v2.argotunnel.com
+2026-06-02T15:22:30Z INF precheck component="Cloudflare API" details="API is reachable" run_id=7416bd1f-237e-441e-9097-74818eaca57b status=pass target=api.cloudflare.com:443
+2026-06-02T15:22:30Z INF precheck complete hard_fail=false run_id=7416bd1f-237e-441e-9097-74818eaca57b suggested_protocol=quic
+2026-06-02T15:22:31Z INF Registered tunnel connection connIndex=0 connection=cf20bcc4-c483-4250-b5d8-adb61045e063 event=0 ip=198.41.200.33 location=dme01 protocol=http2
+2026-06-02T15:22:35Z ERR Failed to initialize DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T15:22:57Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T15:22:57Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.33
+2026-06-02T15:22:57Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.33
+2026-06-02T15:22:59Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T15:23:00Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.33
+2026-06-02T15:23:00Z INF Registered tunnel connection connIndex=0 connection=7eb00123-d3e0-4be2-9d82-960dd70cbbc3 event=0 ip=198.41.200.33 location=dme01 protocol=http2
+2026-06-02T15:23:28Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T15:23:28Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.33
+2026-06-02T15:23:28Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.33
+2026-06-02T15:23:30Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T15:23:47Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.33
+2026-06-02T15:23:48Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.33
+2026-06-02T15:23:48Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.33
+2026-06-02T15:23:48Z INF Retrying connection in up to 4s connIndex=0 event=0 ip=198.41.200.33
+2026-06-02T15:23:51Z ERR Connection terminated error="TLS handshake with edge error: EOF" connIndex=0
+2026-06-02T15:23:55Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T15:23:56Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T15:23:56Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T15:23:56Z INF Retrying connection in up to 8s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T15:24:04Z ERR Connection terminated error="TLS handshake with edge error: EOF" connIndex=0
+2026-06-02T15:24:16Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.192.67
+2026-06-02T15:24:18Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.192.67
+2026-06-02T15:24:18Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.192.67
+2026-06-02T15:24:18Z INF Retrying connection in up to 16s connIndex=0 event=0 ip=198.41.192.67
+2026-06-02T15:24:18Z ERR Connection terminated error="TLS handshake with edge error: EOF" connIndex=0
+2026-06-02T15:25:38Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.192.47
+2026-06-02T15:25:39Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.192.47
+2026-06-02T15:25:39Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.192.47
+2026-06-02T15:25:39Z INF Retrying connection in up to 32s connIndex=0 event=0 ip=198.41.192.47
+2026-06-02T15:26:09Z ERR Connection terminated error="TLS handshake with edge error: EOF" connIndex=0
+2026-06-02T15:30:48Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.233
+2026-06-02T15:30:50Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.233
+2026-06-02T15:30:50Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.233
+2026-06-02T15:30:50Z INF Retrying connection in up to 1m4s connIndex=0 event=0 ip=198.41.200.233
+2026-06-02T15:31:12Z ERR Connection terminated error="TLS handshake with edge error: EOF" connIndex=0
+2026-06-02T15:35:04Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.53
+2026-06-02T15:35:05Z INF Registered tunnel connection connIndex=0 connection=9c4c266b-2a2e-45ec-b633-13273f3e6c00 event=0 ip=198.41.200.53 location=dme01 protocol=http2
+2026-06-02T15:35:47Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T15:35:47Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.53
+2026-06-02T15:35:47Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.53
+2026-06-02T15:35:47Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T15:37:40Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T15:37:42Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.53
+2026-06-02T15:37:42Z INF Registered tunnel connection connIndex=0 connection=64c10e6f-e2d9-412d-8e5d-a174b2b3b27b event=0 ip=198.41.200.53 location=dme01 protocol=http2
+2026-06-02T15:38:21Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T15:38:21Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.53
+2026-06-02T15:38:22Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.53
+2026-06-02T15:38:23Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T15:41:42Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.53
+2026-06-02T15:41:43Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.53
+2026-06-02T15:41:43Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.53
+2026-06-02T15:41:43Z INF Retrying connection in up to 4s connIndex=0 event=0 ip=198.41.200.53
+2026-06-02T15:41:44Z ERR Connection terminated error="TLS handshake with edge error: EOF" connIndex=0
+2026-06-02T15:44:17Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.23
+2026-06-02T15:44:32Z ERR Unable to establish connection with Cloudflare edge error="DialContext error: dial tcp 198.41.200.23:7844: i/o timeout" connIndex=0 event=0 ip=198.41.200.23
+2026-06-02T15:44:32Z ERR Serve tunnel error error="DialContext error: dial tcp 198.41.200.23:7844: i/o timeout" connIndex=0 event=0 ip=198.41.200.23
+2026-06-02T15:44:32Z INF Retrying connection in up to 8s connIndex=0 event=0 ip=198.41.200.23
+2026-06-02T15:44:38Z ERR Connection terminated error="DialContext error: dial tcp 198.41.200.23:7844: i/o timeout" connIndex=0
+2026-06-02T15:45:41Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.192.47
+2026-06-02T15:45:42Z INF Registered tunnel connection connIndex=0 connection=cc23f43c-1366-45a2-982e-36b2076b98cc event=0 ip=198.41.192.47 location=dme05 protocol=http2
+2026-06-02T15:46:23Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T15:46:23Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.192.47
+2026-06-02T15:46:23Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.192.47
+2026-06-02T15:46:25Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T15:47:45Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T15:49:55Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.192.47
+2026-06-02T15:49:55Z INF Registered tunnel connection connIndex=0 connection=63b11751-ce08-4413-9c7b-07022a520922 event=0 ip=198.41.192.47 location=dme05 protocol=http2
+2026-06-02T15:50:34Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T15:50:34Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.192.47
+2026-06-02T15:50:34Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.192.47
+2026-06-02T15:50:36Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T15:52:50Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T15:54:40Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.192.47
+2026-06-02T15:54:41Z INF Registered tunnel connection connIndex=0 connection=a2345c96-827c-41d9-a0b8-5cf237aa7351 event=0 ip=198.41.192.47 location=dme05 protocol=http2
+2026-06-02T15:55:20Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T15:55:20Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.192.47
+2026-06-02T15:55:20Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.192.47
+2026-06-02T15:55:20Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T15:56:41Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.192.47
+2026-06-02T15:56:42Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.192.47
+2026-06-02T15:56:42Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.192.47
+2026-06-02T15:56:42Z INF Retrying connection in up to 4s connIndex=0 event=0 ip=198.41.192.47
+2026-06-02T15:56:45Z ERR Connection terminated error="TLS handshake with edge error: EOF" connIndex=0
+2026-06-02T15:58:59Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.53
+2026-06-02T15:59:00Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.53
+2026-06-02T15:59:00Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.53
+2026-06-02T15:59:00Z INF Retrying connection in up to 8s connIndex=0 event=0 ip=198.41.200.53
+2026-06-02T15:59:05Z ERR Connection terminated error="TLS handshake with edge error: EOF" connIndex=0
+2026-06-02T16:02:52Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.43
+2026-06-02T16:02:53Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.43
+2026-06-02T16:02:53Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.43
+2026-06-02T16:02:53Z INF Retrying connection in up to 16s connIndex=0 event=0 ip=198.41.200.43
+2026-06-02T16:02:58Z ERR Connection terminated error="TLS handshake with edge error: EOF" connIndex=0
+2026-06-02T16:03:13Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:03:15Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:03:15Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:03:15Z INF Retrying connection in up to 32s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:03:37Z ERR Connection terminated error="TLS handshake with edge error: EOF" connIndex=0
+2026-06-02T16:04:02Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.53
+2026-06-02T16:04:03Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.53
+2026-06-02T16:04:03Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.53
+2026-06-02T16:04:03Z INF Retrying connection in up to 1m4s connIndex=0 event=0 ip=198.41.200.53
+2026-06-02T16:04:26Z ERR Connection terminated error="TLS handshake with edge error: EOF" connIndex=0
+2026-06-02T16:05:23Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:05:24Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:05:24Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:05:24Z INF Retrying connection in up to 1m4s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:05:30Z ERR Connection terminated error="TLS handshake with edge error: EOF" connIndex=0
+2026-06-02T16:07:04Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.63
+2026-06-02T16:07:05Z ERR Unable to establish connection with Cloudflare edge error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.63
+2026-06-02T16:07:05Z ERR Serve tunnel error error="TLS handshake with edge error: EOF" connIndex=0 event=0 ip=198.41.200.63
+2026-06-02T16:07:05Z INF Retrying connection in up to 1m4s connIndex=0 event=0 ip=198.41.200.63
+2026-06-02T16:07:20Z ERR Connection terminated error="TLS handshake with edge error: EOF" connIndex=0
+2026-06-02T16:07:55Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T16:08:29Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:08:29Z INF Registered tunnel connection connIndex=0 connection=0ae84c8c-8547-4d14-b755-7ac01403ec0d event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T16:09:08Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T16:09:08Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:09:08Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:09:09Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T16:11:13Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:11:13Z INF Registered tunnel connection connIndex=0 connection=de2e9d2f-971b-4b67-a6e0-eaccdf9139ba event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T16:11:52Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T16:11:52Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:11:52Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:11:53Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T16:13:00Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T16:15:10Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:15:10Z INF Registered tunnel connection connIndex=0 connection=7b1b8a80-c8da-4100-a74b-e298464ea0dc event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T16:15:49Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T16:15:49Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:15:49Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:15:50Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T16:16:54Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:16:54Z INF Registered tunnel connection connIndex=0 connection=ac836367-f798-4476-9fd7-f55f76f60b18 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T16:17:33Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T16:17:33Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:17:33Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:17:34Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T16:18:05Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T16:19:21Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:19:21Z INF Registered tunnel connection connIndex=0 connection=9f541a4f-a9c4-4148-8100-77ae87dd3f69 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T16:22:12Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T16:22:12Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:22:12Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:22:12Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T16:23:03Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:23:03Z INF Registered tunnel connection connIndex=0 connection=eea1ba93-e4c5-40b0-a156-d2fb371f43ea event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T16:23:10Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T16:25:53Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T16:25:53Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:25:54Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:25:54Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T16:28:15Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T16:30:59Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:31:00Z INF Registered tunnel connection connIndex=0 connection=6b234b56-3cca-4222-9d4a-a1e4bed37241 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T16:33:20Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T16:33:50Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T16:33:50Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:33:50Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:33:50Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T16:37:44Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:37:44Z INF Registered tunnel connection connIndex=0 connection=ac3f1fd5-e104-4ef9-bfdc-156c3b8a7440 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T16:38:25Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T16:40:34Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T16:40:34Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:40:34Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:40:35Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T16:41:29Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:41:30Z INF Registered tunnel connection connIndex=0 connection=325fef11-f8fc-49e6-a753-e46a2edbae6d event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T16:43:30Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T16:44:20Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T16:44:20Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:44:20Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:44:20Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T16:48:35Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T16:48:57Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:48:58Z INF Registered tunnel connection connIndex=0 connection=2af2e208-fb25-47f8-8aa9-6a59ef9af741 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T16:49:38Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T16:49:38Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:49:38Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:49:38Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T16:51:14Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:51:14Z INF Registered tunnel connection connIndex=0 connection=7cf9e59c-ba3c-4488-8c3d-65d2a7eb6375 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T16:51:54Z INF Lost connection with the edge connIndex=0
+2026-06-02T16:51:54Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T16:51:54Z ERR Serve tunnel error error="connection with edge closed" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:51:54Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:51:54Z ERR Connection terminated error="connection with edge closed" connIndex=0
+2026-06-02T16:53:40Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T16:55:45Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:55:46Z INF Registered tunnel connection connIndex=0 connection=9e131485-415c-4cb5-8fa9-da39bdf6e7d7 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T16:58:36Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T16:58:36Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:58:36Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:58:37Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T16:58:41Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T16:58:41Z INF Registered tunnel connection connIndex=0 connection=1dffa7e8-b210-4182-bc57-b9e8afddbf91 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T16:58:45Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T17:01:31Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T17:01:31Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:01:31Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:01:32Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T17:03:50Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T17:04:01Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:04:02Z INF Registered tunnel connection connIndex=0 connection=7b7c2cf1-df77-40ad-8794-287aa12ca325 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T17:06:52Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T17:06:52Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:06:52Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:06:53Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T17:08:55Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T17:10:12Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:10:12Z INF Registered tunnel connection connIndex=0 connection=b1631a44-645e-4237-8a45-4888ccb79a97 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T17:10:51Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T17:10:51Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:10:51Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:10:52Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T17:11:02Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:11:02Z INF Registered tunnel connection connIndex=0 connection=c8f86544-b05e-4468-b46c-d6360b8a3759 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T17:11:41Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T17:11:41Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:11:41Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:11:42Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T17:11:46Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:11:47Z INF Registered tunnel connection connIndex=0 connection=4516b3b1-7445-43cf-be36-76716a1909f3 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T17:12:26Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T17:12:26Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:12:26Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:12:27Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T17:12:29Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:12:29Z INF Registered tunnel connection connIndex=0 connection=1d6543e3-564a-4693-a6e1-fdf55bb08efb event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T17:13:09Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T17:13:09Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:13:09Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:13:09Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T17:13:17Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:13:18Z INF Registered tunnel connection connIndex=0 connection=e6990b8a-1d29-4345-a247-95ab31672645 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T17:13:57Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T17:13:57Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:13:57Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:13:58Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T17:14:00Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T17:14:17Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:14:17Z INF Registered tunnel connection connIndex=0 connection=df16dcf8-3298-4f06-86a4-7b02f0eb7dfa event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T17:14:57Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T17:14:57Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:14:57Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:14:57Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T17:16:21Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:16:21Z INF Registered tunnel connection connIndex=0 connection=3935fca3-4e66-4f32-95ff-1e1db9e7da04 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T17:19:05Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T17:19:11Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T17:19:11Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:19:11Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:19:12Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T17:19:26Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:19:26Z INF Registered tunnel connection connIndex=0 connection=6ead91fc-ed03-4e1e-aa6c-d8e8f4da4100 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T17:20:05Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T17:20:05Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:20:05Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:20:07Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T17:20:25Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:20:25Z INF Registered tunnel connection connIndex=0 connection=767dc290-442b-48e2-9464-7fac335b3510 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T17:21:04Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T17:21:04Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:21:04Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:21:05Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T17:21:39Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:21:40Z INF Registered tunnel connection connIndex=0 connection=9f2bf82a-b2d8-4f38-8861-42c47fc9459a event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T17:22:19Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T17:22:19Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:22:19Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:22:20Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T17:22:39Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:22:39Z INF Registered tunnel connection connIndex=0 connection=e9c78141-2c3a-4550-8d70-ffb27878173c event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T17:23:18Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T17:23:18Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:23:18Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:23:19Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T17:23:36Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:23:36Z INF Registered tunnel connection connIndex=0 connection=ea541919-cadf-4a3e-90bd-1ec1e8e5d59f event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T17:24:10Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T17:26:26Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T17:26:26Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:26:26Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:26:27Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T17:26:42Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:26:42Z INF Registered tunnel connection connIndex=0 connection=3111a27f-7b98-4acf-ab8b-e529a9ebc656 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T17:29:15Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T17:29:32Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T17:29:32Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:29:32Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:29:32Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T17:29:50Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:29:50Z INF Registered tunnel connection connIndex=0 connection=def1a1b5-ebcc-47b9-9fce-abdd7710df1a event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T17:30:29Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T17:30:29Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:30:29Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:30:30Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T17:30:43Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:30:43Z INF Registered tunnel connection connIndex=0 connection=7efc42a1-dddd-4a69-b2af-5d61cf078609 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T17:31:22Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T17:31:22Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:31:22Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:31:23Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T17:31:42Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:31:42Z INF Registered tunnel connection connIndex=0 connection=78736a79-5eb0-460c-bb3d-aa400f94e016 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T17:32:21Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T17:32:21Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:32:21Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:32:23Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T17:32:41Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:32:41Z INF Registered tunnel connection connIndex=0 connection=aa06c57b-f6fe-40f8-8659-072f4b1d40c2 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T17:34:21Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T17:35:31Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T17:35:31Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:35:31Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:35:32Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T17:35:51Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:35:52Z INF Registered tunnel connection connIndex=0 connection=4de18e6c-d2a1-48fc-9ed7-8043d4e6db0e event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T17:36:31Z INF Lost connection with the edge connIndex=0
+2026-06-02T17:36:31Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T17:36:31Z ERR Serve tunnel error error="connection with edge closed" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:36:31Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:36:33Z ERR Connection terminated error="connection with edge closed" connIndex=0
+2026-06-02T17:36:51Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:36:52Z INF Registered tunnel connection connIndex=0 connection=aea13cfd-b79b-421f-95f3-e967bb38e862 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T17:39:26Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T17:39:37Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T17:39:37Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:39:37Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:39:39Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T17:39:48Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:39:48Z INF Registered tunnel connection connIndex=0 connection=3fb2bee5-df0c-4da9-95e9-e464de98548d event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T17:40:28Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T17:40:28Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:40:28Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:40:28Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T17:40:39Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:40:39Z INF Registered tunnel connection connIndex=0 connection=4d8d7f97-092e-4db3-b391-8eb53b9c7560 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T17:41:18Z INF Lost connection with the edge connIndex=0
+2026-06-02T17:41:18Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T17:41:18Z ERR Serve tunnel error error="connection with edge closed" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:41:18Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:41:18Z ERR Connection terminated error="connection with edge closed" connIndex=0
+2026-06-02T17:41:22Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:41:23Z INF Registered tunnel connection connIndex=0 connection=ab43660a-b16e-4db9-8820-fa075f8b0b1b event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T17:44:13Z INF Lost connection with the edge connIndex=0
+2026-06-02T17:44:13Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T17:44:13Z ERR Serve tunnel error error="connection with edge closed" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:44:13Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:44:15Z ERR Connection terminated error="connection with edge closed" connIndex=0
+2026-06-02T17:44:30Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:44:30Z INF Registered tunnel connection connIndex=0 connection=9db0af8a-004e-4488-beed-fe39b2795570 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T17:44:31Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T17:47:20Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T17:47:20Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:47:20Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:47:21Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T17:47:30Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:47:30Z INF Registered tunnel connection connIndex=0 connection=d95c28ca-9d74-40c7-82ea-5e622bddaf94 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T17:48:10Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T17:48:10Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:48:10Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:48:10Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T17:48:41Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:48:42Z INF Registered tunnel connection connIndex=0 connection=f4ecced5-bad0-4309-948f-7923135470d5 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T17:49:26Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T17:49:26Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:49:26Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:49:27Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T17:49:36Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T17:50:13Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:50:14Z INF Registered tunnel connection connIndex=0 connection=124b0b4b-8a34-4131-9d63-45ee0deae16c event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T17:53:04Z INF Lost connection with the edge connIndex=0
+2026-06-02T17:53:04Z ERR Serve tunnel error error="connection with edge closed" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:53:04Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T17:53:04Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:53:05Z ERR Connection terminated error="connection with edge closed" connIndex=0
+2026-06-02T17:53:48Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:53:48Z INF Registered tunnel connection connIndex=0 connection=5869b592-c233-41e0-9ea5-523927dd6f4e event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T17:54:27Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T17:54:27Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:54:27Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:54:28Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T17:54:41Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T17:56:49Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:56:50Z INF Registered tunnel connection connIndex=0 connection=41f4a309-7dc0-41d7-bad8-d57854cff7bb event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T17:59:40Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T17:59:40Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:59:40Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T17:59:40Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T17:59:46Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T18:01:58Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:01:58Z INF Registered tunnel connection connIndex=0 connection=2c4fef40-69ee-4bbb-9350-69fa48adbf07 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T18:02:38Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T18:02:38Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:02:38Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:02:39Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T18:02:59Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:02:59Z INF Registered tunnel connection connIndex=0 connection=cae53a75-5f66-4266-9719-17e31d8052bb event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T18:03:38Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T18:03:38Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:03:38Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:03:39Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T18:04:51Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T18:06:37Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:06:37Z INF Registered tunnel connection connIndex=0 connection=f7c00e22-6784-49fb-90d7-fc3c03a09ec2 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T18:07:16Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T18:07:16Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:07:16Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:07:18Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T18:09:56Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T18:10:00Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:10:01Z INF Registered tunnel connection connIndex=0 connection=416a3f67-8ae2-4038-a73f-fb9cf2301839 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T18:10:40Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T18:10:40Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:10:40Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:10:42Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T18:12:01Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:12:01Z INF Registered tunnel connection connIndex=0 connection=d1bb1366-d218-406d-af6f-888b5072fcf7 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T18:12:40Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T18:12:40Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:12:40Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:12:41Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T18:15:01Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T18:17:03Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:17:04Z INF Registered tunnel connection connIndex=0 connection=629f8958-14a0-4194-97c5-5c3ddfc647e8 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T18:17:43Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T18:17:43Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:17:43Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:17:43Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T18:18:02Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:18:02Z INF Registered tunnel connection connIndex=0 connection=a45dd30a-a24d-4f97-a6eb-69481a385820 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T18:18:41Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T18:18:41Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:18:41Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:18:43Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T18:20:06Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T18:21:34Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:21:35Z INF Registered tunnel connection connIndex=0 connection=c1c1472c-b522-481f-b5dc-ef0a32f36d87 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T18:22:14Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T18:22:14Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:22:14Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:22:14Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T18:24:49Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:24:50Z INF Registered tunnel connection connIndex=0 connection=2a7b2d5a-e7f1-43bb-b44e-71734cf6187f event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T18:25:11Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T18:25:29Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T18:25:29Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:25:29Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:25:29Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T18:28:31Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:28:32Z INF Registered tunnel connection connIndex=0 connection=c91e231d-0721-435c-aa20-b43eb355afee event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T18:29:11Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T18:29:11Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:29:11Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:29:12Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T18:30:16Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T18:31:56Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:31:56Z INF Registered tunnel connection connIndex=0 connection=680a0e6e-3990-4b69-b635-aa8feac9d86b event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T18:32:36Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T18:32:36Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:32:36Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:32:37Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T18:32:53Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:32:53Z INF Registered tunnel connection connIndex=0 connection=0e6d2047-1fe7-41c2-ae14-32b524723636 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T18:33:32Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T18:33:32Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:33:32Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:33:33Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T18:35:21Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T18:35:59Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:35:59Z INF Registered tunnel connection connIndex=0 connection=65738c1f-c094-4703-85f7-d5e364082c80 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T18:36:38Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T18:36:38Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:36:38Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:36:40Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T18:38:11Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:38:11Z INF Registered tunnel connection connIndex=0 connection=8c990f4d-489c-4462-a7d2-4e2a43040753 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T18:38:50Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T18:38:50Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:38:50Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:38:51Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T18:40:26Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T18:43:09Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:43:10Z INF Registered tunnel connection connIndex=0 connection=cbd998f8-a09b-4441-905d-ae92bc5fe95b event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T18:43:49Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T18:43:49Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:43:49Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:43:49Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T18:43:58Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:43:58Z INF Registered tunnel connection connIndex=0 connection=bf0720d4-10fc-4229-9421-05f0c4bacfb3 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T18:45:31Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T18:46:44Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T18:46:44Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:46:44Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:46:45Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T18:47:29Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:47:29Z INF Registered tunnel connection connIndex=0 connection=36b13f04-ea21-48e6-870c-5019c9f91080 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T18:48:08Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T18:48:08Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:48:08Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:48:10Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T18:50:12Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:50:13Z INF Registered tunnel connection connIndex=0 connection=80ed4b1a-7a67-4633-8093-105af02079fb event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T18:50:36Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T18:50:52Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T18:50:52Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:50:52Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:50:54Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T18:52:47Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:52:47Z INF Registered tunnel connection connIndex=0 connection=c7bed4b9-cab1-43e0-ac15-c173683b0f66 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T18:53:26Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T18:53:26Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:53:26Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:53:27Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T18:55:41Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T18:58:28Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:58:28Z INF Registered tunnel connection connIndex=0 connection=48c63133-cada-43b0-92e6-1b4463b80e9c event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T18:59:07Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T18:59:07Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:59:07Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T18:59:09Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T19:00:34Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:00:34Z INF Registered tunnel connection connIndex=0 connection=35189382-81e0-468c-aa12-9eefbe9d2ff1 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T19:00:46Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T19:01:13Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T19:01:13Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:01:13Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:01:14Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T19:02:58Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:02:59Z INF Registered tunnel connection connIndex=0 connection=6bd2fd03-ebf5-4a64-9246-c94e617909c9 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T19:03:38Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T19:03:38Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:03:38Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:03:38Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T19:04:22Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:04:22Z INF Registered tunnel connection connIndex=0 connection=9b603627-ad28-429e-bdc0-f1028e3d0fad event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T19:05:01Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T19:05:01Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:05:02Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:05:02Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T19:05:51Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T19:07:50Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:07:51Z INF Registered tunnel connection connIndex=0 connection=6775660b-f08f-4eea-9247-32797f8e1201 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T19:10:41Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T19:10:41Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:10:41Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:10:42Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T19:10:56Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T19:10:56Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:10:56Z INF Registered tunnel connection connIndex=0 connection=2f63ec43-bcb8-413b-92fc-a82d561b2851 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T19:13:47Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T19:13:47Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:13:47Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:13:48Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T19:13:52Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:13:53Z INF Registered tunnel connection connIndex=0 connection=3f797d29-0512-47dd-b620-7605127b7e6f event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T19:14:32Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T19:14:32Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:14:32Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:14:33Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T19:14:53Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:14:53Z INF Registered tunnel connection connIndex=0 connection=a416ad01-d09c-43eb-bdd8-85da20b1ea0a event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T19:15:33Z INF Lost connection with the edge connIndex=0
+2026-06-02T19:15:33Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T19:15:33Z ERR Serve tunnel error error="connection with edge closed" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:15:33Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:15:33Z ERR Connection terminated error="connection with edge closed" connIndex=0
+2026-06-02T19:15:45Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:15:45Z INF Registered tunnel connection connIndex=0 connection=cda218ea-caa7-454c-9282-392ee0c31818 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T19:16:01Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T19:16:24Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T19:16:24Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:16:24Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:16:26Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T19:16:30Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:16:30Z INF Registered tunnel connection connIndex=0 connection=41468241-e6b6-49a3-b7dc-03b49eb682ea event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T19:17:09Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T19:17:09Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:17:09Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:17:10Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T19:17:16Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:17:16Z INF Registered tunnel connection connIndex=0 connection=de44fc75-5f0f-4fc2-b512-c0618835ba16 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T19:20:06Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T19:20:06Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:20:06Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:20:08Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T19:20:42Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:20:42Z INF Registered tunnel connection connIndex=0 connection=85079ec0-229a-4ed1-b60e-0be438a804c6 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T19:21:06Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T19:21:22Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T19:21:22Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:21:22Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:21:24Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T19:24:16Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:24:16Z INF Registered tunnel connection connIndex=0 connection=a6288ce1-2b3b-4fa0-ac22-112e03ceeb34 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T19:24:55Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T19:24:55Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:24:56Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:24:57Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T19:26:11Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T19:28:17Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:28:17Z INF Registered tunnel connection connIndex=0 connection=b5559333-f14b-442c-8d96-ca6bbceb619c event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T19:31:08Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T19:31:08Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:31:08Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:31:08Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T19:31:16Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T19:32:22Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:32:23Z INF Registered tunnel connection connIndex=0 connection=9e6e8181-c07f-49b6-a579-9bb16c743c78 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T19:33:02Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T19:33:02Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:33:02Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:33:02Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T19:35:59Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:36:00Z INF Registered tunnel connection connIndex=0 connection=895ec605-3b1e-4532-8004-6cb6057a4744 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T19:36:21Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T19:36:39Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T19:36:39Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:36:39Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:36:40Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T19:37:20Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:37:20Z INF Registered tunnel connection connIndex=0 connection=e281b8b6-605a-4d59-9a2b-4c9c391b0ca0 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T19:37:59Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T19:37:59Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:37:59Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:38:00Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T19:38:40Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:38:41Z INF Registered tunnel connection connIndex=0 connection=b9329555-585b-4669-a377-ba002c42021b event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T19:39:20Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T19:39:20Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:39:20Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:39:22Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T19:41:26Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T19:43:59Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:43:59Z INF Registered tunnel connection connIndex=0 connection=25c7d2b2-8288-4550-bebd-6bd52638ed2e event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T19:44:38Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T19:44:38Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:44:38Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:44:39Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T19:46:31Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T19:48:02Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:48:03Z INF Registered tunnel connection connIndex=0 connection=b0fd925a-6f37-41ce-b581-df1d7be3372f event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T19:48:42Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T19:48:42Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:48:42Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:48:44Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T19:51:36Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T19:51:45Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:51:45Z INF Registered tunnel connection connIndex=0 connection=14151dab-da63-4710-8964-4cf4fd3e5952 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T19:52:24Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T19:52:24Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:52:24Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:52:25Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T19:52:27Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:52:28Z INF Registered tunnel connection connIndex=0 connection=b02c13c5-7ff3-4083-87cb-dd8e0393c02e event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T19:55:18Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T19:55:18Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:55:18Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:55:19Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T19:56:37Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:56:37Z INF Registered tunnel connection connIndex=0 connection=e0153c0a-914f-4bc8-8546-4816710fb5b3 event=0 ip=198.41.200.193 location=dme06 protocol=http2
+2026-06-02T19:56:41Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T19:57:16Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T19:57:16Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:57:16Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T19:57:17Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T20:01:46Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T20:02:29Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T20:02:30Z INF Registered tunnel connection connIndex=0 connection=07029370-489a-43fa-8174-516c71762d54 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T20:03:09Z ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+2026-06-02T20:03:09Z ERR Serve tunnel error error="Error shutting down control stream: client disconnected" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T20:03:09Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T20:03:11Z ERR Connection terminated error="Error shutting down control stream: client disconnected" connIndex=0
+2026-06-02T20:06:51Z ERR Failed to refresh DNS local resolver error="lookup region1.v2.argotunnel.com: i/o timeout"
+2026-06-02T20:07:16Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveID(65074) CurveP256] connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T20:07:17Z INF Registered tunnel connection connIndex=0 connection=bf40c302-e5a8-4ad8-b110-ba0bb7f7f471 event=0 ip=198.41.200.193 location=dme01 protocol=http2
+2026-06-02T20:07:56Z ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+2026-06-02T20:07:56Z ERR Serve tunnel error error="Error shutting down control stream: context canceled" connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T20:07:56Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.193
+2026-06-02T20:07:57Z ERR Connection terminated error="Error shutting down control stream: context canceled" connIndex=0
+2026-06-02T20:11:27Z INF Initiating graceful shutdown due to signal terminated ...

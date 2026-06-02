@@ -1,5 +1,11 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
-export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://127.0.0.1:8000/ws";
+/** Relative /api/v1 uses Next.js dev proxy or nginx in production. Set NEXT_PUBLIC_API_URL for tunnel deploys. */
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+
+export const WS_URL =
+  process.env.NEXT_PUBLIC_WS_URL ||
+  (typeof window !== "undefined"
+    ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws`
+    : "ws://127.0.0.1:8000/ws");
 export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Veluna";
 
 export const ROUTES = {

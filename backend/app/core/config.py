@@ -101,3 +101,9 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def reload_settings() -> Settings:
+    """Re-read .env (dev tunnel URL changes)."""
+    get_settings.cache_clear()
+    return get_settings()

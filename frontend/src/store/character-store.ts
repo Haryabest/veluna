@@ -4,6 +4,7 @@ export interface Character {
   id: string;
   name: string;
   slug: string;
+  subtitle?: string;
   description: string;
   greeting_message: string;
   avatar_url: string | null;

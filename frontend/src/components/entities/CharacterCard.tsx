@@ -1,9 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import Link from "next/link";
 import type { Character } from "@/store/character-store";
-import { ROUTES } from "@/lib/constants";
+import { useNavStore } from "@/store/nav-store";
 import { truncate } from "@/lib/utils";
 
 interface CharacterCardProps {
@@ -12,6 +11,7 @@ interface CharacterCardProps {
 }
 
 export function CharacterCard({ character, index = 0 }: CharacterCardProps) {
+  const openCharacter = useNavStore((s) => s.openCharacter);
   const imageUrl = character.preview_url || character.avatar_url;
 
   return (
@@ -21,7 +21,11 @@ export function CharacterCard({ character, index = 0 }: CharacterCardProps) {
       transition={{ delay: index * 0.06, duration: 0.35 }}
       className="h-full"
     >
-      <Link href={ROUTES.character(character.id)} className="group block h-full">
+      <button
+        type="button"
+        onClick={() => openCharacter(character.id)}
+        className="group block h-full w-full text-left"
+      >
         <div className="glass relative aspect-[3/4] overflow-hidden rounded-2xl transition-transform duration-300 active:scale-[0.97] group-hover:shadow-glow">
           {imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -49,7 +53,7 @@ export function CharacterCard({ character, index = 0 }: CharacterCardProps) {
             </p>
           </div>
         </div>
-      </Link>
+      </button>
     </motion.div>
   );
 }

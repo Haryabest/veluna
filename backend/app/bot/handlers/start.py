@@ -4,7 +4,7 @@ from aiogram.types import Message
 
 from app.bot.filters import _is_admin_user
 from app.bot.keyboards import start_keyboard
-from app.core.config import get_settings
+from app.core.config import reload_settings
 
 router = Router(name="start")
 
@@ -46,7 +46,7 @@ async def cmd_admin_denied(message: Message) -> None:
 
 @router.message(CommandStart())
 async def cmd_start(message: Message) -> None:
-    settings = get_settings()
+    settings = reload_settings()
     webapp_url = settings.telegram_webapp_url
     is_admin = _is_admin_user(message.from_user)
 

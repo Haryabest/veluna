@@ -16,6 +16,8 @@ export const authService = {
   },
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const characterService = {
   async list(page = 1, category?: string) {
     const { data } = await apiClient.get("/characters", { params: { page, category } });
@@ -25,6 +27,22 @@ export const characterService = {
   async getById(id: string) {
     const { data } = await apiClient.get(`/characters/${id}`);
     return data;
+  },
+
+  async getBySlug(slug: string) {
+    const { data } = await apiClient.get(`/characters/slug/${slug}`);
+    return data;
+  },
+
+  async resolve(idOrSlug: string) {
+    if (UUID_RE.test(idOrSlug)) {
+      try {
+        return await this.getById(idOrSlug);
+      } catch {
+        return this.getBySlug(idOrSlug);
+      }
+    }
+    return this.getBySlug(idOrSlug);
   },
 };
 
@@ -63,6 +81,42 @@ export const generationService = {
 
   async list(page = 1) {
     const { data } = await apiClient.get("/generations", { params: { page } });
+    return data;
+  },
+};
+
+export const shopService = {
+  async listProducts() {
+    const { data } = await apiClient.get("/shop/products");
+    return data;
+  },
+
+  async validatePromo(code: string) {
+    const { data } = await apiClient.post<{ valid: boolean; discount_percent: number; message: string }>(
+      "/shop/promo/validate",
+      { code }
+    );
+    return data;
+  },
+
+  async checkout(
+    productId: string,
+    promoCode?: string,
+    paymentMethod: "stars" = "stars"
+  ) {
+    const { data } = await apiClient.post<{
+      purchase_id: string;
+      invoice_url: string;
+      stars_amount: number;
+      usd_amount: number;
+      product_name: string;
+      gems_amount: number;
+      credits_amount: number;
+    }>("/shop/checkout", {
+      product_id: productId,
+      promo_code: promoCode || undefined,
+      payment_method: paymentMethod,
+    });
     return data;
   },
 };

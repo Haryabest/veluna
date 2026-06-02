@@ -1,9 +1,13 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_current_user
 from app.database.session import get_db
+from app.schemas import UserResponse
 from app.schemas.catalog import ShopProductResponse
+from app.schemas.shop import CheckoutRequest, CheckoutResponse, PromoValidateRequest, PromoValidateResponse
 from app.services.catalog_service import CatalogService
+from app.services.shop_service import ShopService
 
 router = APIRouter()
 
@@ -12,3 +16,26 @@ router = APIRouter()
 async def list_shop_products(session: AsyncSession = Depends(get_db)):
     service = CatalogService(session)
     return await service.list_products_public()
+
+
+@router.post("/promo/validate", response_model=PromoValidateResponse)
+async def validate_promo(
+    body: PromoValidateRequest,
+    session: AsyncSession = Depends(get_db),
+):
+    service = ShopService(session)
+    return await service.validate_promo(body.code)
+
+
+@router.post("/checkout", response_model=CheckoutResponse)
+async def checkout(
+    body: CheckoutRequest,
+    user: UserResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    service = ShopService(session)
+    if body.payment_method != "stars":
+        from app.core.exceptions import ValidationError
+
+        raise ValidationError("Поддерживается только оплата Telegram Stars")
+    return await service.checkout(user.id, body.product_id, body.promo_code)
