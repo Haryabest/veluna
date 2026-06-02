@@ -26,29 +26,29 @@ export default function AdminPage() {
   if (!user || user.role !== "admin") return null;
 
   return (
-    <div className="px-4 pt-6 max-w-lg mx-auto space-y-6">
-      <h1 className="text-xl font-bold">Admin Panel</h1>
+    <div className="mx-auto max-w-lg space-y-6 px-4 pb-28 pt-6">
+      <h1 className="text-xl font-bold">Админ-панель</h1>
 
       <div className="grid grid-cols-2 gap-3">
         {isLoading
-          ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)
+          ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)
           : [
-              { label: "Users", value: stats?.total_users },
-              { label: "Messages", value: stats?.total_messages },
-              { label: "Generations", value: stats?.total_generations },
-              { label: "Revenue", value: stats?.total_revenue_gems },
+              { label: "Пользователи", value: stats?.total_users },
+              { label: "Сообщения", value: stats?.total_messages },
+              { label: "Генерации", value: stats?.total_generations },
+              { label: "Доход (гемы)", value: stats?.total_revenue_gems },
             ].map((stat) => (
               <Card key={stat.label}>
-                <p className="text-text-muted text-xs">{stat.label}</p>
-                <p className="text-2xl font-bold mt-1">{stat.value ?? 0}</p>
+                <p className="text-xs text-text-muted">{stat.label}</p>
+                <p className="mt-1 text-2xl font-bold">{stat.value ?? 0}</p>
               </Card>
             ))}
       </div>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-text-secondary">Management</h2>
-        {["Characters", "Users", "Transactions", "Pricing", "Analytics"].map((item) => (
-          <Card key={item} className="flex items-center justify-between cursor-pointer hover:bg-bg-elevated">
+        <h2 className="text-sm font-semibold text-text-secondary">Управление</h2>
+        {["Персонажи", "Пользователи", "Транзакции", "Цены", "Аналитика"].map((item) => (
+          <Card key={item} className="flex cursor-pointer items-center justify-between hover:bg-bg-elevated/50">
             <span className="text-sm">{item}</span>
             <span className="text-text-muted">→</span>
           </Card>

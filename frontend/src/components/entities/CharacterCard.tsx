@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import type { Character } from "@/store/character-store";
 import { ROUTES } from "@/lib/constants";
-import { cn, truncate } from "@/lib/utils";
+import { truncate } from "@/lib/utils";
 
 interface CharacterCardProps {
   character: Character;
@@ -12,46 +12,41 @@ interface CharacterCardProps {
 }
 
 export function CharacterCard({ character, index = 0 }: CharacterCardProps) {
+  const imageUrl = character.preview_url || character.avatar_url;
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
+      transition={{ delay: index * 0.06, duration: 0.35 }}
+      className="h-full"
     >
-      <Link href={ROUTES.character(character.id)} className="block group">
-        <div className="glass rounded-lg overflow-hidden transition-all duration-300 group-hover:glow-accent group-active:scale-[0.98]">
-          <div className="aspect-[3/4] relative bg-bg-elevated">
-            {character.preview_url || character.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={character.preview_url || character.avatar_url || ""}
-                alt={character.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-4xl">
-                🌸
-              </div>
-            )}
-            {character.is_nsfw && (
-              <span className="absolute top-2 right-2 text-[10px] bg-red-500/80 px-1.5 py-0.5 rounded-sm">
-                18+
-              </span>
-            )}
-          </div>
-          <div className="p-3">
-            <h3 className="font-semibold text-text-primary">{character.name}</h3>
-            <p className="text-xs text-text-muted mt-0.5">{truncate(character.description, 60)}</p>
-            <div className="flex gap-1 mt-2 flex-wrap">
-              {character.tags.slice(0, 3).map((tag) => (
-                <span
-                  key={tag}
-                  className={cn("text-[10px] px-1.5 py-0.5 rounded-sm bg-bg-elevated text-text-secondary")}
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
+      <Link href={ROUTES.character(character.id)} className="group block h-full">
+        <div className="glass relative aspect-[3/4] overflow-hidden rounded-2xl transition-transform duration-300 active:scale-[0.97] group-hover:shadow-glow">
+          {imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imageUrl}
+              alt={character.name}
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-accent-deep via-accent/40 to-bg-secondary" />
+          )}
+
+          <div className="absolute inset-0 bg-gradient-to-t from-bg-primary via-bg-primary/40 to-transparent" />
+
+          {character.is_nsfw && (
+            <span className="glass absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold text-accent-light">
+              18+
+            </span>
+          )}
+
+          <div className="absolute inset-x-0 bottom-0 p-3">
+            <h3 className="text-sm font-bold leading-tight text-text-primary">{character.name}</h3>
+            <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-text-secondary">
+              {truncate(character.description, 72)}
+            </p>
           </div>
         </div>
       </Link>

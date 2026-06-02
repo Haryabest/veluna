@@ -50,15 +50,15 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen max-w-lg mx-auto">
-      <header className="glass px-4 py-3 flex items-center justify-between border-b border-border">
-        <h1 className="font-semibold">Chat</h1>
+    <div className="mx-auto flex h-screen max-w-lg flex-col">
+      <header className="glass flex items-center justify-between border-b border-border px-4 py-3">
+        <h1 className="font-semibold">Чат</h1>
         <span className={cn("text-xs", isConnected ? "text-green-400" : "text-text-muted")}>
-          {isConnected ? "● Live" : "○ Offline"}
+          {isConnected ? "● Онлайн" : "○ Офлайн"}
         </span>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {isLoading
           ? Array.from({ length: 3 }).map((_, i) => <MessageSkeleton key={i} />)
           : messages?.map((msg: { id: string; role: string; content: string }) => (
@@ -67,7 +67,7 @@ export default function ChatPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className={cn(
-                  "max-w-[85%] rounded-lg px-3 py-2 text-sm",
+                  "max-w-[85%] rounded-2xl px-3 py-2 text-sm",
                   msg.role === "user"
                     ? "ml-auto bg-accent/20 text-text-primary"
                     : "mr-auto glass text-text-secondary"
@@ -77,12 +77,12 @@ export default function ChatPage() {
               </motion.div>
             ))}
         {isTyping && (
-          <div className="text-xs text-text-muted animate-pulse">typing...</div>
+          <div className="animate-pulse text-xs text-text-muted">печатает…</div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="glass px-4 py-3 border-t border-border">
+      <div className="glass border-t border-border px-4 py-3">
         <div className="flex gap-2">
           <input
             value={input}
@@ -91,11 +91,11 @@ export default function ChatPage() {
               sendTyping(true);
             }}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Type a message..."
-            className="flex-1 bg-bg-elevated rounded-md px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:ring-1 focus:ring-accent/50"
+            placeholder="Напиши сообщение…"
+            className="flex-1 rounded-xl bg-bg-elevated px-3 py-2.5 text-sm text-text-primary outline-none placeholder:text-text-muted focus:ring-1 focus:ring-accent/50"
           />
           <Button onClick={handleSend} loading={sendMutation.isPending} disabled={!input.trim()}>
-            Send
+            Отправить
           </Button>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { API_URL } from "./constants";
+import { translateApiError } from "./i18n";
 
 export const apiClient = axios.create({
   baseURL: API_URL,
@@ -52,9 +53,12 @@ export function getApiError(error: unknown): ApiError {
   if (axios.isAxiosError(error)) {
     const detail = error.response?.data?.detail;
     if (typeof detail === "object" && detail !== null) {
-      return { code: detail.code || "ERROR", message: detail.message || "Unknown error" };
+      return {
+        code: detail.code || "ERROR",
+        message: detail.message || "Неизвестная ошибка",
+      };
     }
-    return { code: "ERROR", message: error.message };
+    return { code: "ERROR", message: translateApiError(error.message) };
   }
-  return { code: "ERROR", message: "Unknown error" };
+  return { code: "ERROR", message: "Неизвестная ошибка" };
 }

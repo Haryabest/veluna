@@ -8,9 +8,9 @@ import { useToast } from "@/hooks/use-toast";
 import { formatGems } from "@/lib/utils";
 
 const PACKAGES = [
-  { gems: 100, stars: 50, label: "Starter", popular: false },
-  { gems: 500, stars: 200, label: "Popular", popular: true },
-  { gems: 1500, stars: 500, label: "Premium", popular: false },
+  { gems: 100, stars: 50, label: "Стартовый", popular: false },
+  { gems: 500, stars: 200, label: "Популярный", popular: true },
+  { gems: 1500, stars: 500, label: "Премиум", popular: false },
 ];
 
 export default function ShopPage() {
@@ -18,15 +18,15 @@ export default function ShopPage() {
   const { toast } = useToast();
 
   const handlePurchase = (gems: number, stars: number) => {
-    toast(`Purchase ${formatGems(gems)} gems for ${stars} Stars — coming soon`, "info");
+    toast(`Покупка ${formatGems(gems)} гемов за ${stars} звёзд — скоро`, "info");
   };
 
   return (
-    <div className="px-4 pt-6 max-w-lg mx-auto space-y-6">
+    <div className="mx-auto max-w-lg space-y-6 px-4 pb-28 pt-6">
       <motion.header initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <h1 className="text-xl font-bold">Shop</h1>
-        <p className="text-text-secondary text-sm mt-1">
-          Balance: <span className="text-accent font-semibold">💎 {formatGems(user?.gems ?? 0)}</span>
+        <h1 className="text-xl font-bold">Магазин</h1>
+        <p className="mt-1 text-sm text-text-secondary">
+          Баланс: <span className="font-semibold text-accent">💎 {formatGems(user?.gems ?? 0)}</span>
         </p>
       </motion.header>
 
@@ -43,12 +43,12 @@ export default function ShopPage() {
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">{pkg.label}</span>
                   {pkg.popular && (
-                    <span className="text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded-sm">
-                      BEST VALUE
+                    <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] text-accent-light">
+                      ВЫГОДНО
                     </span>
                   )}
                 </div>
-                <p className="text-accent font-bold mt-1">💎 {formatGems(pkg.gems)}</p>
+                <p className="mt-1 font-bold text-accent">💎 {formatGems(pkg.gems)}</p>
               </div>
               <Button size="sm" onClick={() => handlePurchase(pkg.gems, pkg.stars)}>
                 ⭐ {pkg.stars}

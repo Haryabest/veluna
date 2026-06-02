@@ -26,13 +26,13 @@ export default function CharacterDetailPage() {
     onSuccess: (chat) => {
       router.push(ROUTES.chat(chat.id));
     },
-    onError: () => toast("Failed to start chat", "error"),
+    onError: () => toast("Не удалось начать чат", "error"),
   });
 
   if (isLoading) {
     return (
-      <div className="px-4 pt-6 max-w-lg mx-auto space-y-4">
-        <Skeleton className="aspect-[4/3] w-full rounded-lg" />
+      <div className="mx-auto max-w-lg space-y-4 px-4 pt-6">
+        <Skeleton className="aspect-[4/3] w-full rounded-2xl" />
         <Skeleton className="h-6 w-1/2" />
         <Skeleton className="h-20 w-full" />
       </div>
@@ -40,46 +40,46 @@ export default function CharacterDetailPage() {
   }
 
   if (!character) {
-    return <p className="text-center text-text-muted py-12">Character not found</p>;
+    return <p className="py-12 text-center text-text-muted">Персонаж не найден</p>;
   }
 
   return (
-    <div className="max-w-lg mx-auto">
+    <div className="mx-auto max-w-lg pb-28">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <div className="aspect-[4/3] relative bg-bg-elevated">
+        <div className="relative aspect-[4/3] bg-bg-elevated">
           {character.preview_url || character.avatar_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={character.preview_url || character.avatar_url}
               alt={character.name}
-              className="w-full h-full object-cover"
+              className="h-full w-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-6xl">🌸</div>
+            <div className="flex h-full w-full items-center justify-center text-6xl">🌸</div>
           )}
         </div>
 
-        <div className="px-4 py-5 space-y-4">
+        <div className="space-y-4 px-4 py-5">
           <div>
             <h1 className="text-2xl font-bold">{character.name}</h1>
-            <p className="text-text-secondary text-sm mt-2">{character.description}</p>
+            <p className="mt-2 text-sm text-text-secondary">{character.description}</p>
           </div>
 
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex flex-wrap gap-2">
             {character.tags?.map((tag: string) => (
-              <span key={tag} className="text-xs px-2 py-1 rounded-sm bg-bg-elevated text-text-secondary">
+              <span key={tag} className="glass rounded-full px-2.5 py-1 text-xs text-text-secondary">
                 {tag}
               </span>
             ))}
           </div>
 
-          <div className="glass rounded-lg p-3 text-sm text-text-secondary italic">
-            &ldquo;{character.greeting_message}&rdquo;
+          <div className="glass rounded-2xl p-3 text-sm italic text-text-secondary">
+            «{character.greeting_message}»
           </div>
 
           <div className="flex gap-4 text-sm text-text-muted">
-            <span>💬 {formatGems(character.message_price)} gem/msg</span>
-            <span>✨ {formatGems(character.generation_price)} gem/gen</span>
+            <span>💬 {formatGems(character.message_price)} гем/сообщ.</span>
+            <span>✨ {formatGems(character.generation_price)} гем/ген.</span>
           </div>
 
           <Button
@@ -88,7 +88,7 @@ export default function CharacterDetailPage() {
             loading={startChat.isPending}
             onClick={() => startChat.mutate()}
           >
-            Start Chat
+            Начать чат
           </Button>
         </div>
       </motion.div>

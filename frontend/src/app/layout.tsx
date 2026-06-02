@@ -1,12 +1,20 @@
 import type { Metadata, Viewport } from "next";
+import { Manrope } from "next/font/google";
 import { Providers } from "@/components/shared/Providers";
 import { AuthGuard } from "@/features/auth/AuthGuard";
 import { BottomNav } from "@/components/widgets/BottomNav";
 import "@/styles/globals.css";
 
+const manrope = Manrope({
+  subsets: ["latin", "cyrillic"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-manrope",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Veluna — AI Waifu Companion",
-  description: "Your AI anime companion in Telegram",
+  title: "Veluna — AI-компаньон",
+  description: "Твоя AI waifu в Telegram",
 };
 
 export const viewport: Viewport = {
@@ -14,19 +22,19 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#0a0a0f",
+  themeColor: "#0c0812",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="ru" className={manrope.variable}>
       <head>
         <script src="https://telegram.org/js/telegram-web-app.js" async />
       </head>
-      <body>
+      <body className="font-sans antialiased">
         <Providers>
           <AuthGuard>
-            <main className="min-h-screen pb-20">{children}</main>
+            <main className="min-h-screen">{children}</main>
             <BottomNav />
           </AuthGuard>
         </Providers>

@@ -15,7 +15,7 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
-      language: "en",
+      language: "ru",
       notifications: true,
       nsfwEnabled: false,
       theme: "dark",

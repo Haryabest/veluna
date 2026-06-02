@@ -1,50 +1,41 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
 import { characterService } from "@/services/api";
 import { CharacterCard } from "@/components/entities/CharacterCard";
 import { CharacterCardSkeleton } from "@/components/shared/Skeleton";
-import { useUserStore } from "@/store/user-store";
+import { CurrencyBar } from "@/components/widgets/CurrencyBar";
+import { MOCK_CHARACTERS } from "@/lib/mock-data";
 import { QUERY_KEYS } from "@/lib/constants";
-import { formatGems } from "@/lib/utils";
+import type { Character } from "@/store/character-store";
 
 export default function HomePage() {
-  const { user } = useUserStore();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: QUERY_KEYS.characters,
     queryFn: () => characterService.list(),
+    retry: false,
   });
 
+  const characters: Character[] =
+    !isError && data?.items?.length ? data.items : MOCK_CHARACTERS;
+
   return (
-    <div className="px-4 pt-6 max-w-lg mx-auto">
-      <motion.header
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-6"
-      >
-        <h1 className="text-2xl font-bold text-gradient">Veluna</h1>
-        <p className="text-text-secondary text-sm mt-1">Choose your companion</p>
-        {user && (
-          <div className="flex items-center gap-1.5 mt-3 text-sm">
-            <span>💎</span>
-            <span className="text-accent font-semibold">{formatGems(user.gems)}</span>
-            <span className="text-text-muted">gems</span>
-          </div>
-        )}
-      </motion.header>
+    <div className="mx-auto max-w-lg px-4 pb-28 pt-5">
+      <CurrencyBar stars={25} />
 
-      <div className="grid grid-cols-2 gap-3">
-        {isLoading
-          ? Array.from({ length: 4 }).map((_, i) => <CharacterCardSkeleton key={i} />)
-          : data?.items?.map((character: Parameters<typeof CharacterCard>[0]["character"], i: number) => (
-              <CharacterCard key={character.id} character={character} index={i} />
-            ))}
-      </div>
+      <section className="mt-5">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-text-muted">
+          Персонажи
+        </h2>
 
-      {!isLoading && !data?.items?.length && (
-        <p className="text-center text-text-muted py-12">No characters available yet</p>
-      )}
+        <div className="grid grid-cols-2 gap-3">
+          {isLoading
+            ? Array.from({ length: 4 }).map((_, i) => <CharacterCardSkeleton key={i} />)
+            : characters.map((character, i) => (
+                <CharacterCard key={character.id} character={character} index={i} />
+              ))}
+        </div>
+      </section>
     </div>
   );
 }

@@ -15,20 +15,20 @@ export function GlobalModal() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-[90]"
+            className="fixed inset-0 z-[90] bg-black/60"
             onClick={closeModal}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[95] glass rounded-xl p-6 max-w-sm mx-auto"
+            className="glass fixed inset-x-4 top-1/2 z-[95] mx-auto max-w-sm -translate-y-1/2 rounded-2xl p-6"
           >
-            <h2 className="text-lg font-semibold text-text-primary mb-3">{modal.title}</h2>
-            <div className="text-text-secondary text-sm mb-6">{modal.content}</div>
-            <div className="flex gap-3 justify-end">
+            <h2 className="mb-3 text-lg font-semibold text-text-primary">{modal.title}</h2>
+            <div className="mb-6 text-sm text-text-secondary">{modal.content}</div>
+            <div className="flex justify-end gap-3">
               <Button variant="ghost" onClick={closeModal}>
-                Cancel
+                Отмена
               </Button>
               {modal.onConfirm && (
                 <Button
@@ -37,7 +37,7 @@ export function GlobalModal() {
                     closeModal();
                   }}
                 >
-                  Confirm
+                  Подтвердить
                 </Button>
               )}
             </div>

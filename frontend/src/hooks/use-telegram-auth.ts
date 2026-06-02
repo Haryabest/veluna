@@ -39,7 +39,7 @@ export function useTelegramAuth() {
         const user = await authService.getMe();
         setUser(user);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Auth failed");
+        setError(err instanceof Error ? err.message : "Ошибка авторизации");
         clearAuth();
       } finally {
         setLoading(false);

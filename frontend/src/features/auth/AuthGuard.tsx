@@ -8,10 +8,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6">
-        <div className="text-4xl animate-pulse-glow">🌙</div>
-        <Skeleton className="h-4 w-32" />
-        <p className="text-text-muted text-sm">Loading Veluna...</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full glass-strong shadow-glow-sm">
+          <span className="text-2xl text-gradient font-bold">V</span>
+        </div>
+        <Skeleton className="h-3 w-28" />
+        <p className="text-sm text-text-muted">Загрузка Veluna...</p>
       </div>
     );
   }
