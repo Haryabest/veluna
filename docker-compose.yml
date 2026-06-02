@@ -206,6 +206,28 @@ services:
     networks:
       - veluna-network
 
+  telegram-bot:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: veluna-telegram-bot
+    restart: unless-stopped
+    command: python -m app.bot.main
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-veluna}:${POSTGRES_PASSWORD:-veluna_secret}@postgres:5432/${POSTGRES_DB:-veluna}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_WEBAPP_URL: ${TELEGRAM_WEBAPP_URL:-}
+      ADMIN_TELEGRAM_USERNAMES: ${ADMIN_TELEGRAM_USERNAMES:-Iabobuss}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - veluna-network
+
   nginx:
     image: nginx:alpine
     container_name: veluna-nginx

@@ -2,8 +2,8 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
 from app.core.exceptions import NotFoundError
+from app.services.platform_settings_service import PlatformSettingsService
 from app.models import GenerationStatus
 from app.repositories.character_repository import CharacterRepository
 from app.repositories.generation_repository import GenerationRepository, PaymentRepository
@@ -16,10 +16,11 @@ class GenerationService:
         self._generations = GenerationRepository(session)
         self._characters = CharacterRepository(session)
         self._payments = PaymentRepository(session)
-        self._settings = get_settings()
+        self._platform = PlatformSettingsService()
 
     async def create_generation(self, user_id: UUID, data: GenerationCreate) -> GenerationResponse:
-        gems_cost = self._settings.gem_cost_per_generation
+        pricing = await self._platform.get_pricing()
+        gems_cost = pricing.gem_cost_per_generation
 
         if data.character_id:
             character = await self._characters.get_by_id(data.character_id)
