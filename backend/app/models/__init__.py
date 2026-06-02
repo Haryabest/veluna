@@ -254,3 +254,48 @@ class AnalyticsEvent(Base, TimestampMixin):
     event_type: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
     event_data: Mapped[dict] = mapped_column(JSONB, default=dict)
     session_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+
+class HomeArtItem(Base, TimestampMixin):
+    """Art cards displayed on the app home screen."""
+
+    __tablename__ = "home_art_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="")
+    image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class PromoCode(Base, TimestampMixin):
+    __tablename__ = "promo_codes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    code: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    discount_percent: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    max_uses: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    used_count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ShopProductType(str, enum.Enum):
+    GEMS = "gems"
+    CREDITS = "credits"
+    BUNDLE = "bundle"
+
+
+class ShopProduct(Base, TimestampMixin):
+    __tablename__ = "shop_products"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    product_type: Mapped[ShopProductType] = mapped_column(Enum(ShopProductType), nullable=False)
+    price: Mapped[int] = mapped_column(Integer, nullable=False)
+    sale_price: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    gems_amount: Mapped[int] = mapped_column(Integer, default=0)
+    credits_amount: Mapped[int] = mapped_column(Integer, default=0)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)

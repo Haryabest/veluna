@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     default_user_gems: int = 50
 
     admin_telegram_ids: str = ""
+    admin_telegram_usernames: str = "Iabobuss"
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -81,6 +82,16 @@ class Settings(BaseSettings):
         if not self.admin_telegram_ids:
             return []
         return [int(x.strip()) for x in self.admin_telegram_ids.split(",") if x.strip()]
+
+    @property
+    def admin_telegram_usernames_list(self) -> list[str]:
+        if not self.admin_telegram_usernames:
+            return []
+        return [
+            x.strip().lstrip("@").lower()
+            for x in self.admin_telegram_usernames.split(",")
+            if x.strip()
+        ]
 
     @property
     def is_production(self) -> bool:

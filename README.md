@@ -44,6 +44,24 @@ docker compose exec backend alembic upgrade head
 # Nginx:     http://localhost
 ```
 
+## Telegram Bot (Mini App entry)
+
+1. Create a bot via [@BotFather](https://t.me/BotFather), enable **Web App** and set the app URL to your frontend (HTTPS in production).
+2. In `.env` set:
+   - `TELEGRAM_BOT_TOKEN` — bot token
+   - `TELEGRAM_WEBAPP_URL` — public Mini App URL (e.g. `https://your-domain.com` or dev tunnel to frontend)
+3. Start the bot worker:
+
+```bash
+docker compose up -d telegram-bot
+# or locally:
+cd backend && python -m app.bot.main
+```
+
+Users send `/start` and tap **«Открыть Veluna»** — the Mini App opens. The menu button in Telegram also points to the same Web App URL.
+
+Admin access: add your Telegram numeric ID to `ADMIN_TELEGRAM_IDS`, then open the app and sign in via initData — role becomes `admin`.
+
 ## Local Development
 
 ### Prerequisites
@@ -112,6 +130,7 @@ Copy `.env.example` to `.env` and configure:
 | `SECRET_KEY` | App secret (min 32 chars) |
 | `JWT_SECRET_KEY` | JWT signing key |
 | `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather |
+| `TELEGRAM_WEBAPP_URL` | Public URL of the Mini App (frontend) |
 | `DATABASE_URL` | PostgreSQL async connection string |
 | `REDIS_URL` | Redis connection |
 | `AI_CHAT_PROVIDER` | `openai` / `openrouter` / `groq` |
@@ -169,6 +188,13 @@ frontend/src/
 | POST | `/api/v1/generations` | Queue image generation |
 | GET | `/api/v1/payments/balance` | Gem balance |
 | GET | `/api/v1/admin/stats` | Admin statistics |
+| GET | `/api/v1/admin/characters` | All characters (incl. hidden) |
+| POST | `/api/v1/admin/characters/{id}/media/upload-url` | Presigned upload for avatar/preview |
+| GET | `/api/v1/admin/transactions` | Global transactions |
+| GET/PATCH | `/api/v1/admin/pricing` | Gems pricing (Redis-backed overrides) |
+| GET | `/api/v1/admin/analytics` | Event aggregates |
+| GET | `/api/v1/admin/api-usage` | Provider & token usage summary |
+| GET | `/api/v1/admin/logs` | Admin audit log |
 | WS | `/ws/chat/{chat_id}` | Real-time chat |
 
 ## Celery Queues

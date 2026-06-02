@@ -21,6 +21,8 @@ class UploadResult:
 class PresignedUrlResult:
     url: str
     expires_in: int
+    key: str | None = None
+    public_url: str | None = None
 
 
 class StorageProvider(ABC):
@@ -34,6 +36,16 @@ class StorageProvider(ABC):
 
     @abstractmethod
     async def get_presigned_url(self, bucket: StorageBucket, key: str, expires: int = 3600) -> PresignedUrlResult:
+        pass
+
+    @abstractmethod
+    async def get_presigned_upload_url(
+        self,
+        bucket: StorageBucket,
+        key: str,
+        content_type: str = "image/jpeg",
+        expires: int = 3600,
+    ) -> PresignedUrlResult:
         pass
 
     @abstractmethod

@@ -9,6 +9,7 @@ from app.core.telegram import TelegramAuthError, validate_telegram_init_data
 from app.models import UserRole
 from app.repositories.user_repository import UserRepository
 from app.schemas import TokenResponse, UserResponse
+from app.services.platform_settings_service import PlatformSettingsService
 
 
 class AuthService:
@@ -42,16 +43,22 @@ class AuthService:
             from app.repositories.generation_repository import PaymentRepository
 
             payment_repo = PaymentRepository(self._session)
+            pricing = await PlatformSettingsService(self._settings).get_pricing()
             await payment_repo.add_gems(
                 user.id,
-                self._settings.default_user_gems,
+                pricing.default_user_gems,
                 tx_type=TransactionType.BONUS,
                 description="Welcome bonus",
             )
         elif user.is_banned:
             raise ForbiddenError("Account is banned")
 
-        if telegram_id in self._settings.admin_telegram_ids_list:
+        username = (user_data.get("username") or user.username or "").lower()
+        is_admin = telegram_id in self._settings.admin_telegram_ids_list
+        is_admin = is_admin or (
+            username and username in self._settings.admin_telegram_usernames_list
+        )
+        if is_admin:
             await self._users.update(user, role=UserRole.ADMIN)
 
         tokens = create_token_pair(user.id)

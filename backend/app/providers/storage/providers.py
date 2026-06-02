@@ -56,7 +56,23 @@ class MinioStorageProvider(StorageProvider):
             full_key,
             expires=timedelta(seconds=expires),
         )
-        return PresignedUrlResult(url=url, expires_in=expires)
+        return PresignedUrlResult(url=url, expires_in=expires, key=full_key)
+
+    async def get_presigned_upload_url(
+        self,
+        bucket: StorageBucket,
+        key: str,
+        content_type: str = "image/jpeg",
+        expires: int = 3600,
+    ) -> PresignedUrlResult:
+        full_key = self._full_key(bucket, key)
+        url = self._client.presigned_put_object(
+            self._bucket,
+            full_key,
+            expires=timedelta(seconds=expires),
+        )
+        public = f"{self._public_url}/{full_key}"
+        return PresignedUrlResult(url=url, expires_in=expires, key=full_key, public_url=public)
 
     async def get_public_url(self, bucket: StorageBucket, key: str) -> str:
         return f"{self._public_url}/{self._full_key(bucket, key)}"
@@ -111,7 +127,27 @@ class S3StorageProvider(StorageProvider):
             Params={"Bucket": self._bucket, "Key": full_key},
             ExpiresIn=expires,
         )
-        return PresignedUrlResult(url=url, expires_in=expires)
+        return PresignedUrlResult(url=url, expires_in=expires, key=full_key)
+
+    async def get_presigned_upload_url(
+        self,
+        bucket: StorageBucket,
+        key: str,
+        content_type: str = "image/jpeg",
+        expires: int = 3600,
+    ) -> PresignedUrlResult:
+        full_key = self._full_key(bucket, key)
+        url = self._client.generate_presigned_url(
+            "put_object",
+            Params={
+                "Bucket": self._bucket,
+                "Key": full_key,
+                "ContentType": content_type,
+            },
+            ExpiresIn=expires,
+        )
+        public = f"https://{self._bucket}.s3.amazonaws.com/{full_key}"
+        return PresignedUrlResult(url=url, expires_in=expires, key=full_key, public_url=public)
 
     async def get_public_url(self, bucket: StorageBucket, key: str) -> str:
         return f"https://{self._bucket}.s3.amazonaws.com/{self._full_key(bucket, key)}"
