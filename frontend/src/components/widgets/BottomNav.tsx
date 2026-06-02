@@ -16,8 +16,6 @@ const navItems = [
 export function BottomNav() {
   const pathname = usePathname();
 
-  if (pathname.startsWith("/chat") || pathname.startsWith("/admin")) return null;
-
   return (
     <nav className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-6">
       <div className="glass-strong pointer-events-auto flex items-center gap-1 rounded-full px-2 py-2 shadow-glow">

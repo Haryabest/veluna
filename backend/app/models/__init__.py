@@ -19,6 +19,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.session import Base
 
 
+def _pg_enum(enum_cls: type[enum.Enum]) -> Enum:
+    """Bind Python enums by value (lowercase), not member name."""
+    return Enum(enum_cls, values_callable=lambda x: [e.value for e in x])
+
+
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -46,7 +51,7 @@ class User(Base, TimestampMixin):
     last_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     photo_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     language_code: Mapped[str] = mapped_column(String(10), default="en")
-    role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.USER)
+    role: Mapped[UserRole] = mapped_column(_pg_enum(UserRole), default=UserRole.USER)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_banned: Mapped[bool] = mapped_column(Boolean, default=False)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -107,7 +112,7 @@ class Chat(Base, TimestampMixin):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
     character_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("characters.id"), index=True)
-    status: Mapped[ChatStatus] = mapped_column(Enum(ChatStatus), default=ChatStatus.ACTIVE)
+    status: Mapped[ChatStatus] = mapped_column(_pg_enum(ChatStatus), default=ChatStatus.ACTIVE)
     context_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     total_tokens: Mapped[int] = mapped_column(Integer, default=0)
     message_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -129,7 +134,7 @@ class Message(Base, TimestampMixin):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     chat_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("chats.id"), index=True)
-    role: Mapped[MessageRole] = mapped_column(Enum(MessageRole))
+    role: Mapped[MessageRole] = mapped_column(_pg_enum(MessageRole))
     content: Mapped[str] = mapped_column(Text, nullable=False)
     tokens_used: Mapped[int] = mapped_column(Integer, default=0)
     is_regenerated: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -155,7 +160,7 @@ class Generation(Base, TimestampMixin):
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     negative_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[GenerationStatus] = mapped_column(
-        Enum(GenerationStatus), default=GenerationStatus.PENDING
+        _pg_enum(GenerationStatus), default=GenerationStatus.PENDING
     )
     image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     thumbnail_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
@@ -182,7 +187,7 @@ class Transaction(Base, TimestampMixin):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
-    type: Mapped[TransactionType] = mapped_column(Enum(TransactionType))
+    type: Mapped[TransactionType] = mapped_column(_pg_enum(TransactionType))
     amount: Mapped[int] = mapped_column(Integer, nullable=False)
     balance_after: Mapped[int] = mapped_column(Integer, nullable=False)
     description: Mapped[str] = mapped_column(String(512), default="")
@@ -206,7 +211,9 @@ class Purchase(Base, TimestampMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
     gems_amount: Mapped[int] = mapped_column(Integer, nullable=False)
     stars_amount: Mapped[int] = mapped_column(Integer, nullable=False)
-    status: Mapped[PurchaseStatus] = mapped_column(Enum(PurchaseStatus), default=PurchaseStatus.PENDING)
+    status: Mapped[PurchaseStatus] = mapped_column(
+        _pg_enum(PurchaseStatus), default=PurchaseStatus.PENDING
+    )
     telegram_payment_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     metadata_: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
 
@@ -226,7 +233,7 @@ class Subscription(Base, TimestampMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
     plan_id: Mapped[str] = mapped_column(String(100), nullable=False)
     status: Mapped[SubscriptionStatus] = mapped_column(
-        Enum(SubscriptionStatus), default=SubscriptionStatus.ACTIVE
+        _pg_enum(SubscriptionStatus), default=SubscriptionStatus.ACTIVE
     )
     gems_per_month: Mapped[int] = mapped_column(Integer, default=0)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -292,7 +299,7 @@ class ShopProduct(Base, TimestampMixin):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    product_type: Mapped[ShopProductType] = mapped_column(Enum(ShopProductType), nullable=False)
+    product_type: Mapped[ShopProductType] = mapped_column(_pg_enum(ShopProductType), nullable=False)
     price: Mapped[int] = mapped_column(Integer, nullable=False)
     sale_price: Mapped[int | None] = mapped_column(Integer, nullable=True)
     gems_amount: Mapped[int] = mapped_column(Integer, default=0)

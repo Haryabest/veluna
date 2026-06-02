@@ -4,8 +4,10 @@
 
 | Сервис | URL |
 |--------|-----|
-| **Frontend (Mini App)** | https://nav-rome-saints-wto.trycloudflare.com |
-| **Backend API** | https://freely-announcement-device-vendor.trycloudflare.com |
+| **Frontend (Mini App)** | см. `TELEGRAM_WEBAPP_URL` в `.env` |
+| **Backend API** | см. `NEXT_PUBLIC_API_URL` в `frontend/.env.local` |
+
+При блокировке Cloudflare (FlClashX): `npx localtunnel --port 3000` и `--port 8002`, затем `.\scripts\veluna-dev-up.ps1` или обновить `.env` вручную.
 
 > URL меняются после перезапуска туннелей. Смотри логи: `docker logs veluna-cf-front` / `docker logs veluna-cf-back`
 
@@ -60,7 +62,7 @@ python -m app.bot.main
 
 ## BotFather
 
-Menu Button URL: **https://nav-rome-saints-wto.trycloudflare.com**
+Menu Button URL: см. `TELEGRAM_WEBAPP_URL` в `.env` (меняется после каждого перезапуска туннеля)
 
 ## Быстрый скрипт
 

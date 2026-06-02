@@ -31,12 +31,19 @@ export default function AdminPage() {
 
       <div className="grid grid-cols-2 gap-3">
         {isLoading
-          ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)
+          ? Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)
           : [
-              { label: "Пользователи", value: stats?.total_users },
-              { label: "Сообщения", value: stats?.total_messages },
-              { label: "Генерации", value: stats?.total_generations },
-              { label: "Доход (гемы)", value: stats?.total_revenue_gems },
+              { label: "Зарегистрировано", value: stats?.total_users },
+              { label: "Пользовались (уник.)", value: stats?.unique_users_ever },
+              { label: "Активны 24ч", value: stats?.active_users_24h },
+              { label: "Активны 7д", value: stats?.active_users_7d },
+              { label: "Оплат", value: stats?.payments_count },
+              { label: "Доход (гемы)", value: stats?.revenue_gems_total ?? stats?.total_revenue_gems },
+              { label: "Расход (гемы)", value: stats?.expenses_gems_total },
+              {
+                label: "Время (мин)",
+                value: stats?.usage_time_minutes,
+              },
             ].map((stat) => (
               <Card key={stat.label}>
                 <p className="text-xs text-text-muted">{stat.label}</p>

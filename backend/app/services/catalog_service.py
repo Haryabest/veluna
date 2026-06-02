@@ -7,7 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError
 from app.models import ShopProductType
 from app.repositories.catalog_repository import CatalogRepository
-from app.schemas.catalog import HomeArtResponse, PromoCodeResponse, ShopProductResponse
+from app.schemas.catalog import (
+    AdminUserStatsResponse,
+    HomeArtResponse,
+    PromoCodeResponse,
+    ShopProductResponse,
+)
 
 
 class CatalogService:
@@ -18,8 +23,8 @@ class CatalogService:
         items = await self._repo.list_home_arts(active_only=True)
         return [HomeArtResponse.model_validate(i) for i in items]
 
-    async def user_stats(self) -> dict:
-        return await self._repo.user_stats()
+    async def user_stats(self) -> AdminUserStatsResponse:
+        return AdminUserStatsResponse.model_validate(await self._repo.user_stats())
 
     async def list_home_arts(self) -> list[HomeArtResponse]:
         items = await self._repo.list_home_arts()

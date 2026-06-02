@@ -18,7 +18,17 @@ class UserBanRequest(BaseSchema):
 
 class AdminStatsResponse(BaseSchema):
     total_users: int
+    unique_users_ever: int
     active_users_24h: int
+    active_users_7d: int
+    banned_users: int
+    payments_count: int
+    payments_gems_total: int
+    payments_stars_total: int
+    revenue_gems_total: int
+    expenses_gems_total: int
+    usage_time_minutes: int
+    avg_usage_minutes_per_user: float
     total_messages: int
     total_generations: int
     total_revenue_gems: int

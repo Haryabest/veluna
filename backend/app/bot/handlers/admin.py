@@ -3,16 +3,21 @@ from uuid import UUID
 from aiogram import Bot, F, Router
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, ReplyKeyboardMarkup
 
 from app.bot.db import bot_session
-from app.bot.filters import AdminFilter
+from app.bot.filters import AdminFilter, _is_admin_user
 from app.bot.keyboards import (
+    ADMIN_MENU_TEXT_ARTS,
+    ADMIN_MENU_TEXT_BROADCAST,
+    ADMIN_MENU_TEXT_PRODUCTS,
+    ADMIN_MENU_TEXT_PROMOS,
+    ADMIN_MENU_TEXT_STATS,
     admin_main_menu,
     art_item_menu,
-    start_keyboard,
     arts_menu,
     cancel_kb,
+    main_reply_keyboard,
     product_item_menu,
     product_type_keyboard,
     products_menu,
@@ -30,20 +35,37 @@ router.message.filter(AdminFilter())
 router.callback_query.filter(AdminFilter())
 
 
+def _fmt_minutes(total_minutes: int) -> str:
+    if total_minutes < 60:
+        return f"{total_minutes} мин"
+    hours, minutes = divmod(total_minutes, 60)
+    if hours >= 24:
+        days, hours = divmod(hours, 24)
+        return f"{days} д {hours} ч {minutes} мин"
+    return f"{hours} ч {minutes} мин"
+
+
 def _admin_start_markup():
     settings = get_settings()
     url = settings.telegram_webapp_url
     if url.startswith("https://"):
-        return start_keyboard(url, include_admin=True)
+        return main_reply_keyboard(url, include_admin=True)
     return admin_main_menu(url)
+
+
+def _reply_kb_for(user) -> ReplyKeyboardMarkup | None:
+    settings = get_settings()
+    url = settings.telegram_webapp_url
+    if not url.startswith("https://"):
+        return None
+    return main_reply_keyboard(url, include_admin=_is_admin_user(user))
 
 
 def _admin_start_text() -> str:
     return (
         "Добро пожаловать в Veluna — AI-компаньоны в аниме-стиле.\n\n"
-        "Нажмите «Открыть Veluna», чтобы запустить приложение.\n\n"
-        "<b>Администратор</b> — ниже кнопки управления:\n"
-        "статистика, рассылка, арт на главной, промокоды, товары."
+        "Кнопки управления всегда внизу экрана.\n\n"
+        "<b>Администратор:</b> статистика, рассылка, арт, промокоды, товары."
     )
 
 
@@ -54,46 +76,105 @@ async def admin_menu(event: Message | CallbackQuery, state: FSMContext) -> None:
     text = _admin_start_text()
     markup = _admin_start_markup()
     if isinstance(event, CallbackQuery):
-        await event.message.edit_text(text, reply_markup=markup)
+        await event.message.answer(text, reply_markup=markup)
         await event.answer()
     else:
         await event.answer(text, reply_markup=markup)
 
 
-@router.callback_query(F.data == "adm:stats")
-async def admin_stats(callback: CallbackQuery) -> None:
+async def _stats_text() -> str:
     async with bot_session() as session:
-        stats = await CatalogService(session).user_stats()
-    text = (
-        "<b>Статистика пользователей</b>\n\n"
-        f"Всего: <b>{stats['total']}</b>\n"
-        f"Активных: <b>{stats['active']}</b>\n"
-        f"Заблокированных: <b>{stats['banned']}</b>"
+        s = await CatalogService(session).user_stats()
+    return (
+        "<b>Статистика Veluna</b>\n\n"
+        "<b>Пользователи</b>\n"
+        f"• Зарегистрировано: <b>{s.total_users}</b>\n"
+        f"• Пользовались сервисом (уник.): <b>{s.unique_users_ever}</b>\n"
+        f"• Активны сейчас (24 ч): <b>{s.active_users_24h}</b>\n"
+        f"• Активны (7 дней): <b>{s.active_users_7d}</b>\n"
+        f"• Заблокировано: <b>{s.banned_users}</b>\n\n"
+        "<b>Платежи</b>\n"
+        f"• Успешных оплат: <b>{s.payments_count}</b>\n"
+        f"• Куплено гемов: <b>{s.payments_gems_total}</b>\n"
+        f"• Telegram Stars: <b>{s.payments_stars_total}</b>\n"
+        f"• Доход (гемы, всего): <b>{s.revenue_gems_total}</b>\n\n"
+        "<b>Расходы</b>\n"
+        f"• Потрачено гемов: <b>{s.expenses_gems_total}</b>\n\n"
+        "<b>Время пользования</b>\n"
+        f"• Суммарно в чатах: <b>{_fmt_minutes(s.usage_time_minutes)}</b>\n"
+        f"• В среднем на пользователя: <b>{_fmt_minutes(int(s.avg_usage_minutes_per_user))}</b>\n\n"
+        "<b>Активность</b>\n"
+        f"• Сообщений: <b>{s.total_messages}</b>\n"
+        f"• Генераций: <b>{s.total_generations}</b>"
     )
-    await callback.message.edit_text(text, reply_markup=cancel_kb())
+
+
+async def _send_stats(message: Message, user) -> None:
+    kb = _reply_kb_for(user)
+    try:
+        text = await _stats_text()
+    except Exception:
+        text = (
+            "<b>Статистика</b>\n\n"
+            "Не удалось загрузить данные. Проверьте миграции БД:\n"
+            "<code>docker exec veluna-backend alembic upgrade head</code>"
+        )
+    await message.answer(text, reply_markup=kb)
+
+
+@router.message(F.text == ADMIN_MENU_TEXT_STATS)
+async def admin_stats_message(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await _send_stats(message, message.from_user)
+
+
+@router.callback_query(F.data == "adm:stats")
+async def admin_stats(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
+    await _send_stats(callback.message, callback.from_user)
     await callback.answer()
 
 
-@router.callback_query(F.data == "adm:broadcast")
-async def admin_broadcast_stub(callback: CallbackQuery) -> None:
-    await callback.message.edit_text(
+def _broadcast_text() -> str:
+    return (
         "<b>Рассылка</b>\n\n"
-        "Раздел в разработке. Здесь будет массовая отправка сообщений всем пользователям бота.",
-        reply_markup=cancel_kb(),
+        "Раздел в разработке. Здесь будет массовая отправка сообщений всем пользователям бота."
     )
+
+
+@router.message(F.text == ADMIN_MENU_TEXT_BROADCAST)
+async def admin_broadcast_message(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await message.answer(_broadcast_text(), reply_markup=_reply_kb_for(message.from_user))
+
+
+@router.callback_query(F.data == "adm:broadcast")
+async def admin_broadcast_stub(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
+    await callback.message.answer(_broadcast_text(), reply_markup=_reply_kb_for(callback.from_user))
     await callback.answer()
 
 
 # --- Home art ---
-@router.callback_query(F.data == "adm:arts")
-async def admin_arts_list(callback: CallbackQuery, state: FSMContext) -> None:
-    await state.clear()
+async def _send_arts_list(message: Message) -> None:
     async with bot_session() as session:
         items = await CatalogService(session).list_home_arts()
     text = "<b>Арт-объекты на главной</b>\n\nВыберите объект или добавьте новый."
     if not items:
         text += "\n\n<i>Список пуст.</i>"
-    await callback.message.edit_text(text, reply_markup=arts_menu(items))
+    await message.answer(text, reply_markup=arts_menu(items))
+
+
+@router.message(F.text == ADMIN_MENU_TEXT_ARTS)
+async def admin_arts_list_message(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await _send_arts_list(message)
+
+
+@router.callback_query(F.data == "adm:arts")
+async def admin_arts_list(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
+    await _send_arts_list(callback.message)
     await callback.answer()
 
 
@@ -259,15 +340,22 @@ async def admin_art_edit_photo_save(message: Message, state: FSMContext, bot: Bo
 
 
 # --- Promos ---
+async def _send_promos_list(message: Message) -> None:
+    async with bot_session() as session:
+        promos = await CatalogService(session).list_promos()
+    await message.answer("<b>Промокоды</b>", reply_markup=promos_menu(promos))
+
+
+@router.message(F.text == ADMIN_MENU_TEXT_PROMOS)
+async def admin_promos_list_message(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await _send_promos_list(message)
+
+
 @router.callback_query(F.data == "adm:promos")
 async def admin_promos_list(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    async with bot_session() as session:
-        promos = await CatalogService(session).list_promos()
-    await callback.message.edit_text(
-        "<b>Промокоды</b>",
-        reply_markup=promos_menu(promos),
-    )
+    await _send_promos_list(callback.message)
     await callback.answer()
 
 
@@ -364,12 +452,22 @@ async def admin_promo_delete(callback: CallbackQuery, state: FSMContext) -> None
 
 
 # --- Products ---
+async def _send_products_list(message: Message) -> None:
+    async with bot_session() as session:
+        products = await CatalogService(session).list_products()
+    await message.answer("<b>Товары магазина</b>", reply_markup=products_menu(products))
+
+
+@router.message(F.text == ADMIN_MENU_TEXT_PRODUCTS)
+async def admin_products_list_message(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await _send_products_list(message)
+
+
 @router.callback_query(F.data == "adm:products")
 async def admin_products_list(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    async with bot_session() as session:
-        products = await CatalogService(session).list_products()
-    await callback.message.edit_text("<b>Товары магазина</b>", reply_markup=products_menu(products))
+    await _send_products_list(callback.message)
     await callback.answer()
 
 

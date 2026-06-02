@@ -1,34 +1,63 @@
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from aiogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    WebAppInfo,
+)
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app.schemas.catalog import HomeArtResponse, PromoCodeResponse, ShopProductResponse
 
+ADMIN_MENU_TEXT_STATS = "Статистика"
+ADMIN_MENU_TEXT_BROADCAST = "Рассылка"
+ADMIN_MENU_TEXT_ARTS = "Арт на главной"
+ADMIN_MENU_TEXT_PROMOS = "Промокоды"
+ADMIN_MENU_TEXT_PRODUCTS = "Товары магазина"
+ADMIN_MENU_TEXTS = frozenset(
+    {
+        ADMIN_MENU_TEXT_STATS,
+        ADMIN_MENU_TEXT_BROADCAST,
+        ADMIN_MENU_TEXT_ARTS,
+        ADMIN_MENU_TEXT_PROMOS,
+        ADMIN_MENU_TEXT_PRODUCTS,
+    }
+)
 
-def start_keyboard(webapp_url: str, *, include_admin: bool = False) -> InlineKeyboardMarkup:
-    """Start screen: Mini App + admin sections (for admins only)."""
-    builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(
-            text="Открыть Veluna",
-            web_app=WebAppInfo(url=webapp_url),
-        )
-    )
+
+def main_reply_keyboard(webapp_url: str, *, include_admin: bool = False) -> ReplyKeyboardMarkup:
+    """Persistent bottom keyboard (not tied to a single message)."""
+    rows: list[list[KeyboardButton]] = [
+        [KeyboardButton(text="Открыть Veluna", web_app=WebAppInfo(url=webapp_url))],
+    ]
     if include_admin:
-        builder.row(
-            InlineKeyboardButton(text="Статистика", callback_data="adm:stats"),
-            InlineKeyboardButton(text="Рассылка", callback_data="adm:broadcast"),
+        rows.extend(
+            [
+                [
+                    KeyboardButton(text=ADMIN_MENU_TEXT_STATS),
+                    KeyboardButton(text=ADMIN_MENU_TEXT_BROADCAST),
+                ],
+                [
+                    KeyboardButton(text=ADMIN_MENU_TEXT_ARTS),
+                    KeyboardButton(text=ADMIN_MENU_TEXT_PROMOS),
+                ],
+                [KeyboardButton(text=ADMIN_MENU_TEXT_PRODUCTS)],
+            ]
         )
-        builder.row(
-            InlineKeyboardButton(text="Арт на главной", callback_data="adm:arts"),
-            InlineKeyboardButton(text="Промокоды", callback_data="adm:promos"),
-        )
-        builder.row(InlineKeyboardButton(text="Товары магазина", callback_data="adm:products"))
-    return builder.as_markup()
+    return ReplyKeyboardMarkup(
+        keyboard=rows,
+        resize_keyboard=True,
+        is_persistent=True,
+    )
 
 
-def admin_main_menu(webapp_url: str) -> InlineKeyboardMarkup:
-    """Back to start menu (adm:menu)."""
-    return start_keyboard(webapp_url, include_admin=True)
+def start_keyboard(webapp_url: str, *, include_admin: bool = False) -> ReplyKeyboardMarkup:
+    """Alias for main menu reply keyboard."""
+    return main_reply_keyboard(webapp_url, include_admin=include_admin)
+
+
+def admin_main_menu(webapp_url: str) -> ReplyKeyboardMarkup:
+    return main_reply_keyboard(webapp_url, include_admin=True)
 
 
 def back_to_admin() -> InlineKeyboardMarkup:

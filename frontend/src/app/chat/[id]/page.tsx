@@ -82,7 +82,7 @@ export default function ChatPage() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="glass border-t border-border px-4 py-3">
+      <div className="glass border-t border-border px-4 py-3 pb-24">
         <div className="flex gap-2">
           <input
             value={input}
