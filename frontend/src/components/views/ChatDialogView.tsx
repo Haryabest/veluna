@@ -9,8 +9,10 @@ import { AnimeGemIcon } from "@/components/icons/CurrencyIcons";
 import { BackButton } from "@/components/shared/BackButton";
 import { cn } from "@/lib/utils";
 
-const DARK_GRADIENT_BG = "linear-gradient(135deg, #2d1b42 0%, #1a1228 55%, #130d1c 100%)";
-const DARK_GRADIENT_BORDER = "linear-gradient(135deg, #5b3480 0%, #3d2660 50%, #2a1a3d 100%)";
+const PHOTO_GRADIENT_BORDER =
+  "linear-gradient(135deg, #e9d5ff 0%, #d8b4fe 18%, #c084fc 38%, #a855f7 58%, #9333ea 78%, #7c3aed 100%)";
+const PHOTO_GRADIENT_BG =
+  "linear-gradient(135deg, #7c3aed 0%, #6d28d9 20%, #5b21b6 40%, #4c1d95 60%, #3b0764 80%, #312e81 100%)";
 import { CHAT_BORDER } from "@/lib/theme";
 
 function formatTime() {
@@ -127,7 +129,7 @@ export function ChatDialogView() {
         className="relative z-10 flex-1 space-y-3 overflow-y-auto px-4 py-4"
         style={{
           paddingBottom:
-            "calc(11.5rem + max(0.75rem, env(safe-area-inset-bottom, 0px)))",
+            "calc(11.5rem + 20px + max(0.75rem, env(safe-area-inset-bottom, 0px)))",
         }}
       >
         {messages.map((msg) => (
@@ -165,7 +167,7 @@ export function ChatDialogView() {
       <div
         className="fixed inset-x-0 z-30 mx-auto flex max-w-lg flex-col gap-3 px-3"
         style={{
-          bottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))",
+          bottom: "calc(20px + max(0.75rem, env(safe-area-inset-bottom, 0px)))",
         }}
       >
         <div className="flex items-center gap-2">
@@ -211,13 +213,16 @@ export function ChatDialogView() {
         </div>
 
         <div
-          className="rounded-2xl p-[1px]"
-          style={{ background: DARK_GRADIENT_BORDER }}
+          className="rounded-2xl p-[1.5px] shadow-[0_0_24px_rgba(168,85,247,0.38)]"
+          style={{ background: PHOTO_GRADIENT_BORDER }}
         >
           <button
             type="button"
-            className="flex w-full items-center gap-3 rounded-[15px] px-4 py-3 text-left transition-transform active:scale-[0.98]"
-            style={{ background: DARK_GRADIENT_BG }}
+            className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5 text-left transition-transform active:scale-[0.98]"
+            style={{
+              background: PHOTO_GRADIENT_BG,
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)",
+            }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -227,10 +232,10 @@ export function ChatDialogView() {
               style={{ border: `1px solid ${CHAT_BORDER}` }}
             />
             <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-bold uppercase tracking-wide text-text-primary">
+              <p className="text-[14px] font-bold uppercase tracking-wide text-white">
                 Сгенерировать фото
               </p>
-              <p className="mt-0.5 flex items-center gap-1.5 text-sm font-medium text-text-secondary">
+              <p className="mt-0.5 flex items-center gap-1.5 text-sm font-medium text-white/90">
                 5 <AnimeGemIcon className="h-4 w-4" />
               </p>
             </div>

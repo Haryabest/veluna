@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { BackButton } from "@/components/shared/BackButton";
 import { useNavStore } from "@/store/nav-store";
 import { getMockCharacter } from "@/lib/mock-data";
+import { chatSeparatorTopStyle } from "@/lib/theme";
 
 export function CharacterDetailView() {
   const characterId = useNavStore((s) => s.characterId);
@@ -69,7 +70,7 @@ export function CharacterDetailView() {
             {character.tags.map((tag) => (
               <span
                 key={tag}
-                className="rounded-xl bg-bg-elevated px-3.5 py-1.5 text-[13px] font-medium text-text-primary"
+                className="rounded-xl bg-gradient-to-br from-[#8b5cf6]/40 via-[#a855f7]/30 to-[#6d28d9]/45 px-3.5 py-1.5 text-[13px] font-medium text-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
               >
                 {tag}
               </span>
@@ -77,7 +78,7 @@ export function CharacterDetailView() {
           </div>
         )}
 
-        <hr className="my-5 border-0 border-t border-accent/10" />
+        <div className="my-5" style={chatSeparatorTopStyle} aria-hidden />
 
         <section className="flex-1">
           <h2 className="text-base font-bold text-text-primary">О персонаже</h2>

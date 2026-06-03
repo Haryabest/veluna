@@ -8,10 +8,10 @@ import { cn } from "@/lib/utils";
 
 const TYPE_META: Record<
   ShopProduct["product_type"],
-  { emoji: string | null; label: string }
+  { emoji: string | null; useGemIcon?: boolean; label: string }
 > = {
   bundle: { emoji: "🎁", label: "Набор" },
-  gems: { emoji: "💎", label: "Гемы" },
+  gems: { emoji: null, useGemIcon: true, label: "Гемы" },
   credits: { emoji: null, label: "Сердца" },
 };
 
@@ -52,6 +52,8 @@ export function ShopProductCard({
       >
         {meta.emoji ? (
           <span>{meta.emoji}</span>
+        ) : meta.useGemIcon ? (
+          <AnimeGemIcon className="h-5 w-5" />
         ) : (
           <AnimeHeartIcon className="h-5 w-5" />
         )}

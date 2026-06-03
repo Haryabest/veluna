@@ -125,11 +125,7 @@ export const shopService = {
     return data;
   },
 
-  async checkout(
-    productId: string,
-    promoCode?: string,
-    paymentMethod: "stars" = "stars"
-  ) {
+  async checkout(productId: string, promoCode?: string) {
     const { data } = await apiClient.post<{
       purchase_id: string;
       invoice_url: string;
@@ -141,7 +137,7 @@ export const shopService = {
     }>("/shop/checkout", {
       product_id: productId,
       promo_code: promoCode || undefined,
-      payment_method: paymentMethod,
+      payment_method: "stars",
       init_data: getTelegramInitData() ?? undefined,
     });
     return data;
@@ -162,8 +158,6 @@ export interface BalanceHistoryItem {
 }
 
 export type TopUpCurrency = "gems" | "credits";
-export type TopUpPaymentMethod = "stars" | "other";
-
 export interface TopUpQuote {
   currency_type: TopUpCurrency;
   amount: number;
@@ -203,7 +197,6 @@ export const balanceService = {
     currency_type: TopUpCurrency;
     amount: number;
     promo_code?: string;
-    payment_method: TopUpPaymentMethod;
     stars_amount: number;
   }) {
     const { data } = await apiClient.post<{
@@ -211,7 +204,10 @@ export const balanceService = {
       invoice_url: string;
       status: string;
       ok: boolean;
-    }>("/balance/topup/checkout", payload);
+    }>("/balance/topup/checkout", {
+      ...payload,
+      payment_method: "stars",
+    });
     return data;
   },
 };
