@@ -16,6 +16,17 @@ export interface Character {
   is_nsfw: boolean;
   sort_order: number;
   personality_prompt?: string;
+  behavior_params?: string[];
+}
+
+export interface CharacterScenario {
+  id: string;
+  character_id: string;
+  title: string;
+  story: string;
+  communication_style: string;
+  opening_message: string;
+  sort_order: number;
 }
 
 interface CharacterState {

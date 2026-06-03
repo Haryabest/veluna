@@ -4,6 +4,7 @@ from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.admin_access import is_config_admin
 from app.core.exceptions import ForbiddenError
 from app.database.session import get_db
 from app.schemas import UserResponse
@@ -50,7 +51,14 @@ async def get_current_user_flexible(
         ) from e
 
 
-async def get_admin_user(user: UserResponse = Depends(get_current_user)) -> UserResponse:
-    if user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
-    return user
+async def get_admin_user(
+    user: UserResponse = Depends(get_current_user_flexible),
+) -> UserResponse:
+    if user.role == "admin":
+        return user
+    if is_config_admin(telegram_id=user.telegram_id, username=user.username):
+        return user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={"code": "FORBIDDEN", "message": "Admin access required"},
+    )

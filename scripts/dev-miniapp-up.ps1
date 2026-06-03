@@ -47,7 +47,7 @@ function Ensure-SshKey {
 }
 
 if (-not (Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue)) {
-    throw "Frontend not on :3000. Run first: cd frontend; npm run dev"
+    throw "Frontend not on :3000. Run: .\scripts\start-frontend-tunnel.ps1  (or: cd frontend; npm run dev:tunnel)"
 }
 
 if ($Url) {
@@ -106,13 +106,22 @@ Write-Host 'Tunnel stopped or disconnected.' -ForegroundColor Red
 Read-Host 'Press Enter to close'
 "@
 
+$pinggyStarted = $false
 try {
     Start-Process -FilePath "powershell.exe" `
         -ArgumentList "-NoExit", "-NoProfile", "-Command", $inner `
         -WindowStyle Normal | Out-Null
     Write-Host "Pinggy window started." -ForegroundColor Green
+    $pinggyStarted = $true
 } catch {
-    throw "Could not open Pinggy window: $_`nRun manually: ssh -p 443 -T -R0:127.0.0.1:3000 free.pinggy.io"
+    Write-Host "Could not open separate window - starting tunnel in background." -ForegroundColor Yellow
+    $bg = "`$log = '$logEscaped'; ssh -p 443 -T -R0:127.0.0.1:3000 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=3 free.pinggy.io 2>&1 | ForEach-Object { Add-Content -LiteralPath `$log -Value `$_ -Encoding utf8 -ErrorAction SilentlyContinue }"
+    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $bg -WindowStyle Hidden | Out-Null
+    Write-Host "Pinggy runs in background (log: $log)." -ForegroundColor Green
+    $pinggyStarted = $true
+}
+if (-not $pinggyStarted) {
+    throw "Could not start Pinggy. Run manually: ssh -p 443 -T -R0:127.0.0.1:3000 free.pinggy.io"
 }
 
 $found = $null

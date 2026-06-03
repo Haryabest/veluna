@@ -97,5 +97,35 @@ class CharacterMediaConfirmRequest(BaseSchema):
 class AdminUserDetailResponse(UserResponse):
     is_banned: bool
     last_seen_at: datetime | None
+    credits: int = 0
     total_spent: int = 0
     total_earned: int = 0
+
+
+class AdminUserStatsDetailResponse(BaseSchema):
+    user_id: UUID
+    chats_count: int = 0
+    messages_count: int = 0
+    generations_total: int = 0
+    generations_completed: int = 0
+    purchases_completed: int = 0
+    stars_spent_total: int = 0
+    gems_purchased_total: int = 0
+    gems_spent_total: int = 0
+    credits: int = 0
+    total_earned: int = 0
+    registered_at: datetime
+    last_seen_at: datetime | None
+    last_chat_at: datetime | None
+
+
+class AdminUserUpdateRequest(BaseSchema):
+    first_name: str | None = Field(default=None, max_length=255)
+    last_name: str | None = Field(default=None, max_length=255)
+    username: str | None = Field(default=None, max_length=255)
+    language_code: str | None = Field(default=None, max_length=10)
+    role: Literal["user", "admin"] | None = None
+    is_active: bool | None = None
+    is_banned: bool | None = None
+    gems: int | None = Field(default=None, ge=0)
+    credits: int | None = Field(default=None, ge=0)

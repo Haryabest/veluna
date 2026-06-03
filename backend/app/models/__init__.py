@@ -84,6 +84,8 @@ class Character(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     description: Mapped[str] = mapped_column(Text, default="")
+    subtitle: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    behavior_params: Mapped[list] = mapped_column(JSONB, default=list)
     personality_prompt: Mapped[str] = mapped_column(Text, default="")
     greeting_message: Mapped[str] = mapped_column(Text, default="")
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
@@ -100,6 +102,25 @@ class Character(Base, TimestampMixin):
 
     chats: Mapped[list["Chat"]] = relationship(back_populates="character")
     generations: Mapped[list["Generation"]] = relationship(back_populates="character")
+    scenarios: Mapped[list["CharacterScenario"]] = relationship(
+        back_populates="character",
+        order_by="CharacterScenario.sort_order",
+    )
+
+
+class CharacterScenario(Base, TimestampMixin):
+    __tablename__ = "character_scenarios"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    character_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("characters.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    story: Mapped[str] = mapped_column(Text, default="")
+    communication_style: Mapped[str] = mapped_column(Text, default="")
+    opening_message: Mapped[str] = mapped_column(Text, default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    character: Mapped["Character"] = relationship(back_populates="scenarios")
 
 
 class ChatStatus(str, enum.Enum):

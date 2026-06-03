@@ -49,7 +49,7 @@ export function CharacterCard({ character, index = 0 }: CharacterCardProps) {
           <div className="absolute inset-x-0 bottom-0 p-3">
             <h3 className="text-sm font-bold leading-tight text-text-primary">{character.name}</h3>
             <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-text-secondary">
-              {truncate(character.description, 72)}
+              {character.subtitle || truncate(character.description, 72)}
             </p>
           </div>
         </div>

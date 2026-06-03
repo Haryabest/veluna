@@ -21,12 +21,21 @@ foreach ($f in @(".env", "backend\.env")) {
     Add-Content -Path $p -Value ""
 }
 
+$envLocal = Join-Path $Root "frontend\.env.local"
+$backendPort = "8020"
+if (Test-Path $envLocal) {
+    Get-Content $envLocal | ForEach-Object {
+        if ($_ -match '^BACKEND_PORT=(.+)$') { $backendPort = $matches[1].Trim() }
+    }
+}
 @(
     "# Single-tunnel (Pinggy): API proxied by Next.js",
     "NEXT_PUBLIC_API_URL=/api/v1",
     "NEXT_PUBLIC_WS_URL=",
+    "BACKEND_HOST=127.0.0.1",
+    "BACKEND_PORT=$backendPort",
     ""
-) | Set-Content (Join-Path $Root "frontend\.env.local")
+) | Set-Content $envLocal
 
 Set-Content -Path (Join-Path $Root ".tunnel-url") -Value $Url
 
