@@ -23,7 +23,7 @@ class TokenPair(BaseModel):
 def create_access_token(subject: str | UUID, expires_delta: timedelta | None = None) -> str:
     settings = get_settings()
     expire = datetime.now(UTC) + (
-        expires_delta or timedelta(minutes=settings.jwt_access_token_expire_minutes)
+        expires_delta or timedelta(minutes=settings.jwt_access_expire_minutes)
     )
     payload = {"sub": str(subject), "exp": expire, "type": "access"}
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
@@ -45,7 +45,12 @@ def create_token_pair(subject: str | UUID) -> TokenPair:
 
 def decode_token(token: str) -> dict[str, Any]:
     settings = get_settings()
-    return jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+    return jwt.decode(
+        token,
+        settings.jwt_secret_key,
+        algorithms=[settings.jwt_algorithm],
+        options={"leeway": 120},
+    )
 
 
 def verify_token(token: str, token_type: str = "access") -> TokenPayload | None:

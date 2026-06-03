@@ -34,6 +34,10 @@ class AdminStatsResponse(BaseSchema):
     total_revenue_gems: int
     pending_generations: int
     completed_generations: int
+    active_promos: int = 0
+    total_promos: int = 0
+    active_products: int = 0
+    total_products: int = 0
 
 
 class AdminLogResponse(BaseSchema):

@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api-client";
+import { getTelegramInitData } from "@/lib/telegram-webapp";
 import type { User } from "@/store/user-store";
 
 export const authService = {
@@ -141,6 +142,7 @@ export const shopService = {
       product_id: productId,
       promo_code: promoCode || undefined,
       payment_method: paymentMethod,
+      init_data: getTelegramInitData() ?? undefined,
     });
     return data;
   },

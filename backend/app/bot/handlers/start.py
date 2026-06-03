@@ -26,6 +26,27 @@ def _start_text(is_admin: bool) -> str:
     return "\n".join(lines)
 
 
+@router.message(Command("paysupport"))
+async def cmd_paysupport(message: Message) -> None:
+    await message.answer(
+        "Поддержка по оплатам Veluna:\n"
+        "• Оплата только Telegram Stars (⭐) внутри бота.\n"
+        "• Если видите PROVIDER_ACCOUNT_INVALID — откройте Mini App "
+        "с телефона (Android/iOS), не с ПК.\n"
+        "• В @BotFather у бота не должно быть подключённых "
+        "карточных провайдеров (Stripe/ЮKassa) — только Stars.\n"
+        "• Напишите @Iabobuss или ответьте на это сообщение с описанием проблемы."
+    )
+
+
+@router.message(Command("terms"))
+async def cmd_terms(message: Message) -> None:
+    await message.answer(
+        "Условия Veluna: цифровые товары (гемы/кредиты), оплата Stars, "
+        "возврат — через /paysupport в течение 24 ч после покупки."
+    )
+
+
 @router.message(Command("id"))
 async def cmd_id(message: Message) -> None:
     user = message.from_user

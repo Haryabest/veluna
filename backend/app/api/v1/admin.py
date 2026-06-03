@@ -24,7 +24,19 @@ from app.schemas.admin import (
     PricingConfigUpdate,
     UserBanRequest,
 )
+from app.schemas.catalog import (
+    BroadcastRequest,
+    BroadcastResponse,
+    PromoCodeCreate,
+    PromoCodeResponse,
+    PromoCodeUpdate,
+    ShopProductCreate,
+    ShopProductResponse,
+    ShopProductUpdate,
+)
 from app.services.admin_service import AdminService
+from app.services.broadcast_service import BroadcastService
+from app.services.catalog_service import CatalogService
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
@@ -201,3 +213,177 @@ async def list_admin_logs(
     session: AsyncSession = Depends(get_db),
 ):
     return await _service(session).list_logs(admin.id, page=page)
+
+
+# --- Catalog admin (promos, products, broadcast) ---
+
+
+@router.get("/promos", response_model=list[PromoCodeResponse])
+async def list_promos(
+    admin: UserResponse = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_db),
+):
+    await _service(session).verify_admin(admin.id)
+    return await CatalogService(session).list_promos()
+
+
+@router.post("/promos", response_model=PromoCodeResponse)
+async def create_promo(
+    body: PromoCodeCreate,
+    admin: UserResponse = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_db),
+):
+    svc = _service(session)
+    await svc.verify_admin(admin.id)
+    try:
+        promo = await CatalogService(session).create_promo(
+            name=body.name,
+            discount_percent=body.discount_percent,
+            code=body.code,
+            max_uses=body.max_uses,
+            is_active=body.is_active,
+        )
+    except ValueError as exc:
+        from app.core.exceptions import ValidationError
+
+        raise ValidationError(str(exc)) from exc
+    await svc._log(admin.id, "promo_create", "promo", str(promo.id), {"code": promo.code})
+    return promo
+
+
+@router.patch("/promos/{promo_id}", response_model=PromoCodeResponse)
+async def update_promo(
+    promo_id: UUID,
+    body: PromoCodeUpdate,
+    admin: UserResponse = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_db),
+):
+    svc = _service(session)
+    await svc.verify_admin(admin.id)
+    promo = await CatalogService(session).update_promo(
+        promo_id, **body.model_dump(exclude_unset=True)
+    )
+    await svc._log(admin.id, "promo_update", "promo", str(promo_id), body.model_dump(exclude_unset=True))
+    return promo
+
+
+@router.delete("/promos/{promo_id}")
+async def delete_promo(
+    promo_id: UUID,
+    admin: UserResponse = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_db),
+):
+    svc = _service(session)
+    await svc.verify_admin(admin.id)
+    await CatalogService(session).delete_promo(promo_id)
+    await svc._log(admin.id, "promo_delete", "promo", str(promo_id))
+    return {"status": "ok"}
+
+
+@router.get("/products", response_model=list[ShopProductResponse])
+async def list_products(
+    admin: UserResponse = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_db),
+):
+    await _service(session).verify_admin(admin.id)
+    return await CatalogService(session).list_products()
+
+
+@router.post("/products", response_model=ShopProductResponse)
+async def create_product(
+    body: ShopProductCreate,
+    admin: UserResponse = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_db),
+):
+    from app.models import ShopProductType
+
+    svc = _service(session)
+    await svc.verify_admin(admin.id)
+    product = await CatalogService(session).create_product(
+        name=body.name,
+        product_type=ShopProductType(body.product_type),
+        price=body.price,
+        sale_price=body.sale_price,
+        gems_amount=body.gems_amount,
+        credits_amount=body.credits_amount,
+        is_active=body.is_active,
+        sort_order=body.sort_order,
+        image_url=body.image_url,
+    )
+    await svc._log(admin.id, "product_create", "product", str(product.id), {"name": product.name})
+    return product
+
+
+@router.patch("/products/{product_id}", response_model=ShopProductResponse)
+async def update_product(
+    product_id: UUID,
+    body: ShopProductUpdate,
+    admin: UserResponse = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_db),
+):
+    svc = _service(session)
+    await svc.verify_admin(admin.id)
+    product = await CatalogService(session).update_product(
+        product_id, **body.model_dump(exclude_unset=True)
+    )
+    await svc._log(admin.id, "product_update", "product", str(product_id), body.model_dump(exclude_unset=True))
+    return product
+
+
+@router.delete("/products/{product_id}")
+async def delete_product(
+    product_id: UUID,
+    admin: UserResponse = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_db),
+):
+    svc = _service(session)
+    await svc.verify_admin(admin.id)
+    await CatalogService(session).delete_product(product_id)
+    await svc._log(admin.id, "product_delete", "product", str(product_id))
+    return {"status": "ok"}
+
+
+@router.post("/broadcast", response_model=BroadcastResponse)
+async def send_broadcast(
+    body: BroadcastRequest,
+    admin: UserResponse = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_db),
+):
+    svc = _service(session)
+    await svc.verify_admin(admin.id)
+    record = await BroadcastService(session).send_broadcast(body.message, admin_id=admin.id)
+    await svc._log(
+        admin.id,
+        "broadcast_send",
+        "broadcast",
+        str(record.id),
+        {"sent": record.sent_count, "failed": record.failed_count},
+    )
+    return BroadcastResponse(
+        id=record.id,
+        status=record.status,
+        total_recipients=record.total_recipients,
+        sent_count=record.sent_count,
+        failed_count=record.failed_count,
+        message_text=record.message_text,
+    )
+
+
+@router.get("/broadcasts", response_model=list[BroadcastResponse])
+async def list_broadcasts(
+    admin: UserResponse = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_db),
+):
+    await _service(session).verify_admin(admin.id)
+    records = await BroadcastService(session).list_broadcasts()
+    return [
+        BroadcastResponse(
+            id=r.id,
+            status=r.status,
+            total_recipients=r.total_recipients,
+            sent_count=r.sent_count,
+            failed_count=r.failed_count,
+            message_text=r.message_text[:200],
+        )
+        for r in records
+    ]

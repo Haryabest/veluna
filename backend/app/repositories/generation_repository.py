@@ -75,7 +75,7 @@ class PaymentRepository:
     async def add_gems(self, user_id: UUID, amount: int, tx_type: TransactionType, description: str) -> UserBalance:
         balance = await self.get_balance(user_id)
         if not balance:
-            balance = UserBalance(user_id=user_id, gems=0)
+            balance = UserBalance(user_id=user_id, gems=0, credits=0)
             self._session.add(balance)
             await self._session.flush()
 
@@ -90,6 +90,18 @@ class PaymentRepository:
             description=description,
         )
         self._session.add(transaction)
+        await self._session.flush()
+        return balance
+
+    async def add_credits(self, user_id: UUID, amount: int, description: str) -> UserBalance:
+        balance = await self.get_balance(user_id)
+        if not balance:
+            balance = UserBalance(user_id=user_id, gems=0, credits=0)
+            self._session.add(balance)
+            await self._session.flush()
+
+        balance.credits += amount
+        balance.total_earned += amount
         await self._session.flush()
         return balance
 

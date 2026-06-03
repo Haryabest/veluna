@@ -11,8 +11,10 @@ from app.models import (
     Generation,
     GenerationStatus,
     Message,
+    PromoCode,
     Purchase,
     PurchaseStatus,
+    ShopProduct,
     Transaction,
     TransactionType,
     User,
@@ -177,6 +179,19 @@ class AdminRepository:
             )
         ).scalar_one()
 
+        active_promos = (
+            await self._session.execute(
+                select(func.count(PromoCode.id)).where(PromoCode.is_active == True)  # noqa: E712
+            )
+        ).scalar_one()
+        total_promos = (await self._session.execute(select(func.count(PromoCode.id)))).scalar_one()
+        active_products = (
+            await self._session.execute(
+                select(func.count(ShopProduct.id)).where(ShopProduct.is_active == True)  # noqa: E712
+            )
+        ).scalar_one()
+        total_products = (await self._session.execute(select(func.count(ShopProduct.id)))).scalar_one()
+
         return {
             "total_users": total_users,
             "unique_users_ever": unique_users_ever,
@@ -195,6 +210,10 @@ class AdminRepository:
             "total_revenue_gems": revenue_gems_total,
             "pending_generations": pending_generations,
             "completed_generations": completed_generations,
+            "active_promos": int(active_promos or 0),
+            "total_promos": int(total_promos or 0),
+            "active_products": int(active_products or 0),
+            "total_products": int(total_products or 0),
         }
 
     async def list_transactions(self, page: int = 1, page_size: int = 20) -> tuple[list[Transaction], int]:

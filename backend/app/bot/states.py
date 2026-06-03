@@ -14,6 +14,13 @@ class AdminPromoStates(StatesGroup):
     name = State()
     discount = State()
     code = State()
+    max_uses = State()
+    edit_max_uses = State()
+
+
+class AdminBroadcastStates(StatesGroup):
+    message = State()
+    confirm = State()
 
 
 class AdminProductStates(StatesGroup):
@@ -23,3 +30,5 @@ class AdminProductStates(StatesGroup):
     sale_price = State()
     gems_amount = State()
     credits_amount = State()
+    photo = State()
+    edit_photo = State()

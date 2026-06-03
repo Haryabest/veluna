@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     default_user_gems: int = 50
 
     admin_telegram_ids: str = ""
-    admin_telegram_usernames: str = "Iabobuss"
+    admin_telegram_usernames: str = "Iabobuss", "romanov_vrd"
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -96,6 +96,19 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
+
+    @property
+    def jwt_access_expire_minutes(self) -> int:
+        """Longer sessions in dev (Mini App stays open without re-login)."""
+        if self.app_env == "development":
+            return max(self.jwt_access_token_expire_minutes, 10_080)  # 7 days
+        return self.jwt_access_token_expire_minutes
+
+    @property
+    def telegram_init_data_max_age_seconds(self) -> int:
+        if self.app_env == "development":
+            return 604_800  # 7 days
+        return 86_400  # 24 h
 
 
 @lru_cache

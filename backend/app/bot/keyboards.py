@@ -110,9 +110,12 @@ def promos_menu(promos: list[PromoCodeResponse]) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def promo_item_menu(promo_id: str) -> InlineKeyboardMarkup:
+def promo_item_menu(promo_id: str, *, is_active: bool = True) -> InlineKeyboardMarkup:
+    toggle = "Выключить" if is_active else "Включить"
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [InlineKeyboardButton(text=toggle, callback_data=f"adm:promo:toggle:{promo_id}")],
+            [InlineKeyboardButton(text="Лимит использований", callback_data=f"adm:promo:max:{promo_id}")],
             [InlineKeyboardButton(text="Удалить", callback_data=f"adm:promo:del:{promo_id}")],
             [InlineKeyboardButton(text="« К списку", callback_data="adm:promos")],
         ]
@@ -147,11 +150,25 @@ def product_type_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def product_item_menu(product_id: str) -> InlineKeyboardMarkup:
+def product_item_menu(product_id: str, *, is_active: bool = True) -> InlineKeyboardMarkup:
+    toggle = "Скрыть из магазина" if is_active else "Показать в магазине"
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [InlineKeyboardButton(text="Изменить фото", callback_data=f"adm:prod:edit:photo:{product_id}")],
+            [InlineKeyboardButton(text=toggle, callback_data=f"adm:prod:toggle:{product_id}")],
             [InlineKeyboardButton(text="Удалить", callback_data=f"adm:prod:del:{product_id}")],
             [InlineKeyboardButton(text="« К списку", callback_data="adm:products")],
+        ]
+    )
+
+
+def broadcast_confirm_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Отправить всем", callback_data="adm:broadcast:confirm"),
+                InlineKeyboardButton(text="Отмена", callback_data="adm:broadcast:cancel"),
+            ],
         ]
     )
 

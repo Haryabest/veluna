@@ -12,6 +12,12 @@ export function isTelegramWebApp(): boolean {
   return Boolean(tg?.initData && tg.initData.length > 0);
 }
 
+/** Signed launch data from Telegram — used to re-auth when JWT expired. */
+export function getTelegramInitData(): string | null {
+  const raw = getTelegramWebApp()?.initData?.trim();
+  return raw || null;
+}
+
 /** Stars invoice can only be opened from Telegram client. */
 export function canPayWithTelegramStars(): boolean {
   const tg = getTelegramWebApp();

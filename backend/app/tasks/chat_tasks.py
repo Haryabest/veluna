@@ -7,6 +7,9 @@ logger = get_task_logger(__name__)
 
 @celery_app.task
 def process_chat_analytics(user_id: str, chat_id: str, tokens_used: int):
+    from app.tasks.analytics_tasks import track_event
+
+    track_event.delay(user_id, "chat_message", {"chat_id": chat_id, "tokens_used": tokens_used})
     logger.info("Chat analytics: user=%s chat=%s tokens=%d", user_id, chat_id, tokens_used)
 
 

@@ -8,8 +8,8 @@ import { ShopProductCard } from "@/components/shop/ShopProductCard";
 import { ListPanel } from "@/components/shared/ListPanel";
 import { useToast } from "@/hooks/use-toast";
 import { openTelegramInvoice } from "@/hooks/use-telegram-payment";
-import { getApiError } from "@/lib/api-client";
-import { canPayWithTelegramStars } from "@/lib/telegram-webapp";
+import { ensureTelegramSession, getApiError } from "@/lib/api-client";
+import { canPayWithTelegramStars, getTelegramInitData } from "@/lib/telegram-webapp";
 import { useNavStore } from "@/store/nav-store";
 import { useUserStore } from "@/store/user-store";
 import { shopService, authService } from "@/services/api";
@@ -63,6 +63,11 @@ export function ShopView() {
 
     setPaying(true);
     try {
+      if (!getTelegramInitData()) {
+        toast("Откройте магазин через кнопку бота в Telegram", "info");
+        return;
+      }
+      await ensureTelegramSession();
       const checkout = await shopService.checkout(
         selected.id,
         promoCode || undefined,
@@ -83,7 +88,10 @@ export function ShopView() {
       } else if (status === "cancelled") {
         toast("Оплата отменена", "info");
       } else {
-        toast("Оплата не завершена", "error");
+        toast(
+          "Оплата не открылась. Откройте Mini App с телефона (не ПК) и убедитесь, что есть Stars ⭐",
+          "error"
+        );
       }
     } catch (err) {
       toast(getApiError(err).message || "Не удалось начать оплату", "error");

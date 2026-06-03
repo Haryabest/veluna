@@ -2,6 +2,7 @@ from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models import User, UserBalance, UserRole
 
@@ -11,11 +12,15 @@ class UserRepository:
         self._session = session
 
     async def get_by_id(self, user_id: UUID) -> User | None:
-        result = await self._session.execute(select(User).where(User.id == user_id))
+        result = await self._session.execute(
+            select(User).options(selectinload(User.balance)).where(User.id == user_id)
+        )
         return result.scalar_one_or_none()
 
     async def get_by_telegram_id(self, telegram_id: int) -> User | None:
-        result = await self._session.execute(select(User).where(User.telegram_id == telegram_id))
+        result = await self._session.execute(
+            select(User).options(selectinload(User.balance)).where(User.telegram_id == telegram_id)
+        )
         return result.scalar_one_or_none()
 
     async def create(self, telegram_id: int, **kwargs) -> User:

@@ -60,7 +60,15 @@ class CatalogService:
         promos = await self._repo.list_promo_codes()
         return [PromoCodeResponse.model_validate(p) for p in promos]
 
-    async def create_promo(self, name: str, discount_percent: int, code: str | None = None) -> PromoCodeResponse:
+    async def create_promo(
+        self,
+        name: str,
+        discount_percent: int,
+        code: str | None = None,
+        *,
+        max_uses: int | None = None,
+        is_active: bool = True,
+    ) -> PromoCodeResponse:
         if not 1 <= discount_percent <= 100:
             raise ValueError("discount_percent must be 1-100")
         normalized = (code or _slug_code(name)).upper()
@@ -71,7 +79,24 @@ class CatalogService:
             code=normalized,
             name=name,
             discount_percent=discount_percent,
+            max_uses=max_uses,
+            is_active=is_active,
         )
+        return PromoCodeResponse.model_validate(promo)
+
+    async def update_promo(self, promo_id: UUID, **kwargs) -> PromoCodeResponse:
+        promo = await self._repo.get_promo(promo_id)
+        if not promo:
+            raise NotFoundError("PromoCode", str(promo_id))
+        if "code" in kwargs and kwargs["code"]:
+            kwargs["code"] = kwargs["code"].strip().upper()
+        updated = await self._repo.update_promo(promo, **kwargs)
+        return PromoCodeResponse.model_validate(updated)
+
+    async def get_promo(self, promo_id: UUID) -> PromoCodeResponse:
+        promo = await self._repo.get_promo(promo_id)
+        if not promo:
+            raise NotFoundError("PromoCode", str(promo_id))
         return PromoCodeResponse.model_validate(promo)
 
     async def delete_promo(self, promo_id: UUID) -> None:
@@ -96,6 +121,10 @@ class CatalogService:
         sale_price: int | None = None,
         gems_amount: int = 0,
         credits_amount: int = 0,
+        *,
+        is_active: bool = True,
+        sort_order: int = 0,
+        image_url: str | None = None,
     ) -> ShopProductResponse:
         product = await self._repo.create_product(
             name=name,
@@ -104,7 +133,16 @@ class CatalogService:
             sale_price=sale_price,
             gems_amount=gems_amount,
             credits_amount=credits_amount,
+            is_active=is_active,
+            sort_order=sort_order,
+            image_url=image_url,
         )
+        return ShopProductResponse.model_validate(product)
+
+    async def get_product(self, product_id: UUID) -> ShopProductResponse:
+        product = await self._repo.get_product(product_id)
+        if not product:
+            raise NotFoundError("ShopProduct", str(product_id))
         return ShopProductResponse.model_validate(product)
 
     async def update_product(self, product_id: UUID, **kwargs) -> ShopProductResponse:

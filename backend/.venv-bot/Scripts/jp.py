@@ -1,4 +1,4 @@
-#!D:\projects\veluna\backend\.venv-bot\Scripts\python.exe
+#!C:\veluna\backend\.venv-bot\Scripts\python.exe
 
 import sys
 import json
