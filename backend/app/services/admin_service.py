@@ -3,6 +3,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.admin_access import ensure_db_admin
 from app.core.config import get_settings
 from app.core.exceptions import ForbiddenError, NotFoundError
 from app.providers.factory import get_storage_provider
@@ -19,10 +20,13 @@ from app.schemas import (
     TransactionResponse,
     UserResponse,
 )
+from app.models import UserRole
 from app.schemas.admin import (
     AdminLogResponse,
     AdminStatsResponse,
     AdminUserDetailResponse,
+    AdminUserStatsDetailResponse,
+    AdminUserUpdateRequest,
     AnalyticsSummaryResponse,
     ApiUsageResponse,
     CharacterMediaConfirmRequest,
@@ -46,7 +50,7 @@ class AdminService:
 
     async def verify_admin(self, user_id: UUID) -> None:
         user = await self._users.get_by_id(user_id)
-        if not user or not await self._users.is_admin(user):
+        if not user or not await ensure_db_admin(user, self._users):
             raise ForbiddenError("Admin access required")
 
     async def _log(
@@ -59,7 +63,20 @@ class AdminService:
     ) -> None:
         await self._admin.log_action(admin_id, action, resource_type, resource_id, details)
 
-    def _user_response(self, user) -> UserResponse:
+    async def _admin_list_item(self, user) -> AdminUserDetailResponse:
+        balance = await self._payments.get_balance(user.id)
+        base = await self._user_response(user)
+        return AdminUserDetailResponse(
+            **base.model_dump(),
+            is_banned=user.is_banned,
+            last_seen_at=user.last_seen_at,
+            credits=balance.credits if balance else 0,
+            total_spent=balance.total_spent if balance else 0,
+            total_earned=balance.total_earned if balance else 0,
+        )
+
+    async def _user_response(self, user) -> UserResponse:
+        balance = await self._payments.get_balance(user.id)
         return UserResponse(
             id=user.id,
             telegram_id=user.telegram_id,
@@ -70,7 +87,7 @@ class AdminService:
             language_code=user.language_code,
             role=user.role.value,
             is_active=user.is_active,
-            gems=user.balance.gems if user.balance else 0,
+            gems=balance.gems if balance else 0,
             created_at=user.created_at,
         )
 
@@ -78,12 +95,20 @@ class AdminService:
         await self.verify_admin(admin_id)
         return AdminStatsResponse(**(await self._admin.get_stats()))
 
-    async def list_users(self, admin_id: UUID, page: int = 1) -> PaginatedResponse:
+    async def list_users(
+        self, admin_id: UUID, page: int = 1, search: str | None = None
+    ) -> PaginatedResponse:
         await self.verify_admin(admin_id)
-        users, total = await self._users.list_paginated(page=page)
         page_size = 20
+        if search and search.strip():
+            users, total = await self._users.search_paginated(
+                search.strip(), page=page, page_size=page_size
+            )
+        else:
+            users, total = await self._users.list_paginated(page=page, page_size=page_size)
+        items = [await self._admin_list_item(u) for u in users]
         return PaginatedResponse(
-            items=[self._user_response(u) for u in users],
+            items=items,
             total=total,
             page=page,
             page_size=page_size,
@@ -95,15 +120,48 @@ class AdminService:
         user = await self._users.get_by_id(user_id)
         if not user:
             raise NotFoundError("User", str(user_id))
-        balance = user.balance
-        base = self._user_response(user)
+        balance = await self._payments.get_balance(user.id)
+        base = await self._user_response(user)
         return AdminUserDetailResponse(
             **base.model_dump(),
             is_banned=user.is_banned,
             last_seen_at=user.last_seen_at,
+            credits=balance.credits if balance else 0,
             total_spent=balance.total_spent if balance else 0,
             total_earned=balance.total_earned if balance else 0,
         )
+
+    async def get_user_stats(self, admin_id: UUID, user_id: UUID) -> AdminUserStatsDetailResponse:
+        await self.verify_admin(admin_id)
+        raw = await self._admin.get_user_stats(user_id)
+        if not raw:
+            raise NotFoundError("User", str(user_id))
+        return AdminUserStatsDetailResponse(**raw)
+
+    async def update_user(
+        self, admin_id: UUID, user_id: UUID, body: AdminUserUpdateRequest
+    ) -> AdminUserDetailResponse:
+        await self.verify_admin(admin_id)
+        user = await self._users.get_by_id(user_id)
+        if not user:
+            raise NotFoundError("User", str(user_id))
+
+        changes = body.model_dump(exclude_unset=True)
+        gems = changes.pop("gems", None)
+        credits = changes.pop("credits", None)
+        role_val = changes.pop("role", None)
+
+        update_fields = dict(changes)
+        if role_val is not None:
+            update_fields["role"] = UserRole(role_val)
+        if update_fields:
+            await self._users.update(user, **update_fields)
+        if gems is not None or credits is not None:
+            await self._payments.set_balance(user_id, gems=gems, credits=credits)
+        if update_fields or gems is not None or credits is not None:
+            await self._log(admin_id, "user_update", "user", str(user_id), body.model_dump(exclude_unset=True))
+
+        return await self.get_user(admin_id, user_id)
 
     async def set_user_ban(self, admin_id: UUID, user_id: UUID, is_banned: bool) -> AdminUserDetailResponse:
         await self.verify_admin(admin_id)

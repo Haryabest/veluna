@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api-client";
+import { getTelegramInitData } from "@/lib/telegram-webapp";
 import type { User } from "@/store/user-store";
 
 export const authService = {
@@ -43,6 +44,36 @@ export const characterService = {
       }
     }
     return this.getBySlug(idOrSlug);
+  },
+
+  async listScenarios(characterId: string) {
+    const { data } = await apiClient.get(`/characters/${characterId}/scenarios`);
+    return data;
+  },
+};
+
+export const chatListService = {
+  async pin(chatId: string, pinned: boolean) {
+    const { data } = await apiClient.patch<{ id: string; pinned: boolean; ok: boolean }>(
+      `/chats/${chatId}/pin`,
+      { pinned }
+    );
+    return data;
+  },
+
+  async rename(chatId: string, title: string) {
+    const { data } = await apiClient.patch<{ id: string; title: string; ok: boolean }>(
+      `/chats/${chatId}`,
+      { title }
+    );
+    return data;
+  },
+
+  async remove(chatId: string) {
+    const { data } = await apiClient.delete<{ id: string; deleted: boolean; ok: boolean }>(
+      `/chats/${chatId}`
+    );
+    return data;
   },
 };
 
@@ -116,7 +147,76 @@ export const shopService = {
       product_id: productId,
       promo_code: promoCode || undefined,
       payment_method: paymentMethod,
+      init_data: getTelegramInitData() ?? undefined,
     });
+    return data;
+  },
+};
+
+export interface UserBalance {
+  gems: number;
+  credits: number;
+}
+
+export interface BalanceHistoryItem {
+  id: string;
+  amount: number;
+  currency: "gems" | "credits";
+  description: string;
+  created_at: string;
+}
+
+export type TopUpCurrency = "gems" | "credits";
+export type TopUpPaymentMethod = "stars" | "other";
+
+export interface TopUpQuote {
+  currency_type: TopUpCurrency;
+  amount: number;
+  promo_code: string | null;
+  discount_percent: number;
+  promo_valid: boolean;
+  promo_message: string | null;
+  stars_amount: number;
+  usd_amount: number;
+  ok: boolean;
+}
+
+export const balanceService = {
+  async get(): Promise<UserBalance> {
+    const { data } = await apiClient.get<UserBalance>("/users/balance");
+    return data;
+  },
+
+  async getHistory(type: "expense" | "deposit", page = 1) {
+    const { data } = await apiClient.get<{ items: BalanceHistoryItem[]; type: string }>(
+      "/users/transactions",
+      { params: { type, page } }
+    );
+    return data;
+  },
+
+  async getTopUpQuote(payload: {
+    currency_type: TopUpCurrency;
+    amount: number;
+    promo_code?: string;
+  }) {
+    const { data } = await apiClient.post<TopUpQuote>("/balance/topup/quote", payload);
+    return data;
+  },
+
+  async topUpCheckout(payload: {
+    currency_type: TopUpCurrency;
+    amount: number;
+    promo_code?: string;
+    payment_method: TopUpPaymentMethod;
+    stars_amount: number;
+  }) {
+    const { data } = await apiClient.post<{
+      purchase_id: string;
+      invoice_url: string;
+      status: string;
+      ok: boolean;
+    }>("/balance/topup/checkout", payload);
     return data;
   },
 };

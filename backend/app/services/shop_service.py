@@ -43,6 +43,7 @@ class ShopService:
         return max(1, base)
 
     async def checkout(self, user_id: UUID, product_id: UUID, promo_code: str | None = None) -> CheckoutResponse:
+        await self._expire_stale_pending(user_id)
         product = await self._catalog.get_product(product_id)
         if not product or not product.is_active:
             raise NotFoundError("ShopProduct", str(product_id))
@@ -84,6 +85,8 @@ class ShopService:
             stars=stars,
         )
 
+        self._track("shop_checkout_created", user_id, {"product_id": str(product.id), "stars": stars})
+
         return CheckoutResponse(
             purchase_id=purchase.id,
             invoice_url=invoice_url,
@@ -92,6 +95,24 @@ class ShopService:
             product_name=product.name,
             gems_amount=product.gems_amount,
             credits_amount=product.credits_amount,
+        )
+
+    async def _expire_stale_pending(self, user_id: UUID) -> None:
+        from datetime import datetime, timedelta, timezone
+
+        from sqlalchemy import update
+
+        from app.models import Purchase, PurchaseStatus
+
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        await self._session.execute(
+            update(Purchase)
+            .where(
+                Purchase.user_id == user_id,
+                Purchase.status == PurchaseStatus.PENDING,
+                Purchase.created_at < cutoff,
+            )
+            .values(status=PurchaseStatus.FAILED)
         )
 
     async def complete_purchase(self, purchase_id: UUID, telegram_payment_id: str) -> None:
@@ -119,15 +140,38 @@ class ShopService:
                 f"Покупка: {product_name}",
             )
 
+        if credits > 0:
+            await self._payments.add_credits(
+                purchase.user_id,
+                credits,
+                f"Покупка: {product_name}",
+            )
+            purchase.metadata_ = {**meta, "credits_granted": credits}
+
         promo_code = meta.get("promo_code")
         if promo_code:
             promo = await self._catalog.get_promo_by_code(promo_code)
             if promo:
                 promo.used_count += 1
 
-        if credits > 0:
-            # Credits stored in metadata until dedicated balance exists
-            purchase.metadata_ = {**meta, "credits_granted": credits}
+        self._track(
+            "shop_purchase_completed",
+            purchase.user_id,
+            {
+                "purchase_id": str(purchase.id),
+                "stars": purchase.stars_amount,
+                "gems": gems,
+                "credits": credits,
+            },
+        )
+
+    def _track(self, event_type: str, user_id: UUID, event_data: dict | None = None) -> None:
+        try:
+            from app.tasks.analytics_tasks import track_event
+
+            track_event.delay(str(user_id), event_type, event_data or {})
+        except Exception:
+            pass
 
     async def approve_pre_checkout(self, payload: str) -> bool:
         if not payload.startswith("purchase:"):
@@ -157,5 +201,11 @@ class ShopService:
             )
             data = response.json()
             if not data.get("ok"):
-                raise ValidationError(data.get("description", "Не удалось создать счёт"))
+                err = data.get("description", "Не удалось создать счёт")
+                if "provider" in err.lower():
+                    raise ValidationError(
+                        "Ошибка Telegram Payments. В @BotFather → Payments удалите "
+                        "карточные провайдеры; для Stars они не нужны."
+                    )
+                raise ValidationError(err)
             return data["result"]

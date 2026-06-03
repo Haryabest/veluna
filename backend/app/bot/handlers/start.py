@@ -2,28 +2,52 @@ from aiogram import Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
 
-from app.bot.filters import _is_admin_user
-from app.bot.keyboards import start_keyboard
+from app.bot.filters import is_bot_admin
+from app.bot.keyboards import start_keyboard, webapp_open_inline_kb
 from app.core.config import reload_settings
 
 router = Router(name="start")
 
 
-def _start_text(is_admin: bool) -> str:
+def _start_text(is_admin: bool, webapp_url: str) -> str:
     lines = [
         "Добро пожаловать в Veluna — AI-компаньоны в аниме-стиле.",
         "",
-        "Используйте кнопки внизу экрана. «Открыть Veluna» — Mini App.",
+        "⚠️ Старые ссылки <b>xijlo-…pinggy-free.link</b> больше не работают.",
+        "Открывайте Mini App только кнопкой ниже или «Открыть Veluna» внизу после /start.",
+        "",
+        f"Актуальный адрес: <code>{webapp_url.rstrip('/')}</code>",
     ]
     if is_admin:
         lines.extend(
             [
                 "",
                 "<b>Администратор</b> — кнопки управления всегда внизу:",
-                "статистика, рассылка, арт, промокоды, товары.",
+                "статистика, создание персонажей, рассылка, промокоды, товары.",
             ]
         )
     return "\n".join(lines)
+
+
+@router.message(Command("paysupport"))
+async def cmd_paysupport(message: Message) -> None:
+    await message.answer(
+        "Поддержка по оплатам Veluna:\n"
+        "• Оплата только Telegram Stars (⭐) внутри бота.\n"
+        "• Если видите PROVIDER_ACCOUNT_INVALID — откройте Mini App "
+        "с телефона (Android/iOS), не с ПК.\n"
+        "• В @BotFather у бота не должно быть подключённых "
+        "карточных провайдеров (Stripe/ЮKassa) — только Stars.\n"
+        "• Напишите @Iabobuss или ответьте на это сообщение с описанием проблемы."
+    )
+
+
+@router.message(Command("terms"))
+async def cmd_terms(message: Message) -> None:
+    await message.answer(
+        "Условия Veluna: цифровые товары (гемы/кредиты), оплата Stars, "
+        "возврат — через /paysupport в течение 24 ч после покупки."
+    )
 
 
 @router.message(Command("id"))
@@ -39,16 +63,20 @@ async def cmd_id(message: Message) -> None:
 
 
 @router.message(Command("admin"))
-async def cmd_admin_denied(message: Message) -> None:
-    if not _is_admin_user(message.from_user):
+async def cmd_admin(message: Message) -> None:
+    if not await is_bot_admin(message.from_user):
         await message.answer("Доступ только для администратора. Отправьте /id чтобы узнать свой username.")
+        return
+    from app.bot.handlers.admin import _admin_start_markup, _admin_start_text
+
+    await message.answer(_admin_start_text(), reply_markup=_admin_start_markup())
 
 
 @router.message(CommandStart())
 async def cmd_start(message: Message) -> None:
     settings = reload_settings()
     webapp_url = settings.telegram_webapp_url
-    is_admin = _is_admin_user(message.from_user)
+    is_admin = await is_bot_admin(message.from_user)
 
     if not webapp_url:
         await message.answer(
@@ -63,7 +91,26 @@ async def cmd_start(message: Message) -> None:
         )
         return
 
+    url = webapp_url.rstrip("/")
     await message.answer(
-        _start_text(is_admin),
-        reply_markup=start_keyboard(webapp_url, include_admin=is_admin),
+        _start_text(is_admin, url),
+        reply_markup=start_keyboard(url, include_admin=is_admin),
+    )
+    await message.answer(
+        "Нажмите кнопку с актуальной ссылкой:",
+        reply_markup=webapp_open_inline_kb(url),
+    )
+
+
+@router.message(Command("open"))
+async def cmd_open(message: Message) -> None:
+    """Refresh Web App link (use if an old tunnel URL opens)."""
+    settings = reload_settings()
+    webapp_url = (settings.telegram_webapp_url or "").rstrip("/")
+    if not webapp_url.startswith("https://"):
+        await message.answer("Mini App URL не настроен. Запустите туннель: dev-miniapp-up.ps1")
+        return
+    await message.answer(
+        f"Актуальная ссылка:\n<code>{webapp_url}</code>",
+        reply_markup=webapp_open_inline_kb(webapp_url),
     )

@@ -16,18 +16,21 @@ export const ROUTES = {
   shop: "/shop",
   profile: "/profile",
   settings: "/settings",
+  history: "/history",
   admin: "/admin",
 } as const;
 
 export const QUERY_KEYS = {
   user: ["user"] as const,
-  characters: ["characters"] as const,
+  characters: (page?: number) => ["characters", page ?? 1] as const,
   character: (id: string) => ["character", id] as const,
+  characterScenarios: (id: string) => ["character-scenarios", id] as const,
   chats: ["chats"] as const,
   chat: (id: string) => ["chat", id] as const,
   messages: (chatId: string) => ["messages", chatId] as const,
   generations: ["generations"] as const,
   balance: ["balance"] as const,
+  balanceHistory: (type: string) => ["balance-history", type] as const,
   transactions: ["transactions"] as const,
   adminStats: ["admin", "stats"] as const,
 } as const;

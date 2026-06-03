@@ -1,7 +1,8 @@
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models import User, UserBalance, UserRole
 
@@ -11,11 +12,15 @@ class UserRepository:
         self._session = session
 
     async def get_by_id(self, user_id: UUID) -> User | None:
-        result = await self._session.execute(select(User).where(User.id == user_id))
+        result = await self._session.execute(
+            select(User).options(selectinload(User.balance)).where(User.id == user_id)
+        )
         return result.scalar_one_or_none()
 
     async def get_by_telegram_id(self, telegram_id: int) -> User | None:
-        result = await self._session.execute(select(User).where(User.telegram_id == telegram_id))
+        result = await self._session.execute(
+            select(User).options(selectinload(User.balance)).where(User.telegram_id == telegram_id)
+        )
         return result.scalar_one_or_none()
 
     async def create(self, telegram_id: int, **kwargs) -> User:
@@ -29,8 +34,12 @@ class UserRepository:
 
     async def update(self, user: User, **kwargs) -> User:
         for key, value in kwargs.items():
-            if value is not None and hasattr(user, key):
-                setattr(user, key, value)
+            if not hasattr(user, key):
+                continue
+            # Allow explicit False for is_banned / is_active
+            if value is None:
+                continue
+            setattr(user, key, value)
         await self._session.flush()
         return user
 
@@ -42,7 +51,42 @@ class UserRepository:
         offset = (page - 1) * page_size
         total = await self.count_all()
         result = await self._session.execute(
-            select(User).order_by(User.created_at.desc()).offset(offset).limit(page_size)
+            select(User)
+            .options(selectinload(User.balance))
+            .order_by(User.created_at.desc())
+            .offset(offset)
+            .limit(page_size)
+        )
+        return list(result.scalars().all()), total
+
+    def _search_filter(self, query: str):
+        raw = query.strip()
+        if not raw:
+            return None
+        term = raw.lstrip("@").strip()
+        pattern = f"%{term}%"
+        clauses = [
+            User.username.ilike(pattern),
+            User.first_name.ilike(pattern),
+            User.last_name.ilike(pattern),
+        ]
+        if term.isdigit():
+            clauses.append(User.telegram_id == int(term))
+        return or_(*clauses)
+
+    async def search_paginated(
+        self, query: str, page: int = 1, page_size: int = 20
+    ) -> tuple[list[User], int]:
+        clause = self._search_filter(query)
+        if clause is None:
+            return [], 0
+        base = select(User).options(selectinload(User.balance)).where(clause)
+        total = (
+            await self._session.execute(select(func.count()).select_from(base.subquery()))
+        ).scalar_one()
+        offset = (page - 1) * page_size
+        result = await self._session.execute(
+            base.order_by(User.created_at.desc()).offset(offset).limit(page_size)
         )
         return list(result.scalars().all()), total
 

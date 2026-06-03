@@ -1,66 +1,94 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
+import { Sparkles } from "lucide-react";
 import { useNavStore } from "@/store/nav-store";
-import { getMockCharacter, MOCK_SCENARIOS } from "@/lib/mock-data";
-import { cn } from "@/lib/utils";
+import { useCharacter } from "@/hooks/use-character";
+import { BackButton } from "@/components/shared/BackButton";
+import { QUERY_KEYS } from "@/lib/constants";
+import { chatSeparatorStyle } from "@/lib/theme";
+import { truncate } from "@/lib/utils";
+import { characterService } from "@/services/api";
+import type { CharacterScenario } from "@/store/character-store";
+
+function scenarioDescription(scenario: CharacterScenario): string {
+  const parts = [scenario.story, scenario.communication_style].filter(Boolean);
+  return truncate(parts.join(" · ") || scenario.opening_message || "—", 120);
+}
 
 export function ScenarioSelectView() {
   const characterId = useNavStore((s) => s.characterId);
   const goBack = useNavStore((s) => s.goBack);
   const openChatForCharacter = useNavStore((s) => s.openChatForCharacter);
 
-  const character = characterId ? getMockCharacter(characterId) : null;
+  const { character } = useCharacter(characterId);
+
+  const { data: scenarios = [], isLoading } = useQuery<CharacterScenario[]>({
+    queryKey: QUERY_KEYS.characterScenarios(characterId ?? ""),
+    queryFn: () => characterService.listScenarios(characterId!) as Promise<CharacterScenario[]>,
+    enabled: !!characterId,
+    retry: 1,
+  });
+
+  const thumbUrl = character?.preview_url || character?.avatar_url;
 
   return (
-    <div className="mx-auto min-h-screen max-w-lg px-4 pb-8 pt-4">
+    <div className="mx-auto min-h-screen max-w-lg bg-bg-primary px-4 pb-8 pt-4">
       <header className="mb-5 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={goBack}
-          aria-label="Назад"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full glass-strong text-lg active:scale-95"
-        >
-          ←
-        </button>
-        <div>
-          <h1 className="text-lg font-bold">Выбор сценария</h1>
-          {character && (
-            <p className="text-sm text-text-muted">с {character.name}</p>
-          )}
-        </div>
+        <BackButton onClick={goBack} />
+        <h1 className="flex items-center gap-2 text-lg font-bold text-text-primary">
+          <Sparkles className="h-5 w-5 text-accent-light" aria-hidden />
+          Выбери сценарий
+        </h1>
       </header>
 
-      <div className="space-y-3">
-        {MOCK_SCENARIOS.map((scenario, i) => (
-          <motion.button
-            key={scenario.id}
-            type="button"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.06 }}
-            onClick={() => characterId && openChatForCharacter(characterId)}
-            className={cn(
-              "glass group w-full overflow-hidden rounded-2xl text-left transition-all",
-              "hover:shadow-glow active:scale-[0.98]"
-            )}
-          >
-            <div className="relative aspect-[16/9] overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={scenario.imageUrl}
-                alt={scenario.title}
-                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-bg-primary/90 via-transparent to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 p-4">
-                <h3 className="font-bold">{scenario.title}</h3>
-                <p className="mt-0.5 text-sm text-text-secondary">{scenario.description}</p>
+      {isLoading ? (
+        <p className="px-2 text-sm text-text-muted">Загрузка сценариев…</p>
+      ) : scenarios.length === 0 ? (
+        <div className="rounded-2xl border border-accent/15 bg-bg-elevated px-4 py-8 text-center">
+          <p className="text-sm font-semibold text-text-primary">Сценариев пока нет</p>
+          <p className="mt-2 text-xs leading-relaxed text-text-muted">
+            Добавьте сценарий при создании персонажа в боте или в меню «Сценарии».
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-accent/15 bg-bg-elevated/60">
+          {scenarios.map((scenario, i) => (
+            <motion.button
+              key={scenario.id}
+              type="button"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04 }}
+              onClick={() => characterId && openChatForCharacter(characterId)}
+              className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-bg-elevated active:bg-bg-elevated/80"
+              style={i < scenarios.length - 1 ? chatSeparatorStyle : undefined}
+            >
+              {thumbUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={thumbUrl}
+                  alt=""
+                  className="h-14 w-[4.5rem] shrink-0 rounded-xl object-cover"
+                />
+              ) : (
+                <div className="flex h-14 w-[4.5rem] shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent-deep to-accent/50 text-xl">
+                  ✨
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <h3 className="truncate text-[15px] font-semibold text-accent-light">
+                  {scenario.title}
+                </h3>
+                <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-text-muted">
+                  {scenarioDescription(scenario)}
+                </p>
               </div>
-            </div>
-          </motion.button>
-        ))}
-      </div>
+            </motion.button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

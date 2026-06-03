@@ -1,12 +1,14 @@
 "use client";
 
 import { useTelegramAuth } from "@/hooks/use-telegram-auth";
+import { useMounted } from "@/hooks/use-mounted";
 import { Skeleton } from "@/components/shared/Skeleton";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
+  const mounted = useMounted();
   const { isLoading } = useTelegramAuth();
 
-  if (isLoading) {
+  if (!mounted || isLoading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6">
         <div className="flex h-14 w-14 items-center justify-center rounded-full glass-strong shadow-glow-sm">

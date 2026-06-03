@@ -33,8 +33,22 @@ async def successful_payment_handler(message: Message) -> None:
         logger.warning("Invalid purchase payload: %s", payment.invoice_payload)
         return
 
+    purchase = None
+    meta: dict = {}
     async with bot_session() as session:
         service = ShopService(session)
         await service.complete_purchase(purchase_id, payment.telegram_payment_charge_id)
+        from app.repositories.catalog_repository import CatalogRepository
 
-    await message.answer("✅ Оплата прошла успешно! Гемы зачислены на баланс.")
+        purchase = await CatalogRepository(session).get_purchase(purchase_id)
+        if purchase and purchase.metadata_:
+            meta = purchase.metadata_
+
+    parts = []
+    if purchase and (purchase.gems_amount or 0) > 0:
+        parts.append(f"{purchase.gems_amount} гемов")
+    credits = int(meta.get("credits_granted") or meta.get("credits_amount") or 0)
+    if credits > 0:
+        parts.append(f"{credits} кредитов")
+    detail = " и ".join(parts) if parts else "награды"
+    await message.answer(f"✅ Оплата прошла успешно! Зачислено: {detail}.")

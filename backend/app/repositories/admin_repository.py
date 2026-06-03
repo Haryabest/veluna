@@ -11,8 +11,10 @@ from app.models import (
     Generation,
     GenerationStatus,
     Message,
+    PromoCode,
     Purchase,
     PurchaseStatus,
+    ShopProduct,
     Transaction,
     TransactionType,
     User,
@@ -177,6 +179,19 @@ class AdminRepository:
             )
         ).scalar_one()
 
+        active_promos = (
+            await self._session.execute(
+                select(func.count(PromoCode.id)).where(PromoCode.is_active == True)  # noqa: E712
+            )
+        ).scalar_one()
+        total_promos = (await self._session.execute(select(func.count(PromoCode.id)))).scalar_one()
+        active_products = (
+            await self._session.execute(
+                select(func.count(ShopProduct.id)).where(ShopProduct.is_active == True)  # noqa: E712
+            )
+        ).scalar_one()
+        total_products = (await self._session.execute(select(func.count(ShopProduct.id)))).scalar_one()
+
         return {
             "total_users": total_users,
             "unique_users_ever": unique_users_ever,
@@ -195,6 +210,10 @@ class AdminRepository:
             "total_revenue_gems": revenue_gems_total,
             "pending_generations": pending_generations,
             "completed_generations": completed_generations,
+            "active_promos": int(active_promos or 0),
+            "total_promos": int(total_promos or 0),
+            "active_products": int(active_products or 0),
+            "total_products": int(total_products or 0),
         }
 
     async def list_transactions(self, page: int = 1, page_size: int = 20) -> tuple[list[Transaction], int]:
@@ -224,3 +243,76 @@ class AdminRepository:
             select(Generation.status, func.count(Generation.id)).group_by(Generation.status)
         )
         return {row[0].value: row[1] for row in result.all()}
+
+    async def get_user_stats(self, user_id: UUID) -> dict | None:
+        user_row = await self._session.execute(select(User).where(User.id == user_id))
+        user = user_row.scalar_one_or_none()
+        if not user:
+            return None
+
+        chats_count = (
+            await self._session.execute(
+                select(func.count(Chat.id)).where(Chat.user_id == user_id)
+            )
+        ).scalar_one()
+
+        messages_count = (
+            await self._session.execute(
+                select(func.coalesce(func.sum(Chat.message_count), 0)).where(Chat.user_id == user_id)
+            )
+        ).scalar_one()
+
+        generations_total = (
+            await self._session.execute(
+                select(func.count(Generation.id)).where(Generation.user_id == user_id)
+            )
+        ).scalar_one()
+
+        generations_completed = (
+            await self._session.execute(
+                select(func.count(Generation.id)).where(
+                    Generation.user_id == user_id,
+                    Generation.status == GenerationStatus.COMPLETED,
+                )
+            )
+        ).scalar_one()
+
+        purchase_agg = (
+            await self._session.execute(
+                select(
+                    func.count(Purchase.id),
+                    func.coalesce(func.sum(Purchase.stars_amount), 0),
+                    func.coalesce(func.sum(Purchase.gems_amount), 0),
+                ).where(
+                    Purchase.user_id == user_id,
+                    Purchase.status == PurchaseStatus.COMPLETED,
+                )
+            )
+        ).one()
+
+        balance_row = (
+            await self._session.execute(select(UserBalance).where(UserBalance.user_id == user_id))
+        ).scalar_one_or_none()
+
+        last_chat_at = (
+            await self._session.execute(
+                select(func.max(Chat.last_message_at)).where(Chat.user_id == user_id)
+            )
+        ).scalar_one()
+
+        return {
+            "user_id": user_id,
+            "chats_count": int(chats_count or 0),
+            "messages_count": int(messages_count or 0),
+            "generations_total": int(generations_total or 0),
+            "generations_completed": int(generations_completed or 0),
+            "purchases_completed": int(purchase_agg[0] or 0),
+            "stars_spent_total": int(purchase_agg[1] or 0),
+            "gems_purchased_total": int(purchase_agg[2] or 0),
+            "gems_spent_total": int(balance_row.total_spent if balance_row else 0),
+            "credits": int(balance_row.credits if balance_row else 0),
+            "total_earned": int(balance_row.total_earned if balance_row else 0),
+            "registered_at": user.created_at,
+            "last_seen_at": user.last_seen_at,
+            "last_chat_at": last_chat_at,
+        }

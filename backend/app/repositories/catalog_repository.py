@@ -138,6 +138,11 @@ class CatalogRepository:
             await self._session.execute(select(func.count(Generation.id)))
         ).scalar_one()
 
+        active_promos = await self.count_promos(active_only=True)
+        total_promos = await self.count_promos()
+        active_products = await self.count_products(active_only=True)
+        total_products = await self.count_products()
+
         return {
             "total_users": total_users,
             "unique_users_ever": unique_users_ever,
@@ -153,6 +158,10 @@ class CatalogRepository:
             "avg_usage_minutes_per_user": avg_usage_minutes_per_user,
             "total_messages": total_messages,
             "total_generations": total_generations,
+            "active_promos": active_promos,
+            "total_promos": total_promos,
+            "active_products": active_products,
+            "total_products": total_products,
         }
 
     # --- Home art ---
@@ -207,8 +216,27 @@ class CatalogRepository:
         await self._session.flush()
         return promo
 
+    async def update_promo(self, promo: PromoCode, **kwargs) -> PromoCode:
+        for k, v in kwargs.items():
+            if hasattr(promo, k):
+                setattr(promo, k, v)
+        await self._session.flush()
+        return promo
+
     async def delete_promo(self, promo: PromoCode) -> None:
         await self._session.delete(promo)
+
+    async def count_promos(self, active_only: bool = False) -> int:
+        q = select(func.count(PromoCode.id))
+        if active_only:
+            q = q.where(PromoCode.is_active == True)  # noqa: E712
+        return (await self._session.execute(q)).scalar_one()
+
+    async def count_products(self, active_only: bool = False) -> int:
+        q = select(func.count(ShopProduct.id))
+        if active_only:
+            q = q.where(ShopProduct.is_active == True)  # noqa: E712
+        return (await self._session.execute(q)).scalar_one()
 
     # --- Shop products ---
     async def list_products(self, active_only: bool = False) -> list[ShopProduct]:
@@ -230,7 +258,7 @@ class CatalogRepository:
 
     async def update_product(self, product: ShopProduct, **kwargs) -> ShopProduct:
         for k, v in kwargs.items():
-            if v is not None and hasattr(product, k):
+            if hasattr(product, k):
                 setattr(product, k, v)
         await self._session.flush()
         return product

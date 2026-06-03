@@ -71,6 +71,7 @@ class CharacterResponse(BaseSchema):
     id: UUID
     name: str
     slug: str
+    subtitle: str | None = None
     description: str
     greeting_message: str
     avatar_url: str | None
@@ -85,6 +86,17 @@ class CharacterResponse(BaseSchema):
 
 class CharacterDetailResponse(CharacterResponse):
     personality_prompt: str
+    behavior_params: list[str] = []
+
+
+class CharacterScenarioResponse(BaseSchema):
+    id: UUID
+    character_id: UUID
+    title: str
+    story: str
+    communication_style: str
+    opening_message: str
+    sort_order: int
 
 
 class ChatCreate(BaseSchema):

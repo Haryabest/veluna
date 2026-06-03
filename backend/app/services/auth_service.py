@@ -7,6 +7,8 @@ from app.core.exceptions import ForbiddenError, NotFoundError
 from app.core.security import create_token_pair, verify_token
 from app.core.telegram import TelegramAuthError, validate_telegram_init_data
 from app.models import UserRole
+from app.models import User
+from app.repositories.generation_repository import PaymentRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas import TokenResponse, UserResponse
 from app.services.platform_settings_service import PlatformSettingsService
@@ -20,7 +22,9 @@ class AuthService:
 
     async def authenticate_telegram(self, init_data: str) -> TokenResponse:
         try:
-            parsed = validate_telegram_init_data(init_data)
+            parsed = validate_telegram_init_data(
+                init_data, max_age_seconds=self._settings.telegram_init_data_max_age_seconds
+            )
         except TelegramAuthError as e:
             raise ForbiddenError(str(e)) from e
 
@@ -76,16 +80,56 @@ class AuthService:
         tokens = create_token_pair(user.id)
         return TokenResponse(**tokens.model_dump())
 
-    async def get_current_user(self, token: str) -> UserResponse:
+    async def resolve_user(
+        self,
+        *,
+        access_token: str | None = None,
+        init_data: str | None = None,
+    ) -> UserResponse:
+        """Prefer fresh Telegram initData (Mini App), then JWT."""
+        init = (init_data or "").strip()
+        if init:
+            try:
+                tokens = await self.authenticate_telegram(init)
+                user_id = self._user_id_from_token(tokens.access_token)
+                user = await self._users.get_by_id(user_id)
+                if not user or not user.is_active:
+                    raise ForbiddenError("User not found or inactive")
+                return await self._to_user_response(user)
+            except ForbiddenError:
+                pass
+        if access_token:
+            return await self.get_current_user(access_token)
+        raise ForbiddenError("Invalid or expired token")
+
+    async def resolve_user_id(
+        self,
+        *,
+        access_token: str | None = None,
+        init_data: str | None = None,
+    ) -> UUID:
+        """Like resolve_user but only returns id (avoids lazy-load on balance)."""
+        user = await self.resolve_user(
+            access_token=access_token,
+            init_data=init_data,
+        )
+        return user.id
+
+    def _user_id_from_token(self, token: str) -> UUID:
         payload = verify_token(token)
         if not payload:
             raise ForbiddenError("Invalid or expired token")
+        return UUID(payload.sub)
 
-        user = await self._users.get_by_id(UUID(payload.sub))
+    async def get_current_user(self, token: str) -> UserResponse:
+        user_id = self._user_id_from_token(token)
+        user = await self._users.get_by_id(user_id)
         if not user or not user.is_active:
             raise ForbiddenError("User not found or inactive")
+        return await self._to_user_response(user)
 
-        balance = user.balance
+    async def _to_user_response(self, user: User) -> UserResponse:
+        balance = await PaymentRepository(self._session).get_balance(user.id)
         return UserResponse(
             id=user.id,
             telegram_id=user.telegram_id,

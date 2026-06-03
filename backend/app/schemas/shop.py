@@ -22,6 +22,8 @@ class CheckoutRequest(BaseSchema):
     product_id: UUID
     promo_code: str | None = None
     payment_method: PaymentMethod = "stars"
+    # Optional: re-auth from Telegram WebApp when JWT expired (header X-Telegram-Init-Data preferred)
+    init_data: str | None = None
 
 
 class CheckoutResponse(BaseSchema):

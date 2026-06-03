@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from aiogram import Bot, F, Router
@@ -6,16 +7,14 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message, ReplyKeyboardMarkup
 
 from app.bot.db import bot_session
-from app.bot.filters import AdminFilter, _is_admin_user
+from app.bot.filters import AdminFilter, is_bot_admin
 from app.bot.keyboards import (
-    ADMIN_MENU_TEXT_ARTS,
     ADMIN_MENU_TEXT_BROADCAST,
     ADMIN_MENU_TEXT_PRODUCTS,
     ADMIN_MENU_TEXT_PROMOS,
     ADMIN_MENU_TEXT_STATS,
     admin_main_menu,
-    art_item_menu,
-    arts_menu,
+    broadcast_confirm_kb,
     cancel_kb,
     main_reply_keyboard,
     product_item_menu,
@@ -23,12 +22,16 @@ from app.bot.keyboards import (
     products_menu,
     promo_item_menu,
     promos_menu,
+    stats_submenu_keyboard,
 )
-from app.bot.states import AdminArtStates, AdminProductStates, AdminPromoStates
+from app.bot.states import AdminBroadcastStates, AdminProductStates, AdminPromoStates
+from app.services.broadcast_service import BroadcastService
 from app.bot.utils import upload_telegram_photo
 from app.core.config import get_settings
 from app.models import ShopProductType
 from app.services.catalog_service import CatalogService
+
+logger = logging.getLogger(__name__)
 
 router = Router(name="admin")
 router.message.filter(AdminFilter())
@@ -53,19 +56,19 @@ def _admin_start_markup():
     return admin_main_menu(url)
 
 
-def _reply_kb_for(user) -> ReplyKeyboardMarkup | None:
+async def _reply_kb_for(user) -> ReplyKeyboardMarkup | None:
     settings = get_settings()
     url = settings.telegram_webapp_url
     if not url.startswith("https://"):
         return None
-    return main_reply_keyboard(url, include_admin=_is_admin_user(user))
+    return main_reply_keyboard(url, include_admin=await is_bot_admin(user))
 
 
 def _admin_start_text() -> str:
     return (
         "Добро пожаловать в Veluna — AI-компаньоны в аниме-стиле.\n\n"
         "Кнопки управления всегда внизу экрана.\n\n"
-        "<b>Администратор:</b> статистика, рассылка, арт, промокоды, товары."
+        "<b>Администратор:</b> статистика, персонажи, рассылка, промокоды, товары."
     )
 
 
@@ -105,21 +108,28 @@ async def _stats_text() -> str:
         f"• В среднем на пользователя: <b>{_fmt_minutes(int(s.avg_usage_minutes_per_user))}</b>\n\n"
         "<b>Активность</b>\n"
         f"• Сообщений: <b>{s.total_messages}</b>\n"
-        f"• Генераций: <b>{s.total_generations}</b>"
+        f"• Генераций: <b>{s.total_generations}</b>\n\n"
+        "<b>Каталог</b>\n"
+        f"• Промокодов (активных): <b>{s.active_promos}</b> / {s.total_promos}\n"
+        f"• Товаров (активных): <b>{s.active_products}</b> / {s.total_products}"
     )
 
 
 async def _send_stats(message: Message, user) -> None:
-    kb = _reply_kb_for(user)
+    settings = get_settings()
+    kb = stats_submenu_keyboard(settings.telegram_webapp_url)
     try:
         text = await _stats_text()
+        text += "\n\n<i>Кнопка «Пользователи» внизу — список, блокировка и редактирование.</i>"
     except Exception:
         text = (
             "<b>Статистика</b>\n\n"
-            "Не удалось загрузить данные. Проверьте миграции БД:\n"
-            "<code>docker exec veluna-backend alembic upgrade head</code>"
+            "Не удалось загрузить данные. Локально:\n"
+            "<code>docker compose up postgres redis -d</code>\n"
+            "<code>cd backend; .\\.venv\\Scripts\\alembic upgrade head</code>"
         )
     await message.answer(text, reply_markup=kb)
+    logger.info("Admin stats keyboard sent (Пользователи submenu)")
 
 
 @router.message(F.text == ADMIN_MENU_TEXT_STATS)
@@ -135,208 +145,73 @@ async def admin_stats(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
 
 
-def _broadcast_text() -> str:
-    return (
-        "<b>Рассылка</b>\n\n"
-        "Раздел в разработке. Здесь будет массовая отправка сообщений всем пользователям бота."
-    )
-
-
 @router.message(F.text == ADMIN_MENU_TEXT_BROADCAST)
 async def admin_broadcast_message(message: Message, state: FSMContext) -> None:
     await state.clear()
-    await message.answer(_broadcast_text(), reply_markup=_reply_kb_for(message.from_user))
+    await state.set_state(AdminBroadcastStates.message)
+    await message.answer(
+        "<b>Рассылка</b>\n\nОтправьте текст сообщения для всех пользователей бота (HTML):",
+        reply_markup=cancel_kb("adm:menu"),
+    )
 
 
 @router.callback_query(F.data == "adm:broadcast")
-async def admin_broadcast_stub(callback: CallbackQuery, state: FSMContext) -> None:
+async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    await callback.message.answer(_broadcast_text(), reply_markup=_reply_kb_for(callback.from_user))
-    await callback.answer()
-
-
-# --- Home art ---
-async def _send_arts_list(message: Message) -> None:
-    async with bot_session() as session:
-        items = await CatalogService(session).list_home_arts()
-    text = "<b>Арт-объекты на главной</b>\n\nВыберите объект или добавьте новый."
-    if not items:
-        text += "\n\n<i>Список пуст.</i>"
-    await message.answer(text, reply_markup=arts_menu(items))
-
-
-@router.message(F.text == ADMIN_MENU_TEXT_ARTS)
-async def admin_arts_list_message(message: Message, state: FSMContext) -> None:
-    await state.clear()
-    await _send_arts_list(message)
-
-
-@router.callback_query(F.data == "adm:arts")
-async def admin_arts_list(callback: CallbackQuery, state: FSMContext) -> None:
-    await state.clear()
-    await _send_arts_list(callback.message)
-    await callback.answer()
-
-
-@router.callback_query(F.data == "adm:art:add")
-async def admin_art_add_start(callback: CallbackQuery, state: FSMContext) -> None:
-    await state.set_state(AdminArtStates.title)
-    await callback.message.edit_text(
-        "Создание арт-объекта.\n\nВведите <b>название</b>:",
-        reply_markup=cancel_kb("adm:arts"),
+    await state.set_state(AdminBroadcastStates.message)
+    await callback.message.answer(
+        "<b>Рассылка</b>\n\nОтправьте текст сообщения (HTML):",
+        reply_markup=cancel_kb("adm:menu"),
     )
     await callback.answer()
 
 
-@router.message(AdminArtStates.title)
-async def admin_art_add_title(message: Message, state: FSMContext) -> None:
-    await state.update_data(title=message.text.strip())
-    await state.set_state(AdminArtStates.description)
-    await message.answer("Введите <b>описание</b>:", reply_markup=cancel_kb("adm:arts"))
-
-
-@router.message(AdminArtStates.description)
-async def admin_art_add_description(message: Message, state: FSMContext) -> None:
-    await state.update_data(description=message.text.strip())
-    await state.set_state(AdminArtStates.photo)
+@router.message(AdminBroadcastStates.message)
+async def admin_broadcast_preview(message: Message, state: FSMContext) -> None:
+    text = (message.text or message.caption or "").strip()
+    if not text:
+        await message.answer("Текст не может быть пустым.")
+        return
+    await state.update_data(broadcast_text=text)
+    await state.set_state(AdminBroadcastStates.confirm)
+    preview = text if len(text) <= 500 else text[:500] + "…"
     await message.answer(
-        "Отправьте <b>фото</b> (или /skip чтобы без фото):",
-        reply_markup=cancel_kb("adm:arts"),
+        f"<b>Предпросмотр рассылки</b>\n\n{preview}\n\nОтправить всем пользователям?",
+        reply_markup=broadcast_confirm_kb(),
     )
 
 
-@router.message(AdminArtStates.photo, Command("skip"))
-async def admin_art_add_skip_photo(message: Message, state: FSMContext) -> None:
-    await _save_new_art(message, state, image_url=None)
-
-
-@router.message(AdminArtStates.photo, F.photo)
-async def admin_art_add_photo(message: Message, state: FSMContext, bot: Bot) -> None:
-    photo = message.photo[-1]
-    try:
-        image_url = await upload_telegram_photo(bot, photo.file_id)
-    except Exception as exc:
-        await message.answer(f"Не удалось загрузить фото: {exc}")
-        return
-    await _save_new_art(message, state, image_url=image_url)
-
-
-async def _save_new_art(message: Message, state: FSMContext, image_url: str | None) -> None:
-    data = await state.get_data()
-    async with bot_session() as session:
-        item = await CatalogService(session).create_home_art(
-            title=data["title"],
-            description=data["description"],
-            image_url=image_url,
-        )
+@router.callback_query(AdminBroadcastStates.confirm, F.data == "adm:broadcast:cancel")
+async def admin_broadcast_cancel(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    await message.answer(
-        f"Арт «<b>{item.title}</b>» создан.",
-        reply_markup=art_item_menu(str(item.id)),
-    )
-
-
-@router.callback_query(F.data.startswith("adm:art:view:"))
-async def admin_art_view(callback: CallbackQuery) -> None:
-    item_id = UUID(callback.data.split(":")[-1])
-    async with bot_session() as session:
-        items = await CatalogService(session).list_home_arts()
-    item = next((i for i in items if i.id == item_id), None)
-    if not item:
-        await callback.answer("Не найден", show_alert=True)
-        return
-    photo_line = f"\nФото: {item.image_url}" if item.image_url else "\nФото: нет"
-    await callback.message.edit_text(
-        f"<b>{item.title}</b>\n\n{item.description}{photo_line}",
-        reply_markup=art_item_menu(str(item.id)),
-    )
+    await callback.message.edit_text("Рассылка отменена.")
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("adm:art:del:"))
-async def admin_art_delete_fixed(callback: CallbackQuery, state: FSMContext) -> None:
-    item_id = UUID(callback.data.split(":")[-1])
-    async with bot_session() as session:
-        await CatalogService(session).delete_home_art(item_id)
-    await callback.answer("Удалено")
+@router.callback_query(AdminBroadcastStates.confirm, F.data == "adm:broadcast:confirm")
+async def admin_broadcast_run(callback: CallbackQuery, state: FSMContext, bot: Bot) -> None:
+    data = await state.get_data()
+    text = data.get("broadcast_text", "")
     await state.clear()
-    async with bot_session() as session:
-        items = await CatalogService(session).list_home_arts()
-    await callback.message.edit_text(
-        "<b>Арт-объекты на главной</b>\n\nОбъект удалён.",
-        reply_markup=arts_menu(items),
-    )
-
-
-@router.callback_query(F.data.startswith("adm:art:edit:title:"))
-async def admin_art_edit_title_start(callback: CallbackQuery, state: FSMContext) -> None:
-    item_id = callback.data.split(":")[-1]
-    await state.set_state(AdminArtStates.edit_title)
-    await state.update_data(edit_art_id=item_id)
-    await callback.message.edit_text(
-        "Введите новое <b>название</b>:",
-        reply_markup=cancel_kb(f"adm:art:view:{item_id}"),
-    )
+    await callback.message.edit_text("⏳ Рассылка запущена…")
     await callback.answer()
 
-
-@router.message(AdminArtStates.edit_title)
-async def admin_art_edit_title_save(message: Message, state: FSMContext) -> None:
-    data = await state.get_data()
-    item_id = UUID(data["edit_art_id"])
+    admin_user_id = None
     async with bot_session() as session:
-        item = await CatalogService(session).update_home_art(item_id, title=message.text.strip())
-    await state.clear()
-    await message.answer(f"Название обновлено: <b>{item.title}</b>", reply_markup=art_item_menu(str(item.id)))
+        from app.repositories.user_repository import UserRepository
 
+        user = await UserRepository(session).get_by_telegram_id(callback.from_user.id)
+        if user:
+            admin_user_id = user.id
+        record = await BroadcastService(session).send_broadcast(text, admin_id=admin_user_id)
 
-@router.callback_query(F.data.startswith("adm:art:edit:desc:"))
-async def admin_art_edit_desc_start(callback: CallbackQuery, state: FSMContext) -> None:
-    item_id = callback.data.split(":")[-1]
-    await state.set_state(AdminArtStates.edit_description)
-    await state.update_data(edit_art_id=item_id)
-    await callback.message.edit_text(
-        "Введите новое <b>описание</b>:",
-        reply_markup=cancel_kb(f"adm:art:view:{item_id}"),
+    await callback.message.answer(
+        "<b>Рассылка завершена</b>\n\n"
+        f"Получателей: <b>{record.total_recipients}</b>\n"
+        f"Доставлено: <b>{record.sent_count}</b>\n"
+        f"Ошибок: <b>{record.failed_count}</b>",
+        reply_markup=await _reply_kb_for(callback.from_user),
     )
-    await callback.answer()
-
-
-@router.message(AdminArtStates.edit_description)
-async def admin_art_edit_desc_save(message: Message, state: FSMContext) -> None:
-    data = await state.get_data()
-    item_id = UUID(data["edit_art_id"])
-    async with bot_session() as session:
-        item = await CatalogService(session).update_home_art(item_id, description=message.text.strip())
-    await state.clear()
-    await message.answer("Описание обновлено.", reply_markup=art_item_menu(str(item.id)))
-
-
-@router.callback_query(F.data.startswith("adm:art:edit:photo:"))
-async def admin_art_edit_photo_start(callback: CallbackQuery, state: FSMContext) -> None:
-    item_id = callback.data.split(":")[-1]
-    await state.set_state(AdminArtStates.edit_photo)
-    await state.update_data(edit_art_id=item_id)
-    await callback.message.edit_text(
-        "Отправьте новое <b>фото</b>:",
-        reply_markup=cancel_kb(f"adm:art:view:{item_id}"),
-    )
-    await callback.answer()
-
-
-@router.message(AdminArtStates.edit_photo, F.photo)
-async def admin_art_edit_photo_save(message: Message, state: FSMContext, bot: Bot) -> None:
-    data = await state.get_data()
-    item_id = UUID(data["edit_art_id"])
-    try:
-        image_url = await upload_telegram_photo(bot, message.photo[-1].file_id)
-    except Exception as exc:
-        await message.answer(f"Ошибка загрузки: {exc}")
-        return
-    async with bot_session() as session:
-        item = await CatalogService(session).update_home_art(item_id, image_url=image_url)
-    await state.clear()
-    await message.answer("Фото обновлено.", reply_markup=art_item_menu(str(item.id)))
 
 
 # --- Promos ---
@@ -398,30 +273,60 @@ async def admin_promo_discount(message: Message, state: FSMContext) -> None:
 
 @router.message(AdminPromoStates.code, Command("auto"))
 async def admin_promo_code_auto(message: Message, state: FSMContext) -> None:
-    await _create_promo(message, state, code=None)
+    await state.update_data(promo_code=None)
+    await state.set_state(AdminPromoStates.max_uses)
+    await message.answer(
+        "Лимит использований (число) или /skip для безлимита:",
+        reply_markup=cancel_kb("adm:promos"),
+    )
 
 
 @router.message(AdminPromoStates.code)
 async def admin_promo_code(message: Message, state: FSMContext) -> None:
-    await _create_promo(message, state, code=message.text.strip())
+    await state.update_data(promo_code=message.text.strip())
+    await state.set_state(AdminPromoStates.max_uses)
+    await message.answer(
+        "Лимит использований (число) или /skip для безлимита:",
+        reply_markup=cancel_kb("adm:promos"),
+    )
 
 
-async def _create_promo(message: Message, state: FSMContext, code: str | None) -> None:
+@router.message(AdminPromoStates.max_uses, Command("skip"))
+async def admin_promo_max_skip(message: Message, state: FSMContext) -> None:
+    await _create_promo(message, state, max_uses=None)
+
+
+@router.message(AdminPromoStates.max_uses)
+async def admin_promo_max(message: Message, state: FSMContext) -> None:
+    try:
+        max_uses = int(message.text.strip())
+        if max_uses < 1:
+            raise ValueError
+    except ValueError:
+        await message.answer("Введите целое число ≥ 1 или /skip.")
+        return
+    await _create_promo(message, state, max_uses=max_uses)
+
+
+async def _create_promo(message: Message, state: FSMContext, max_uses: int | None) -> None:
     data = await state.get_data()
     try:
         async with bot_session() as session:
             promo = await CatalogService(session).create_promo(
                 name=data["promo_name"],
                 discount_percent=data["discount_percent"],
-                code=code,
+                code=data.get("promo_code"),
+                max_uses=max_uses,
             )
     except ValueError as exc:
         await message.answer(str(exc))
         return
     await state.clear()
+    limit = f"{promo.max_uses}" if promo.max_uses else "∞"
     await message.answer(
-        f"Промокод создан:\n<b>{promo.code}</b> — {promo.name}, скидка {promo.discount_percent}%",
-        reply_markup=promo_item_menu(str(promo.id)),
+        f"Промокод создан:\n<b>{promo.code}</b> — {promo.name}, скидка {promo.discount_percent}%\n"
+        f"Лимит: {limit}",
+        reply_markup=promo_item_menu(str(promo.id), is_active=promo.is_active),
     )
 
 
@@ -434,12 +339,72 @@ async def admin_promo_view(callback: CallbackQuery) -> None:
     if not promo:
         await callback.answer("Не найден", show_alert=True)
         return
+    limit = f"{promo.max_uses}" if promo.max_uses else "∞"
+    status = "активен" if promo.is_active else "выключен"
     await callback.message.edit_text(
         f"<b>{promo.name}</b>\nКод: <code>{promo.code}</code>\nСкидка: {promo.discount_percent}%\n"
-        f"Использований: {promo.used_count}",
-        reply_markup=promo_item_menu(str(promo.id)),
+        f"Статус: {status}\nИспользований: {promo.used_count} / {limit}",
+        reply_markup=promo_item_menu(str(promo.id), is_active=promo.is_active),
     )
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("adm:promo:toggle:"))
+async def admin_promo_toggle(callback: CallbackQuery) -> None:
+    promo_id = UUID(callback.data.split(":")[-1])
+    async with bot_session() as session:
+        promo = await CatalogService(session).get_promo(promo_id)
+        updated = await CatalogService(session).update_promo(promo_id, is_active=not promo.is_active)
+    await callback.answer("Обновлено")
+    limit = f"{updated.max_uses}" if updated.max_uses else "∞"
+    status = "активен" if updated.is_active else "выключен"
+    await callback.message.edit_text(
+        f"<b>{updated.name}</b>\nКод: <code>{updated.code}</code>\nСкидка: {updated.discount_percent}%\n"
+        f"Статус: {status}\nИспользований: {updated.used_count} / {limit}",
+        reply_markup=promo_item_menu(str(updated.id), is_active=updated.is_active),
+    )
+
+
+@router.callback_query(F.data.startswith("adm:promo:max:"))
+async def admin_promo_max_start(callback: CallbackQuery, state: FSMContext) -> None:
+    promo_id = callback.data.split(":")[-1]
+    await state.set_state(AdminPromoStates.edit_max_uses)
+    await state.update_data(edit_promo_id=promo_id)
+    await callback.message.edit_text(
+        "Новый лимит использований (число) или /skip для безлимита:",
+        reply_markup=cancel_kb(f"adm:promo:view:{promo_id}"),
+    )
+    await callback.answer()
+
+
+@router.message(AdminPromoStates.edit_max_uses, Command("skip"))
+async def admin_promo_max_clear(message: Message, state: FSMContext) -> None:
+    await _save_promo_max(message, state, max_uses=None)
+
+
+@router.message(AdminPromoStates.edit_max_uses)
+async def admin_promo_max_save(message: Message, state: FSMContext) -> None:
+    try:
+        max_uses = int(message.text.strip())
+        if max_uses < 1:
+            raise ValueError
+    except ValueError:
+        await message.answer("Введите целое ≥ 1 или /skip.")
+        return
+    await _save_promo_max(message, state, max_uses=max_uses)
+
+
+async def _save_promo_max(message: Message, state: FSMContext, max_uses: int | None) -> None:
+    data = await state.get_data()
+    promo_id = UUID(data["edit_promo_id"])
+    async with bot_session() as session:
+        promo = await CatalogService(session).update_promo(promo_id, max_uses=max_uses)
+    await state.clear()
+    limit = f"{promo.max_uses}" if promo.max_uses else "∞"
+    await message.answer(
+        f"Лимит обновлён: {limit}",
+        reply_markup=promo_item_menu(str(promo.id), is_active=promo.is_active),
+    )
 
 
 @router.callback_query(F.data.startswith("adm:promo:del:"))
@@ -570,7 +535,7 @@ async def admin_product_gems(message: Message, state: FSMContext) -> None:
         await state.set_state(AdminProductStates.credits_amount)
         await message.answer("Сколько <b>кредитов</b> в наборе?", reply_markup=cancel_kb("adm:products"))
     else:
-        await _save_product(message, state)
+        await _ask_product_photo(message, state)
 
 
 @router.message(AdminProductStates.credits_amount)
@@ -581,11 +546,36 @@ async def admin_product_credits(message: Message, state: FSMContext) -> None:
         await message.answer("Введите целое число.")
         return
     await state.update_data(credits_amount=credits)
-    await _save_product(message, state)
+    await _ask_product_photo(message, state)
 
 
-async def _save_product(message: Message, state: FSMContext) -> None:
+async def _ask_product_photo(message: Message, state: FSMContext) -> None:
+    await state.set_state(AdminProductStates.photo)
+    await message.answer(
+        "Отправьте <b>фото товара</b> (или /skip):",
+        reply_markup=cancel_kb("adm:products"),
+    )
+
+
+@router.message(AdminProductStates.photo, Command("skip"))
+async def admin_product_photo_skip(message: Message, state: FSMContext) -> None:
+    await _save_product(message, state, image_url=None)
+
+
+@router.message(AdminProductStates.photo, F.photo)
+async def admin_product_photo(message: Message, state: FSMContext, bot: Bot) -> None:
+    try:
+        image_url = await upload_telegram_photo(bot, message.photo[-1].file_id, prefix="products")
+    except Exception as exc:
+        await message.answer(f"Не удалось загрузить фото: {exc}")
+        return
+    await _save_product(message, state, image_url=image_url)
+
+
+async def _save_product(message: Message, state: FSMContext, image_url: str | None = None) -> None:
     data = await state.get_data()
+    if image_url is None and "product_image_url" in data:
+        image_url = data.get("product_image_url")
     async with bot_session() as session:
         product = await CatalogService(session).create_product(
             name=data["product_name"],
@@ -594,11 +584,13 @@ async def _save_product(message: Message, state: FSMContext) -> None:
             sale_price=data.get("sale_price"),
             gems_amount=data.get("gems_amount", 0),
             credits_amount=data.get("credits_amount", 0),
+            image_url=image_url,
         )
     await state.clear()
     price_show = product.sale_price or product.price
+    img = "\nФото: да" if product.image_url else "\nФото: нет"
     await message.answer(
-        f"Товар создан: <b>{product.name}</b>\nТип: {product.product_type}\nЦена: {price_show}",
+        f"Товар создан: <b>{product.name}</b>\nТип: {product.product_type}\nЦена: {price_show}{img}",
         reply_markup=product_item_menu(str(product.id)),
     )
 
@@ -613,12 +605,71 @@ async def admin_product_view(callback: CallbackQuery) -> None:
         await callback.answer("Не найден", show_alert=True)
         return
     sale = f"\nЦена со скидкой: {product.sale_price}" if product.sale_price else ""
+    active = "в магазине" if product.is_active else "скрыт"
+    img = f"\nФото: {product.image_url}" if product.image_url else "\nФото: нет"
     await callback.message.edit_text(
         f"<b>{product.name}</b>\nТип: {product.product_type}\nЦена: {product.price}{sale}\n"
-        f"Гемы: {product.gems_amount} | Кредиты: {product.credits_amount}",
-        reply_markup=product_item_menu(str(product.id)),
+        f"Гемы: {product.gems_amount} | Кредиты: {product.credits_amount}{img}\nСтатус: {active}",
+        reply_markup=product_item_menu(str(product.id), is_active=product.is_active),
     )
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("adm:prod:edit:photo:"))
+async def admin_product_edit_photo_start(callback: CallbackQuery, state: FSMContext) -> None:
+    product_id = callback.data.split(":")[-1]
+    await state.set_state(AdminProductStates.edit_photo)
+    await state.update_data(edit_product_id=product_id)
+    await callback.message.edit_text(
+        "Отправьте новое <b>фото товара</b> (или /skip чтобы убрать):",
+        reply_markup=cancel_kb(f"adm:prod:view:{product_id}"),
+    )
+    await callback.answer()
+
+
+@router.message(AdminProductStates.edit_photo, Command("skip"))
+async def admin_product_edit_photo_clear(message: Message, state: FSMContext) -> None:
+    await _save_product_photo(message, state, image_url=None)
+
+
+@router.message(AdminProductStates.edit_photo, F.photo)
+async def admin_product_edit_photo_save(message: Message, state: FSMContext, bot: Bot) -> None:
+    try:
+        image_url = await upload_telegram_photo(bot, message.photo[-1].file_id, prefix="products")
+    except Exception as exc:
+        await message.answer(f"Ошибка загрузки: {exc}")
+        return
+    await _save_product_photo(message, state, image_url=image_url)
+
+
+async def _save_product_photo(message: Message, state: FSMContext, image_url: str | None) -> None:
+    data = await state.get_data()
+    product_id = UUID(data["edit_product_id"])
+    async with bot_session() as session:
+        product = await CatalogService(session).update_product(product_id, image_url=image_url)
+    await state.clear()
+    await message.answer(
+        "Фото товара обновлено." if image_url else "Фото удалено.",
+        reply_markup=product_item_menu(str(product.id), is_active=product.is_active),
+    )
+
+
+@router.callback_query(F.data.startswith("adm:prod:toggle:"))
+async def admin_product_toggle(callback: CallbackQuery) -> None:
+    product_id = UUID(callback.data.split(":")[-1])
+    async with bot_session() as session:
+        product = await CatalogService(session).get_product(product_id)
+        updated = await CatalogService(session).update_product(
+            product_id, is_active=not product.is_active
+        )
+    await callback.answer("Обновлено")
+    sale = f"\nЦена со скидкой: {updated.sale_price}" if updated.sale_price else ""
+    active = "в магазине" if updated.is_active else "скрыт"
+    await callback.message.edit_text(
+        f"<b>{updated.name}</b>\nТип: {updated.product_type}\nЦена: {updated.price}{sale}\n"
+        f"Гемы: {updated.gems_amount} | Кредиты: {updated.credits_amount}\nСтатус: {active}",
+        reply_markup=product_item_menu(str(updated.id), is_active=updated.is_active),
+    )
 
 
 @router.callback_query(F.data.startswith("adm:prod:del:"))
@@ -634,3 +685,10 @@ async def admin_product_delete(callback: CallbackQuery, state: FSMContext) -> No
 async def admin_cancel(message: Message, state: FSMContext) -> None:
     await state.clear()
     await message.answer("Действие отменено.", reply_markup=_admin_start_markup())
+
+
+from app.bot.handlers.admin_characters import router as admin_characters_router
+from app.bot.handlers.admin_users import router as admin_users_router
+
+router.include_router(admin_users_router)
+router.include_router(admin_characters_router)

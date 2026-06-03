@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { AnimeGemIcon } from "@/components/icons/CurrencyIcons";
+import { AnimeGemIcon, AnimeHeartIcon } from "@/components/icons/CurrencyIcons";
 import { CHAT_BORDER } from "@/lib/theme";
 import {
   discountedStars,
@@ -187,10 +187,10 @@ export function ShopCheckoutSheet({
                     )}
                     {product.credits_amount > 0 && (
                       <span
-                        className="rounded-xl bg-bg-elevated px-3 py-1.5"
+                        className="flex items-center gap-1 rounded-xl bg-bg-elevated px-3 py-1.5"
                         style={{ border: `1px solid ${CHAT_BORDER}` }}
                       >
-                        ✨ {product.credits_amount} кредитов
+                        <AnimeHeartIcon className="h-4 w-4" /> {product.credits_amount} сердец
                       </span>
                     )}
                   </div>

@@ -79,7 +79,7 @@ export const MOCK_SHOP_PRODUCTS: ShopProduct[] = [
   },
   {
     id: "mock-credits-1",
-    name: "50 кредитов",
+    name: "50 сердец",
     product_type: "credits",
     price: 80,
     sale_price: null,
@@ -89,7 +89,7 @@ export const MOCK_SHOP_PRODUCTS: ShopProduct[] = [
   },
   {
     id: "mock-credits-2",
-    name: "200 кредитов",
+    name: "200 сердец",
     product_type: "credits",
     price: 280,
     sale_price: 249,
@@ -102,5 +102,5 @@ export const MOCK_SHOP_PRODUCTS: ShopProduct[] = [
 export const SHOP_TAB_LABELS: Record<ShopTab, string> = {
   bundle: "Наборы",
   gems: "Гемы",
-  credits: "Кредиты",
+  credits: "Сердца",
 };
