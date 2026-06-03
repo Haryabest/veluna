@@ -243,3 +243,76 @@ class AdminRepository:
             select(Generation.status, func.count(Generation.id)).group_by(Generation.status)
         )
         return {row[0].value: row[1] for row in result.all()}
+
+    async def get_user_stats(self, user_id: UUID) -> dict | None:
+        user_row = await self._session.execute(select(User).where(User.id == user_id))
+        user = user_row.scalar_one_or_none()
+        if not user:
+            return None
+
+        chats_count = (
+            await self._session.execute(
+                select(func.count(Chat.id)).where(Chat.user_id == user_id)
+            )
+        ).scalar_one()
+
+        messages_count = (
+            await self._session.execute(
+                select(func.coalesce(func.sum(Chat.message_count), 0)).where(Chat.user_id == user_id)
+            )
+        ).scalar_one()
+
+        generations_total = (
+            await self._session.execute(
+                select(func.count(Generation.id)).where(Generation.user_id == user_id)
+            )
+        ).scalar_one()
+
+        generations_completed = (
+            await self._session.execute(
+                select(func.count(Generation.id)).where(
+                    Generation.user_id == user_id,
+                    Generation.status == GenerationStatus.COMPLETED,
+                )
+            )
+        ).scalar_one()
+
+        purchase_agg = (
+            await self._session.execute(
+                select(
+                    func.count(Purchase.id),
+                    func.coalesce(func.sum(Purchase.stars_amount), 0),
+                    func.coalesce(func.sum(Purchase.gems_amount), 0),
+                ).where(
+                    Purchase.user_id == user_id,
+                    Purchase.status == PurchaseStatus.COMPLETED,
+                )
+            )
+        ).one()
+
+        balance_row = (
+            await self._session.execute(select(UserBalance).where(UserBalance.user_id == user_id))
+        ).scalar_one_or_none()
+
+        last_chat_at = (
+            await self._session.execute(
+                select(func.max(Chat.last_message_at)).where(Chat.user_id == user_id)
+            )
+        ).scalar_one()
+
+        return {
+            "user_id": user_id,
+            "chats_count": int(chats_count or 0),
+            "messages_count": int(messages_count or 0),
+            "generations_total": int(generations_total or 0),
+            "generations_completed": int(generations_completed or 0),
+            "purchases_completed": int(purchase_agg[0] or 0),
+            "stars_spent_total": int(purchase_agg[1] or 0),
+            "gems_purchased_total": int(purchase_agg[2] or 0),
+            "gems_spent_total": int(balance_row.total_spent if balance_row else 0),
+            "credits": int(balance_row.credits if balance_row else 0),
+            "total_earned": int(balance_row.total_earned if balance_row else 0),
+            "registered_at": user.created_at,
+            "last_seen_at": user.last_seen_at,
+            "last_chat_at": last_chat_at,
+        }

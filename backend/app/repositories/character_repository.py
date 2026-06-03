@@ -1,9 +1,11 @@
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Character
+
+_CATALOG_VISIBLE = (Character.is_active == True, Character.is_hidden == False)  # noqa: E712
 
 
 class CharacterRepository:
@@ -57,3 +59,44 @@ class CharacterRepository:
         character.is_active = False
         character.is_hidden = True
         await self._session.flush()
+
+    async def list_catalog_ordered(self) -> list[Character]:
+        result = await self._session.execute(
+            select(Character)
+            .where(*_CATALOG_VISIBLE)
+            .order_by(Character.sort_order, Character.name)
+        )
+        return list(result.scalars().all())
+
+    async def bump_catalog_sort_orders(self) -> None:
+        await self._session.execute(
+            update(Character)
+            .where(*_CATALOG_VISIBLE)
+            .values(sort_order=Character.sort_order + 1)
+        )
+
+    async def prepend_to_catalog(self, character_id: UUID) -> None:
+        await self.bump_catalog_sort_orders()
+        character = await self.get_by_id(character_id)
+        if character:
+            character.sort_order = 0
+            await self._session.flush()
+
+    async def move_catalog(self, character_id: UUID, direction: str) -> bool:
+        catalog = await self.list_catalog_ordered()
+        idx = next((i for i, c in enumerate(catalog) if c.id == character_id), None)
+        if idx is None:
+            return False
+        if direction == "up" and idx > 0:
+            catalog[idx], catalog[idx - 1] = catalog[idx - 1], catalog[idx]
+        elif direction == "down" and idx < len(catalog) - 1:
+            catalog[idx], catalog[idx + 1] = catalog[idx + 1], catalog[idx]
+        elif direction == "top" and idx > 0:
+            item = catalog.pop(idx)
+            catalog.insert(0, item)
+        else:
+            return False
+        for i, character in enumerate(catalog):
+            character.sort_order = i
+        await self._session.flush()
+        return True

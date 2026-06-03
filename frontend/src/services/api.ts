@@ -45,6 +45,11 @@ export const characterService = {
     }
     return this.getBySlug(idOrSlug);
   },
+
+  async listScenarios(characterId: string) {
+    const { data } = await apiClient.get(`/characters/${characterId}/scenarios`);
+    return data;
+  },
 };
 
 export const chatListService = {

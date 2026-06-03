@@ -105,6 +105,25 @@ class PaymentRepository:
         await self._session.flush()
         return balance
 
+    async def set_balance(
+        self,
+        user_id: UUID,
+        *,
+        gems: int | None = None,
+        credits: int | None = None,
+    ) -> UserBalance:
+        balance = await self.get_balance(user_id)
+        if not balance:
+            balance = UserBalance(user_id=user_id, gems=0, credits=0)
+            self._session.add(balance)
+            await self._session.flush()
+        if gems is not None:
+            balance.gems = gems
+        if credits is not None:
+            balance.credits = credits
+        await self._session.flush()
+        return balance
+
     async def list_transactions(self, user_id: UUID, page: int = 1, page_size: int = 20) -> tuple[list[Transaction], int]:
         query = select(Transaction).where(Transaction.user_id == user_id)
         total = (await self._session.execute(select(func.count()).select_from(query.subquery()))).scalar_one()

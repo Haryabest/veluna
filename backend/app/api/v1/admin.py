@@ -14,6 +14,8 @@ from app.schemas import (
 from app.schemas.admin import (
     AdminStatsResponse,
     AdminUserDetailResponse,
+    AdminUserStatsDetailResponse,
+    AdminUserUpdateRequest,
     AnalyticsSummaryResponse,
     ApiUsageResponse,
     CharacterMediaConfirmRequest,
@@ -57,10 +59,11 @@ async def get_stats(
 @router.get("/users", response_model=PaginatedResponse)
 async def list_users(
     page: int = Query(1, ge=1),
+    q: str | None = Query(None, min_length=1, max_length=100),
     admin: UserResponse = Depends(get_admin_user),
     session: AsyncSession = Depends(get_db),
 ):
-    return await _service(session).list_users(admin.id, page=page)
+    return await _service(session).list_users(admin.id, page=page, search=q)
 
 
 @router.get("/users/{user_id}", response_model=AdminUserDetailResponse)
@@ -70,6 +73,25 @@ async def get_user(
     session: AsyncSession = Depends(get_db),
 ):
     return await _service(session).get_user(admin.id, user_id)
+
+
+@router.get("/users/{user_id}/stats", response_model=AdminUserStatsDetailResponse)
+async def get_user_stats(
+    user_id: UUID,
+    admin: UserResponse = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_db),
+):
+    return await _service(session).get_user_stats(admin.id, user_id)
+
+
+@router.patch("/users/{user_id}", response_model=AdminUserDetailResponse)
+async def update_user(
+    user_id: UUID,
+    body: AdminUserUpdateRequest,
+    admin: UserResponse = Depends(get_admin_user),
+    session: AsyncSession = Depends(get_db),
+):
+    return await _service(session).update_user(admin.id, user_id, body)
 
 
 @router.patch("/users/{user_id}/ban", response_model=AdminUserDetailResponse)
