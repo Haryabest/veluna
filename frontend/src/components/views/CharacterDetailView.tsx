@@ -1,33 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Button } from "@/components/shared/Button";
+import { BackButton } from "@/components/shared/BackButton";
 import { useNavStore } from "@/store/nav-store";
 import { getMockCharacter } from "@/lib/mock-data";
-
-function AppleBackButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label="Назад"
-      className="flex h-9 w-9 items-center justify-center rounded-full border border-accent/20 bg-black/30 backdrop-blur-xl transition-transform active:scale-90"
-    >
-      <svg
-        className="h-[18px] w-[18px] text-white"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden
-      >
-        <path d="M14.5 6.5L9 12l5.5 5.5" />
-      </svg>
-    </button>
-  );
-}
 
 export function CharacterDetailView() {
   const characterId = useNavStore((s) => s.characterId);
@@ -40,9 +16,7 @@ export function CharacterDetailView() {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-4">
         <p className="text-text-muted">Персонаж не найден</p>
-        <Button variant="ghost" className="mt-4" onClick={goBack}>
-          Назад
-        </Button>
+        <BackButton onClick={goBack} className="mt-4" />
       </div>
     );
   }
@@ -80,7 +54,7 @@ export function CharacterDetailView() {
 
         {/* Top bar */}
         <div className="absolute inset-x-0 top-0 flex items-start justify-between px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
-          <AppleBackButton onClick={goBack} />
+          <BackButton onClick={goBack} className="text-white" />
         </div>
       </div>
 

@@ -16,6 +16,7 @@ export const ROUTES = {
   shop: "/shop",
   profile: "/profile",
   settings: "/settings",
+  history: "/history",
   admin: "/admin",
 } as const;
 
@@ -28,6 +29,7 @@ export const QUERY_KEYS = {
   messages: (chatId: string) => ["messages", chatId] as const,
   generations: ["generations"] as const,
   balance: ["balance"] as const,
+  balanceHistory: (type: string) => ["balance-history", type] as const,
   transactions: ["transactions"] as const,
   adminStats: ["admin", "stats"] as const,
 } as const;

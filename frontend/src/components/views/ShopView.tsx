@@ -18,6 +18,7 @@ import {
   type ShopProduct,
   type ShopTab,
 } from "@/lib/shop";
+import { BackButton } from "@/components/shared/BackButton";
 import { CHAT_BORDER } from "@/lib/theme";
 import { formatGems } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -93,14 +94,7 @@ export function ShopView() {
   return (
     <div className="mx-auto max-w-lg px-4 pb-8 pt-4">
       <header className="mb-4 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={goBack}
-          aria-label="Назад"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full glass-strong text-lg active:scale-95"
-        >
-          ←
-        </button>
+        <BackButton onClick={goBack} className="h-10 w-10 glass-strong active:scale-95" />
         <div>
           <h1 className="text-xl font-bold">Магазин</h1>
           <p className="text-sm text-text-secondary">

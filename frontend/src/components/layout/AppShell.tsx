@@ -11,6 +11,8 @@ import { CharacterDetailView } from "@/components/views/CharacterDetailView";
 import { ScenarioSelectView } from "@/components/views/ScenarioSelectView";
 import { ChatDialogView } from "@/components/views/ChatDialogView";
 import { ShopView } from "@/components/views/ShopView";
+import { HistoryView } from "@/components/views/HistoryView";
+import { TopUpBalanceView } from "@/components/views/TopUpBalanceView";
 
 const tabVariants = {
   initial: { opacity: 0, x: 12 },
@@ -64,6 +66,16 @@ export function AppShell() {
           {screen === "shop" && (
             <motion.div key="shop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <ShopView />
+            </motion.div>
+          )}
+          {screen === "history" && (
+            <motion.div key="history" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
+              <HistoryView />
+            </motion.div>
+          )}
+          {screen === "topup" && (
+            <motion.div key="topup" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
+              <TopUpBalanceView />
             </motion.div>
           )}
         </AnimatePresence>

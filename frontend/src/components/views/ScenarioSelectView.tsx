@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { useNavStore } from "@/store/nav-store";
 import { getMockCharacter, MOCK_SCENARIOS } from "@/lib/mock-data";
+import { BackButton } from "@/components/shared/BackButton";
 import { cn } from "@/lib/utils";
 
 export function ScenarioSelectView() {
@@ -15,14 +16,7 @@ export function ScenarioSelectView() {
   return (
     <div className="mx-auto min-h-screen max-w-lg px-4 pb-8 pt-4">
       <header className="mb-5 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={goBack}
-          aria-label="Назад"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full glass-strong text-lg active:scale-95"
-        >
-          ←
-        </button>
+        <BackButton onClick={goBack} className="h-10 w-10 glass-strong active:scale-95" />
         <div>
           <h1 className="text-lg font-bold">Выбор сценария</h1>
           {character && (

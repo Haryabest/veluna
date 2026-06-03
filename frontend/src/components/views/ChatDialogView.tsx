@@ -2,9 +2,11 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useNavStore } from "@/store/nav-store";
+import { useChatsListStore } from "@/store/chats-list-store";
 import { getMockChat, getMockMessages, type MockMessage } from "@/lib/mock-data";
 import { EmojiPicker } from "@/components/widgets/EmojiPicker";
 import { AnimeGemIcon } from "@/components/icons/CurrencyIcons";
+import { BackButton } from "@/components/shared/BackButton";
 import { cn } from "@/lib/utils";
 
 const DARK_GRADIENT_BG = "linear-gradient(135deg, #2d1b42 0%, #1a1228 55%, #130d1c 100%)";
@@ -13,21 +15,6 @@ import { CHAT_BORDER } from "@/lib/theme";
 
 function formatTime() {
   return new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-}
-
-function AppleBackButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label="Назад"
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-primary transition-transform active:scale-90"
-    >
-      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-        <path d="M14.5 6.5L9 12l5.5 5.5" />
-      </svg>
-    </button>
-  );
 }
 
 function EmojiSmileIcon({ className }: { className?: string }) {
@@ -52,8 +39,10 @@ function SendIcon({ className }: { className?: string }) {
 export function ChatDialogView() {
   const chatId = useNavStore((s) => s.chatId);
   const goBack = useNavStore((s) => s.goBack);
+  const listChat = useChatsListStore((s) => (chatId ? s.getChat(chatId) : undefined));
 
   const chat = chatId ? getMockChat(chatId) : null;
+  const characterName = listChat?.displayName ?? chat?.characterName ?? "";
   const [messages, setMessages] = useState<MockMessage[]>(() =>
     chatId ? getMockMessages(chatId) : []
   );
@@ -117,11 +106,11 @@ export function ChatDialogView() {
         className="glass-strong relative z-10 flex shrink-0 items-center gap-2 px-3 py-2.5 pt-[max(0.5rem,env(safe-area-inset-top))]"
         style={{ borderBottom: `1px solid ${CHAT_BORDER}` }}
       >
-        <AppleBackButton onClick={goBack} />
+        <BackButton onClick={goBack} />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={chat.avatarUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[15px] font-semibold">{chat.characterName}</p>
+          <p className="truncate text-[15px] font-semibold">{characterName}</p>
           <p className="text-xs text-emerald-400">онлайн</p>
         </div>
         <button

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 export type AppTab = "home" | "studio" | "chats" | "profile";
-export type AppScreen = AppTab | "character" | "scenarios" | "chat" | "shop";
+export type AppScreen = AppTab | "character" | "scenarios" | "chat" | "shop" | "history" | "topup";
 
 interface NavState {
   tab: AppTab;
@@ -14,6 +14,8 @@ interface NavState {
   openChat: (chatId: string) => void;
   openChatForCharacter: (characterId: string) => void;
   openShop: () => void;
+  openHistory: () => void;
+  openTopUp: () => void;
   goBack: () => void;
 }
 
@@ -38,10 +40,16 @@ export const useNavStore = create<NavState>((set, get) => ({
 
   openShop: () => set({ screen: "shop" }),
 
+  openHistory: () => set({ screen: "history", tab: "profile" }),
+
+  openTopUp: () => set({ screen: "topup", tab: "profile" }),
+
   goBack: () => {
     const { screen, tab } = get();
     if (screen === "chat") {
       set({ screen: "chats", chatId: null });
+    } else if (screen === "history" || screen === "topup") {
+      set({ screen: "profile" });
     } else if (screen === "shop") {
       set({ screen: tab });
     } else if (screen === "scenarios") {
