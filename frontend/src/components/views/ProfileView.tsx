@@ -47,11 +47,7 @@ export function ProfileView() {
 
   return (
     <div className="mx-auto max-w-lg space-y-4 px-4 pt-6">
-      <motion.header
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-4"
-      >
+      <header className="flex items-center gap-4">
         <div className="h-16 w-16 overflow-hidden rounded-full bg-bg-elevated ring-2 ring-accent/30">
           {photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -64,7 +60,7 @@ export function ProfileView() {
           <h1 className="text-xl font-bold">{displayName || "Гость"}</h1>
           {username && <p className="text-sm text-text-muted">@{username}</p>}
         </div>
-      </motion.header>
+      </header>
 
       <ListPanel>
         <div className="grid grid-cols-2">

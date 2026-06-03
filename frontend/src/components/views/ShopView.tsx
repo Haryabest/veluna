@@ -88,11 +88,7 @@ export function ShopView() {
         return;
       }
       await ensureTelegramSession();
-      const checkout = await shopService.checkout(
-        selected.id,
-        promoCode || undefined,
-        "stars"
-      );
+      const checkout = await shopService.checkout(selected.id, promoCode || undefined);
       const status = await openTelegramInvoice(checkout.invoice_url);
 
       if (status === "paid") {

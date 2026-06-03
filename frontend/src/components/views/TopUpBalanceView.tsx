@@ -2,21 +2,17 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, Star, Wallet } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { useNavStore } from "@/store/nav-store";
 import { BackButton } from "@/components/shared/BackButton";
 import { ListPanel } from "@/components/shared/ListPanel";
 import { Separator } from "@/components/shared/Separator";
 import { AnimeGemIcon, AnimeHeartIcon } from "@/components/icons/CurrencyIcons";
-import {
-  balanceService,
-  type TopUpCurrency,
-  type TopUpPaymentMethod,
-  type TopUpQuote,
-} from "@/services/api";
-import { CHAT_BORDER, chatBorderStyle, chatSeparatorStyle, chatSeparatorVerticalStyle } from "@/lib/theme";
+import { balanceService, type TopUpCurrency, type TopUpQuote } from "@/services/api";
+import { CHAT_BORDER, chatSeparatorVerticalStyle } from "@/lib/theme";
 import { cn, formatGems } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { openTelegramInvoice } from "@/hooks/use-telegram-payment";
 import { canPayWithTelegramStars } from "@/lib/telegram-webapp";
 
 const PRESET_AMOUNTS = [50, 100, 250, 500];
@@ -43,9 +39,6 @@ export function TopUpBalanceView() {
   const [promoError, setPromoError] = useState("");
   const [promoApplying, setPromoApplying] = useState(false);
   const [quote, setQuote] = useState<TopUpQuote | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<TopUpPaymentMethod>(
-    starsAvailable ? "stars" : "other"
-  );
   const [loading, setLoading] = useState(false);
   const [paying, setPaying] = useState(false);
 
@@ -114,26 +107,35 @@ export function TopUpBalanceView() {
 
   const handlePay = async () => {
     if (!quote) return;
+
+    if (!canPayWithTelegramStars()) {
+      toast("Откройте пополнение через Telegram Mini App", "info");
+      return;
+    }
+
     setPaying(true);
     try {
       const res = await balanceService.topUpCheckout({
         currency_type: currency,
         amount,
         promo_code: (appliedPromo ?? promo.trim()) || undefined,
-        payment_method: paymentMethod,
         stars_amount: quote.stars_amount,
       });
-      if (paymentMethod === "stars" && res.invoice_url) {
-        toast("Открываем оплату Stars…", "info");
+
+      if (res.invoice_url) {
+        const status = await openTelegramInvoice(res.invoice_url);
+        if (status === "paid") {
+          toast("Оплата прошла! Баланс обновится в профиле", "success");
+          goBack();
+        } else if (status === "cancelled") {
+          toast("Оплата отменена", "info");
+        } else {
+          toast("Не удалось завершить оплату Stars", "error");
+        }
       } else {
-        toast(
-          paymentMethod === "stars"
-            ? `Заглушка: ${quote.stars_amount} ⭐ за ${amount} ${currencyLabel}`
-            : "Другие способы оплаты скоро",
-          "success"
-        );
+        toast(`Заглушка: ${quote.stars_amount} ⭐ за ${amount} ${currencyLabel}`, "info");
+        goBack();
       }
-      goBack();
     } catch {
       toast("Не удалось оформить оплату", "error");
     } finally {
@@ -332,38 +334,27 @@ export function TopUpBalanceView() {
               </ListPanel>
             )}
 
-            <p className="text-sm font-medium text-text-secondary">Способ оплаты</p>
-            <ListPanel>
-              <PaymentOption
-                active={paymentMethod === "stars"}
-                onClick={() => setPaymentMethod("stars")}
-                icon={<Star className="h-5 w-5" fill="currentColor" />}
-                label="Telegram Stars"
-                hint={starsAvailable ? "Рекомендуется" : "Только в Telegram"}
-                disabled={!starsAvailable}
-                showSeparator
-              />
-              <PaymentOption
-                active={paymentMethod === "other"}
-                onClick={() => setPaymentMethod("other")}
-                icon={<Wallet className="h-5 w-5" />}
-                label="Другой способ"
-                hint="Скоро"
-              />
-            </ListPanel>
+            {!starsAvailable && (
+              <p
+                className="rounded-xl bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200/90"
+                style={{ border: `1px solid ${CHAT_BORDER}` }}
+              >
+                Оплата Telegram Stars доступна только в Mini App (кнопка бота в Telegram).
+              </p>
+            )}
+
+            <p className="text-sm text-text-secondary">
+              Списание с баланса Telegram Stars вашего аккаунта
+            </p>
 
             <button
               type="button"
-              disabled={paying}
+              disabled={paying || !starsAvailable}
               onClick={handlePay}
               className="w-full rounded-2xl py-4 text-sm font-bold uppercase tracking-wide text-white shadow-glow-sm disabled:opacity-50"
               style={{ background: CTA_GRADIENT }}
             >
-              {paying
-                ? "Обработка…"
-                : paymentMethod === "stars"
-                  ? `Оплатить ⭐ ${quote?.stars_amount ?? 0}`
-                  : "Продолжить"}
+              {paying ? "Обработка…" : `Оплатить ⭐ ${quote?.stars_amount ?? 0}`}
             </button>
           </motion.div>
         )}
@@ -410,62 +401,6 @@ function StepperButton({ label, onClick }: { label: string; onClick: () => void 
       style={{ border: `1px solid ${CHAT_BORDER}` }}
     >
       {label}
-    </button>
-  );
-}
-
-function PaymentOption({
-  active,
-  onClick,
-  icon,
-  label,
-  hint,
-  disabled,
-  showSeparator,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-  hint: string;
-  disabled?: boolean;
-  showSeparator?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(
-        "flex w-full items-center gap-3 px-4 py-3.5 text-left transition-all",
-        disabled && "cursor-not-allowed opacity-45",
-        active && !disabled ? cn(PANEL_ACTIVE, "text-white") : "text-text-muted hover:bg-bg-elevated/50"
-      )}
-      style={showSeparator ? chatSeparatorStyle : undefined}
-    >
-      <span
-        className={cn(
-          "flex h-10 w-10 items-center justify-center rounded-xl",
-          active && !disabled
-            ? "bg-gradient-to-br from-white/20 to-white/5 text-accent-light"
-            : "bg-gradient-to-br from-[#1a1228] to-[#130d1c] text-text-muted"
-        )}
-        style={chatBorderStyle}
-      >
-        {icon}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold">{label}</p>
-        <p className={cn("text-xs", active && !disabled ? "text-white/75" : "text-text-muted")}>
-          {hint}
-        </p>
-      </div>
-      <span
-        className={cn(
-          "h-4 w-4 shrink-0 rounded-full border-2",
-          active && !disabled ? "border-white bg-white" : "border-text-muted bg-transparent"
-        )}
-      />
     </button>
   );
 }

@@ -14,6 +14,8 @@ export type AppScreen =
 interface NavState {
   tab: AppTab;
   screen: AppScreen;
+  /** Screen to return to on goBack from history / topup */
+  returnTo: AppScreen | null;
   characterId: string | null;
   chatId: string | null;
   setTab: (tab: AppTab) => void;
@@ -31,44 +33,90 @@ interface NavState {
 export const useNavStore = create<NavState>((set, get) => ({
   tab: "home",
   screen: "home",
+  returnTo: null,
   characterId: null,
   chatId: null,
 
-  setTab: (tab) => set({ tab, screen: tab, characterId: null, chatId: null }),
+  setTab: (tab) =>
+    set({ tab, screen: tab, returnTo: null, characterId: null, chatId: null }),
 
-  openCharacter: (characterId) => set({ screen: "character", characterId }),
+  openCharacter: (characterId) => {
+    const { screen } = get();
+    set({
+      screen: "character",
+      characterId,
+      returnTo: isMainTab(screen) ? screen : get().tab,
+    });
+  },
 
-  openScenarios: () => set({ screen: "scenarios" }),
+  openScenarios: () => set({ screen: "scenarios", returnTo: "character" }),
 
-  openChat: (chatId) => set({ screen: "chat", chatId, tab: "chats" }),
+  openChat: (chatId) => set({ screen: "chat", chatId, tab: "chats", returnTo: "chats" }),
 
   openChatForCharacter: (characterId) => {
     const chatId = characterId === "0" ? "chat-4" : `chat-${characterId}`;
-    set({ screen: "chat", chatId, tab: "chats", characterId: null });
+    set({ screen: "chat", chatId, tab: "chats", characterId: null, returnTo: "chats" });
   },
 
-  openShop: () => set({ screen: "shop" }),
+  openShop: () => {
+    const { screen, tab } = get();
+    set({
+      screen: "shop",
+      tab: isMainTab(screen) ? screen : tab,
+      returnTo: isMainTab(screen) ? screen : tab,
+    });
+  },
 
-  openHistory: () => set({ screen: "history", tab: "profile" }),
+  openHistory: () =>
+    set({ screen: "history", tab: "profile", returnTo: "profile" }),
 
-  openTopUp: () => set({ screen: "topup", tab: "profile" }),
+  openTopUp: () => {
+    const { screen } = get();
+    set({
+      screen: "topup",
+      tab: "profile",
+      returnTo: screen,
+    });
+  },
 
-  openStudioCreate: () => set({ screen: "studio-create", tab: "studio" }),
+  openStudioCreate: () => set({ screen: "studio-create", tab: "studio", returnTo: "studio" }),
 
   goBack: () => {
-    const { screen, tab } = get();
+    const { screen, tab, returnTo } = get();
+
     if (screen === "chat") {
-      set({ screen: "chats", chatId: null });
-    } else if (screen === "studio-create") {
-      set({ screen: "studio" });
-    } else if (screen === "history" || screen === "topup") {
-      set({ screen: "profile" });
-    } else if (screen === "shop") {
-      set({ screen: tab });
-    } else if (screen === "scenarios") {
-      set({ screen: "character" });
-    } else if (screen === "character") {
-      set({ screen: tab, characterId: null });
+      set({ screen: "chats", chatId: null, returnTo: null });
+      return;
+    }
+    if (screen === "studio-create") {
+      set({ screen: "studio", returnTo: null });
+      return;
+    }
+    if (screen === "history") {
+      set({ screen: "profile", tab: "profile", returnTo: null });
+      return;
+    }
+    if (screen === "topup") {
+      const next =
+        returnTo === "history"
+          ? "history"
+          : returnTo && isMainTab(returnTo)
+            ? returnTo
+            : "profile";
+      set({ screen: next, tab: "profile", returnTo: null });
+      return;
+    }
+    if (screen === "shop") {
+      set({ screen: tab, returnTo: null });
+      return;
+    }
+    if (screen === "scenarios") {
+      set({ screen: "character", returnTo: returnTo ?? tab });
+      return;
+    }
+    if (screen === "character") {
+      set({ screen: returnTo && isMainTab(returnTo) ? returnTo : tab, characterId: null, returnTo: null });
+      return;
     }
   },
 }));

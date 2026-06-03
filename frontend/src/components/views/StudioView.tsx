@@ -8,7 +8,10 @@ import { STUDIO_GALLERY } from "@/lib/studio";
 import { chatBorderStyle } from "@/lib/theme";
 
 export function StudioView() {
+  const screen = useNavStore((s) => s.screen);
+  const tab = useNavStore((s) => s.tab);
   const openStudioCreate = useNavStore((s) => s.openStudioCreate);
+  const showFab = tab === "studio" && screen === "studio";
 
   return (
     <div className="relative mx-auto max-w-lg px-4 pb-36 pt-6">
@@ -52,7 +55,8 @@ export function StudioView() {
         ))}
       </motion.div>
 
-      {typeof document !== "undefined" &&
+      {showFab &&
+        typeof document !== "undefined" &&
         createPortal(
           <button
             type="button"
