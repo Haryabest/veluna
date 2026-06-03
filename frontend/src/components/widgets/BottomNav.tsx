@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useMounted } from "@/hooks/use-mounted";
 import { useNavStore, type AppTab } from "@/store/nav-store";
 
 const navItems: { tab: AppTab; label: string; Icon: React.FC<IconProps> }[] = [
@@ -12,6 +13,7 @@ const navItems: { tab: AppTab; label: string; Icon: React.FC<IconProps> }[] = [
 ];
 
 export function BottomNav() {
+  const mounted = useMounted();
   const tab = useNavStore((s) => s.tab);
   const setTab = useNavStore((s) => s.setTab);
 
@@ -34,12 +36,18 @@ export function BottomNav() {
                 isCenter ? "min-w-[72px] -mt-3" : "min-w-[56px]"
               )}
             >
-              {isActive && (
+              {isActive && mounted && (
                 <motion.div
                   layoutId="nav-indicator"
                   className="-top-0.5 absolute h-0.5 w-6 rounded-full bg-gradient-to-r from-accent-light via-accent to-accent-deep"
                   style={{ boxShadow: "0 0 12px rgba(199,125,255,0.8)" }}
                   transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                />
+              )}
+              {isActive && !mounted && (
+                <div
+                  className="-top-0.5 absolute h-0.5 w-6 rounded-full bg-gradient-to-r from-accent-light via-accent to-accent-deep"
+                  style={{ boxShadow: "0 0 12px rgba(199,125,255,0.8)" }}
                 />
               )}
 

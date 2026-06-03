@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { useNavStore } from "@/store/nav-store";
+import { useMounted } from "@/hooks/use-mounted";
 import { balanceService } from "@/services/api";
 import { QUERY_KEYS } from "@/lib/constants";
 import { BackButton } from "@/components/shared/BackButton";
@@ -20,6 +21,7 @@ const TABS: { id: HistoryTab; label: string }[] = [
 ];
 
 export function HistoryView() {
+  const mounted = useMounted();
   const goBack = useNavStore((s) => s.goBack);
   const [tab, setTab] = useState<HistoryTab>("expense");
 
@@ -48,14 +50,20 @@ export function HistoryView() {
               tab === t.id ? "text-text-primary" : "text-text-muted hover:text-text-secondary"
             )}
           >
-            {tab === t.id && (
-              <motion.div
-                layoutId="history-tab"
-                className="absolute inset-0 rounded-xl bg-bg-elevated"
-                style={chatBorderStyle}
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              />
-            )}
+            {tab === t.id &&
+              (mounted ? (
+                <motion.div
+                  layoutId="history-tab"
+                  className="absolute inset-0 rounded-xl bg-bg-elevated"
+                  style={chatBorderStyle}
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                />
+              ) : (
+                <div
+                  className="absolute inset-0 rounded-xl bg-bg-elevated"
+                  style={chatBorderStyle}
+                />
+              ))}
             <span className="relative z-[1]">{t.label}</span>
           </button>
         ))}

@@ -76,7 +76,7 @@ export function ProfileView() {
           <div style={chatSeparatorVerticalStyle}>
             <BalanceCell
               icon={<AnimeHeartIcon className="h-[22px] w-[22px]" />}
-              label="Кредиты"
+              label="Сердца"
               value={formatGems(creditsDisplay)}
             />
           </div>

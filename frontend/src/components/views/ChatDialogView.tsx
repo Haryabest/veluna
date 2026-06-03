@@ -102,10 +102,7 @@ export function ChatDialogView() {
 
   return (
     <div className="relative mx-auto flex h-[100dvh] max-w-lg flex-col overflow-hidden bg-transparent">
-      <header
-        className="glass-strong relative z-10 flex shrink-0 items-center gap-2 px-3 py-2.5 pt-[max(0.5rem,env(safe-area-inset-top))]"
-        style={{ borderBottom: `1px solid ${CHAT_BORDER}` }}
-      >
+      <header className="relative z-10 flex shrink-0 items-center gap-2 px-3 py-2.5 pt-[max(0.5rem,env(safe-area-inset-top))]">
         <BackButton onClick={goBack} />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={chat.avatarUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
@@ -128,7 +125,10 @@ export function ChatDialogView() {
 
       <div
         className="relative z-10 flex-1 space-y-3 overflow-y-auto px-4 py-4"
-        style={{ paddingBottom: "calc(12rem - 40px + 15px + env(safe-area-inset-bottom, 0px))" }}
+        style={{
+          paddingBottom:
+            "calc(11.5rem + max(0.75rem, env(safe-area-inset-bottom, 0px)))",
+        }}
       >
         {messages.map((msg) => (
           <div
@@ -162,15 +162,12 @@ export function ChatDialogView() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Footer — fixed, сильно выше низа экрана */}
       <div
-        className="glass-strong fixed inset-x-0 z-30 mx-auto max-w-lg px-3 pb-2 pt-2"
+        className="fixed inset-x-0 z-30 mx-auto flex max-w-lg flex-col gap-3 px-3"
         style={{
-          borderTop: `1px solid ${CHAT_BORDER}`,
-          bottom: "calc(7rem - 70px + env(safe-area-inset-bottom, 0px))",
+          bottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))",
         }}
       >
-        {/* Input row */}
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -213,10 +210,9 @@ export function ChatDialogView() {
           </button>
         </div>
 
-        {/* Generate photo — под полем ввода */}
         <div
-          className="rounded-2xl p-[1px] shadow-[0_4px_20px_rgba(0,0,0,0.45)]"
-          style={{ background: DARK_GRADIENT_BORDER, marginTop: "calc(0.625rem + 15px)" }}
+          className="rounded-2xl p-[1px]"
+          style={{ background: DARK_GRADIENT_BORDER }}
         >
           <button
             type="button"

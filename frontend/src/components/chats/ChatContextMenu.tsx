@@ -72,7 +72,7 @@ export function ChatContextMenu({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.92, y: -8 }}
             transition={{ type: "spring", stiffness: 420, damping: 28 }}
-            className="fixed z-[85] min-w-[200px] overflow-hidden rounded-2xl bg-bg-elevated/95 py-1 shadow-glow backdrop-blur-xl"
+            className="fixed z-[85] min-w-[200px] overflow-hidden rounded-2xl bg-bg-elevated/95 py-1 backdrop-blur-xl"
             style={{
               top: menuTop,
               left: menuLeft,

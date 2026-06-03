@@ -49,7 +49,7 @@ export function TopUpBalanceView() {
   const [loading, setLoading] = useState(false);
   const [paying, setPaying] = useState(false);
 
-  const currencyLabel = currency === "gems" ? "гемов" : "кредитов";
+  const currencyLabel = currency === "gems" ? "гемов" : "сердец";
   const promoApplied = appliedPromo !== null && promoDiscount > 0;
 
   const handleApplyPromo = async () => {
@@ -191,7 +191,7 @@ export function TopUpBalanceView() {
                     active={currency === "credits"}
                     onClick={() => setCurrency("credits")}
                     icon={<AnimeHeartIcon className="h-6 w-6" />}
-                    label="Кредиты"
+                    label="Сердца"
                   />
                 </div>
               </div>
@@ -317,7 +317,7 @@ export function TopUpBalanceView() {
               <ListPanel className="space-y-0 p-4 text-sm">
                 <SummaryRow
                   label="Получите"
-                  value={`${formatGems(amount)} ${currency === "gems" ? "гемов" : "кредитов"}`}
+                  value={`${formatGems(amount)} ${currency === "gems" ? "гемов" : "сердец"}`}
                 />
                 {(quote.discount_percent > 0 || appliedPromo) && <Separator className="my-3" />}
                 {quote.discount_percent > 0 && (

@@ -8,11 +8,11 @@ import { cn } from "@/lib/utils";
 
 const TYPE_META: Record<
   ShopProduct["product_type"],
-  { emoji: string; label: string }
+  { emoji: string | null; label: string }
 > = {
   bundle: { emoji: "🎁", label: "Набор" },
   gems: { emoji: "💎", label: "Гемы" },
-  credits: { emoji: "✨", label: "Кредиты" },
+  credits: { emoji: null, label: "Сердца" },
 };
 
 interface ShopProductCardProps {
@@ -50,7 +50,11 @@ export function ShopProductCard({
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-bg-elevated text-lg"
         style={chatBorderStyle}
       >
-        {meta.emoji}
+        {meta.emoji ? (
+          <span>{meta.emoji}</span>
+        ) : (
+          <AnimeHeartIcon className="h-5 w-5" />
+        )}
       </span>
 
       <div className="min-w-0 flex-1">
@@ -72,7 +76,7 @@ export function ShopProductCard({
           )}
           {product.credits_amount > 0 && (
             <span className="inline-flex items-center gap-0.5">
-              <AnimeHeartIcon className="h-3 w-3" />
+              <AnimeHeartIcon className="h-3.5 w-3.5" />
               {product.credits_amount}
             </span>
           )}

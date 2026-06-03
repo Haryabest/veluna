@@ -90,4 +90,40 @@ body {
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+
+  .studio-fab-gradient {
+    background: linear-gradient(
+      135deg,
+      #ff4ecd 0%,
+      #e879f9 25%,
+      #a855f7 50%,
+      #6366f1 75%,
+      #ff4ecd 100%
+    );
+    background-size: 300% 300%;
+    animation: studio-gradient-shift 5s ease infinite;
+    box-shadow: 0 8px 28px rgba(232, 121, 249, 0.45);
+  }
+
+  .studio-generate-btn {
+    background: linear-gradient(
+      90deg,
+      #9333ea 0%,
+      #7c3aed 35%,
+      #6366f1 70%,
+      #4f46e5 100%
+    );
+    background-size: 200% 100%;
+    animation: studio-gradient-shift 6s ease infinite;
+  }
+}
+
+@keyframes studio-gradient-shift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }

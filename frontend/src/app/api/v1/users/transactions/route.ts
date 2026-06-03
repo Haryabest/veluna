@@ -36,7 +36,7 @@ const DEPOSITS = [
     id: "dep-2",
     amount: 50,
     currency: "credits" as const,
-    description: "Покупка кредитов",
+    description: "Покупка сердец",
     created_at: "2026-05-30T10:20:00Z",
   },
   {
