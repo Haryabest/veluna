@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { ShopCheckoutSheet } from "@/components/shop/ShopCheckoutSheet";
 import { ShopProductCard } from "@/components/shop/ShopProductCard";
+import { ListPanel } from "@/components/shared/ListPanel";
 import { useToast } from "@/hooks/use-toast";
 import { openTelegramInvoice } from "@/hooks/use-telegram-payment";
 import { getApiError } from "@/lib/api-client";
@@ -19,7 +20,7 @@ import {
   type ShopTab,
 } from "@/lib/shop";
 import { BackButton } from "@/components/shared/BackButton";
-import { CHAT_BORDER } from "@/lib/theme";
+import { chatBorderStyle } from "@/lib/theme";
 import { formatGems } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
@@ -94,7 +95,7 @@ export function ShopView() {
   return (
     <div className="mx-auto max-w-lg px-4 pb-8 pt-4">
       <header className="mb-4 flex items-center gap-3">
-        <BackButton onClick={goBack} className="h-10 w-10 glass-strong active:scale-95" />
+        <BackButton onClick={goBack} />
         <div>
           <h1 className="text-xl font-bold">Магазин</h1>
           <p className="text-sm text-text-secondary">
@@ -103,23 +104,26 @@ export function ShopView() {
         </div>
       </header>
 
-      <div
-        className="mb-4 flex gap-1 rounded-2xl bg-bg-elevated/60 p-1"
-        style={{ border: `1px solid ${CHAT_BORDER}` }}
-      >
+      <div className="mb-4 flex gap-1 rounded-2xl bg-bg-elevated/60 p-1" style={chatBorderStyle}>
         {TABS.map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
             className={cn(
-              "flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all",
-              tab === t
-                ? "bg-accent/25 text-accent-light shadow-[0_0_12px_rgba(160,32,240,0.35)]"
-                : "text-text-muted hover:text-text-secondary"
+              "relative flex-1 rounded-xl py-2.5 text-sm font-medium transition-all",
+              tab === t ? "text-text-primary" : "text-text-muted hover:text-text-secondary"
             )}
           >
-            {SHOP_TAB_LABELS[t]}
+            {tab === t && (
+              <motion.div
+                layoutId="shop-tab"
+                className="absolute inset-0 rounded-xl bg-bg-elevated"
+                style={chatBorderStyle}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              />
+            )}
+            <span className="relative z-[1]">{SHOP_TAB_LABELS[t]}</span>
           </button>
         ))}
       </div>
@@ -128,22 +132,25 @@ export function ShopView() {
         <p className="py-8 text-center text-sm text-text-muted">Загрузка…</p>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        {filtered.map((product, i) => (
-          <ShopProductCard
-            key={product.id}
-            product={product}
-            index={i}
-            onSelect={() => {
-              setSelected(product);
-              setSheetOpen(true);
-            }}
-          />
-        ))}
-      </div>
-
       {!isLoading && filtered.length === 0 && (
         <p className="py-12 text-center text-sm text-text-muted">Товаров пока нет</p>
+      )}
+
+      {!isLoading && filtered.length > 0 && (
+        <ListPanel>
+          {filtered.map((product, i) => (
+            <ShopProductCard
+              key={product.id}
+              product={product}
+              index={i}
+              showSeparator={i < filtered.length - 1}
+              onSelect={() => {
+                setSelected(product);
+                setSheetOpen(true);
+              }}
+            />
+          ))}
+        </ListPanel>
       )}
 
       <ShopCheckoutSheet

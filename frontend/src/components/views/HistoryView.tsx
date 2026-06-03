@@ -7,9 +7,10 @@ import { useNavStore } from "@/store/nav-store";
 import { balanceService } from "@/services/api";
 import { QUERY_KEYS } from "@/lib/constants";
 import { BackButton } from "@/components/shared/BackButton";
+import { ListPanel } from "@/components/shared/ListPanel";
 import { AnimeGemIcon, AnimeHeartIcon } from "@/components/icons/CurrencyIcons";
 import { formatGems, cn } from "@/lib/utils";
-import { CHAT_BORDER } from "@/lib/theme";
+import { chatBorderStyle, chatSeparatorStyle } from "@/lib/theme";
 
 type HistoryTab = "expense" | "deposit";
 
@@ -35,10 +36,8 @@ export function HistoryView() {
         <BackButton onClick={goBack} />
         <h1 className="text-xl font-bold">История</h1>
       </div>
-      <div
-        className="mb-5 flex gap-1 rounded-2xl bg-bg-elevated/60 p-1"
-        style={{ border: `1px solid ${CHAT_BORDER}` }}
-      >
+
+      <div className="mb-4 flex gap-1 rounded-2xl bg-bg-elevated/60 p-1" style={chatBorderStyle}>
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -53,7 +52,7 @@ export function HistoryView() {
               <motion.div
                 layoutId="history-tab"
                 className="absolute inset-0 rounded-xl bg-bg-elevated"
-                style={{ border: `1px solid ${CHAT_BORDER}` }}
+                style={chatBorderStyle}
                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
               />
             )}
@@ -63,24 +62,29 @@ export function HistoryView() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">
+        <ListPanel>
           {[1, 2, 3].map((i) => (
-            <div key={i} className="glass h-16 animate-pulse rounded-2xl" />
+            <div
+              key={i}
+              className="h-14 animate-pulse bg-bg-elevated/50"
+              style={i < 3 ? chatSeparatorStyle : undefined}
+            />
           ))}
-        </div>
+        </ListPanel>
       ) : items.length === 0 ? (
         <p className="py-12 text-center text-sm text-text-muted">Пока нет записей</p>
       ) : (
-        <ul className="space-y-2">
+        <ListPanel>
           {items.map((item, i) => (
-            <motion.li
+            <motion.div
               key={item.id}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.04 }}
-              className="glass flex items-center gap-3 rounded-2xl px-4 py-3"
+              transition={{ delay: i * 0.03 }}
+              className="flex items-center gap-3 px-4 py-3"
+              style={i < items.length - 1 ? chatSeparatorStyle : undefined}
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-bg-elevated/80">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-bg-elevated">
                 {item.currency === "gems" ? (
                   <AnimeGemIcon className="h-5 w-5" />
                 ) : (
@@ -107,9 +111,9 @@ export function HistoryView() {
                 {item.amount > 0 ? "+" : ""}
                 {formatGems(Math.abs(item.amount))}
               </span>
-            </motion.li>
+            </motion.div>
           ))}
-        </ul>
+        </ListPanel>
       )}
     </div>
   );

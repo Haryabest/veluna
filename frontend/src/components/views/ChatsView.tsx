@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { CHAT_BORDER } from "@/lib/theme";
+import { ListPanel } from "@/components/shared/ListPanel";
+import { chatSeparatorStyle } from "@/lib/theme";
 import { useNavStore } from "@/store/nav-store";
 import { useChatsListStore } from "@/store/chats-list-store";
 import { useLongPress } from "@/hooks/use-long-press";
@@ -117,10 +118,7 @@ export function ChatsView() {
       {chats.length === 0 ? (
         <p className="py-12 text-center text-sm text-text-muted">Нет чатов</p>
       ) : (
-        <div
-          className="overflow-hidden rounded-2xl bg-bg-elevated/40 backdrop-blur-md"
-          style={{ border: `1px solid ${CHAT_BORDER}` }}
-        >
+        <ListPanel>
           {chats.map((chat, i) => (
             <ChatRow
               key={chat.id}
@@ -130,7 +128,7 @@ export function ChatsView() {
               onLongPress={(el) => openMenu(chat.id, el)}
             />
           ))}
-        </div>
+        </ListPanel>
       )}
 
       <ChatContextMenu
@@ -208,7 +206,7 @@ function ChatRow({
         "relative flex w-full items-center gap-3 overflow-hidden px-4 py-3.5 text-left",
         !isHolding && !isTriggered && "hover:bg-bg-elevated/60"
       )}
-      style={showBorder ? { borderBottom: `1px solid ${CHAT_BORDER}` } : undefined}
+            style={showBorder ? chatSeparatorStyle : undefined}
     >
       {isHolding && (
         <motion.span

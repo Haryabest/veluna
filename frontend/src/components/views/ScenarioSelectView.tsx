@@ -4,7 +4,8 @@ import { motion } from "framer-motion";
 import { useNavStore } from "@/store/nav-store";
 import { getMockCharacter, MOCK_SCENARIOS } from "@/lib/mock-data";
 import { BackButton } from "@/components/shared/BackButton";
-import { cn } from "@/lib/utils";
+import { ListPanel } from "@/components/shared/ListPanel";
+import { chatSeparatorStyle } from "@/lib/theme";
 
 export function ScenarioSelectView() {
   const characterId = useNavStore((s) => s.characterId);
@@ -15,46 +16,39 @@ export function ScenarioSelectView() {
 
   return (
     <div className="mx-auto min-h-screen max-w-lg px-4 pb-8 pt-4">
-      <header className="mb-5 flex items-center gap-3">
-        <BackButton onClick={goBack} className="h-10 w-10 glass-strong active:scale-95" />
+      <header className="mb-4 flex items-center gap-3">
+        <BackButton onClick={goBack} />
         <div>
           <h1 className="text-lg font-bold">Выбор сценария</h1>
-          {character && (
-            <p className="text-sm text-text-muted">с {character.name}</p>
-          )}
+          {character && <p className="text-sm text-text-muted">с {character.name}</p>}
         </div>
       </header>
 
-      <div className="space-y-3">
+      <ListPanel>
         {MOCK_SCENARIOS.map((scenario, i) => (
           <motion.button
             key={scenario.id}
             type="button"
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.06 }}
+            transition={{ delay: i * 0.04 }}
             onClick={() => characterId && openChatForCharacter(characterId)}
-            className={cn(
-              "glass group w-full overflow-hidden rounded-2xl text-left transition-all",
-              "hover:shadow-glow active:scale-[0.98]"
-            )}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-bg-elevated/60 active:bg-bg-elevated/80"
+            style={i < MOCK_SCENARIOS.length - 1 ? chatSeparatorStyle : undefined}
           >
-            <div className="relative aspect-[16/9] overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={scenario.imageUrl}
-                alt={scenario.title}
-                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-bg-primary/90 via-transparent to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 p-4">
-                <h3 className="font-bold">{scenario.title}</h3>
-                <p className="mt-0.5 text-sm text-text-secondary">{scenario.description}</p>
-              </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={scenario.imageUrl}
+              alt=""
+              className="h-14 w-20 shrink-0 rounded-lg object-cover"
+            />
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate text-sm font-semibold">{scenario.title}</h3>
+              <p className="mt-0.5 line-clamp-2 text-xs text-text-muted">{scenario.description}</p>
             </div>
           </motion.button>
         ))}
-      </div>
+      </ListPanel>
     </div>
   );
 }

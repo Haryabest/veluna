@@ -3,15 +3,17 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
+import { History } from "lucide-react";
 import { useNavStore } from "@/store/nav-store";
 import { useUserStore } from "@/store/user-store";
 import { usePaymentStore } from "@/store/payment-store";
 import { balanceService } from "@/services/api";
 import { AnimeGemIcon, AnimeHeartIcon } from "@/components/icons/CurrencyIcons";
-import { Card } from "@/components/shared/Card";
+import { ListPanel } from "@/components/shared/ListPanel";
 import { formatGems } from "@/lib/utils";
 import { QUERY_KEYS } from "@/lib/constants";
 import { useTelegramUser } from "@/hooks/use-telegram-user";
+import { chatSeparatorVerticalStyle } from "@/lib/theme";
 
 export function ProfileView() {
   const { user } = useUserStore();
@@ -44,7 +46,7 @@ export function ProfileView() {
   const creditsDisplay = balance?.credits ?? credits;
 
   return (
-    <div className="mx-auto max-w-lg space-y-5 px-4 pt-6">
+    <div className="mx-auto max-w-lg space-y-4 px-4 pt-6">
       <motion.header
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -64,20 +66,22 @@ export function ProfileView() {
         </div>
       </motion.header>
 
-      <div className="grid grid-cols-2 gap-2">
-        <BalanceCard
-          icon={<AnimeGemIcon className="h-[22px] w-[22px]" />}
-          label="Гемы"
-          value={formatGems(gemsDisplay)}
-          gradient="from-accent/20 to-accent-deep/10"
-        />
-        <BalanceCard
-          icon={<AnimeHeartIcon className="h-[22px] w-[22px]" />}
-          label="Кредиты"
-          value={formatGems(creditsDisplay)}
-          gradient="from-fuchsia-500/15 to-accent/10"
-        />
-      </div>
+      <ListPanel>
+        <div className="grid grid-cols-2">
+          <BalanceCell
+            icon={<AnimeGemIcon className="h-[22px] w-[22px]" />}
+            label="Гемы"
+            value={formatGems(gemsDisplay)}
+          />
+          <div style={chatSeparatorVerticalStyle}>
+            <BalanceCell
+              icon={<AnimeHeartIcon className="h-[22px] w-[22px]" />}
+              label="Кредиты"
+              value={formatGems(creditsDisplay)}
+            />
+          </div>
+        </div>
+      </ListPanel>
 
       <motion.button
         type="button"
@@ -85,7 +89,7 @@ export function ProfileView() {
         animate={{ opacity: 1, y: 0 }}
         whileTap={{ scale: 0.98 }}
         onClick={openTopUp}
-        className="w-full rounded-2xl py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-glow-sm"
+        className="w-full rounded-2xl py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-glow-sm transition-opacity hover:opacity-95 active:opacity-90"
         style={{
           background: "linear-gradient(90deg, #9b8cff 0%, #b45cf0 45%, #9333ea 100%)",
         }}
@@ -93,26 +97,31 @@ export function ProfileView() {
         ПОПОЛНИТЬ БАЛАНС
       </motion.button>
 
-      <nav className="space-y-2">
-        <ProfileNavButton label="История" icon="📜" onClick={openHistory} />
-      </nav>
+      <ListPanel>
+        <button
+          type="button"
+          onClick={openHistory}
+          className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-bg-elevated/60"
+        >
+          <History className="h-5 w-5 text-accent-light" strokeWidth={1.75} />
+          <span className="text-sm font-medium">История</span>
+        </button>
+      </ListPanel>
     </div>
   );
 }
 
-function BalanceCard({
+function BalanceCell({
   icon,
   label,
   value,
-  gradient,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
-  gradient: string;
 }) {
   return (
-    <Card className={`flex flex-col gap-2 bg-gradient-to-br ${gradient} !p-3`}>
+    <div className="flex flex-col gap-1.5 px-4 py-3">
       <span className="flex items-center gap-2">
         <span className="drop-shadow-[0_0_6px_rgba(199,125,255,0.5)]">{icon}</span>
         <span className="text-[10px] font-medium uppercase tracking-wide text-text-muted">
@@ -120,27 +129,6 @@ function BalanceCard({
         </span>
       </span>
       <p className="text-lg font-bold leading-tight text-text-primary">{value}</p>
-    </Card>
-  );
-}
-
-function ProfileNavButton({
-  label,
-  icon,
-  onClick,
-}: {
-  label: string;
-  icon: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="glass flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition-colors hover:bg-bg-elevated/50"
-    >
-      <span>{icon}</span>
-      <span className="text-sm">{label}</span>
-    </button>
+    </div>
   );
 }

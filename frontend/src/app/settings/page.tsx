@@ -1,7 +1,8 @@
 "use client";
 
 import { useSettingsStore } from "@/store/settings-store";
-import { Card } from "@/components/shared/Card";
+import { ListPanel } from "@/components/shared/ListPanel";
+import { chatSeparatorStyle } from "@/lib/theme";
 
 export default function SettingsPage() {
   const {
@@ -17,8 +18,8 @@ export default function SettingsPage() {
     <div className="mx-auto max-w-lg space-y-4 px-4 pb-28 pt-6">
       <h1 className="text-xl font-bold">Настройки</h1>
 
-      <Card className="space-y-4">
-        <SettingRow label="Язык">
+      <ListPanel>
+        <SettingRow label="Язык" showSeparator>
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
@@ -30,21 +31,32 @@ export default function SettingsPage() {
           </select>
         </SettingRow>
 
-        <SettingRow label="Уведомления">
+        <SettingRow label="Уведомления" showSeparator>
           <Toggle checked={notifications} onChange={setNotifications} />
         </SettingRow>
 
         <SettingRow label="NSFW-контент">
           <Toggle checked={nsfwEnabled} onChange={setNsfwEnabled} />
         </SettingRow>
-      </Card>
+      </ListPanel>
     </div>
   );
 }
 
-function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
+function SettingRow({
+  label,
+  children,
+  showSeparator,
+}: {
+  label: string;
+  children: React.ReactNode;
+  showSeparator?: boolean;
+}) {
   return (
-    <div className="flex items-center justify-between">
+    <div
+      className="flex items-center justify-between px-4 py-3.5"
+      style={showSeparator ? chatSeparatorStyle : undefined}
+    >
       <span className="text-sm text-text-secondary">{label}</span>
       {children}
     </div>

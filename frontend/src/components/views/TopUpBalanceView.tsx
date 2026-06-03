@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, Star, Wallet } from "lucide-react";
 import { useNavStore } from "@/store/nav-store";
 import { BackButton } from "@/components/shared/BackButton";
+import { ListPanel } from "@/components/shared/ListPanel";
+import { Separator } from "@/components/shared/Separator";
 import { AnimeGemIcon, AnimeHeartIcon } from "@/components/icons/CurrencyIcons";
 import {
   balanceService,
@@ -12,7 +14,7 @@ import {
   type TopUpPaymentMethod,
   type TopUpQuote,
 } from "@/services/api";
-import { CHAT_BORDER } from "@/lib/theme";
+import { CHAT_BORDER, chatBorderStyle, chatSeparatorStyle, chatSeparatorVerticalStyle } from "@/lib/theme";
 import { cn, formatGems } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { canPayWithTelegramStars } from "@/lib/telegram-webapp";
@@ -176,26 +178,25 @@ export function TopUpBalanceView() {
             exit={{ opacity: 0, x: -16 }}
             className="space-y-4"
           >
-            <p className="text-sm font-medium text-text-secondary">Что пополнить?</p>
-            <div className="grid grid-cols-2 gap-2">
-              <CurrencyOption
-                active={currency === "gems"}
-                onClick={() => setCurrency("gems")}
-                icon={<AnimeGemIcon className="h-6 w-6" />}
-                label="Гемы"
-              />
-              <CurrencyOption
-                active={currency === "credits"}
-                onClick={() => setCurrency("credits")}
-                icon={<AnimeHeartIcon className="h-6 w-6" />}
-                label="Кредиты"
-              />
-            </div>
-
-            <section
-              className={cn("rounded-2xl p-4", PANEL_GRADIENT)}
-              style={{ border: `1px solid ${CHAT_BORDER}` }}
-            >
+            <ListPanel>
+              <div className="grid grid-cols-2">
+                <CurrencyOption
+                  active={currency === "gems"}
+                  onClick={() => setCurrency("gems")}
+                  icon={<AnimeGemIcon className="h-6 w-6" />}
+                  label="Гемы"
+                />
+                <div style={chatSeparatorVerticalStyle}>
+                  <CurrencyOption
+                    active={currency === "credits"}
+                    onClick={() => setCurrency("credits")}
+                    icon={<AnimeHeartIcon className="h-6 w-6" />}
+                    label="Кредиты"
+                  />
+                </div>
+              </div>
+              <Separator />
+              <div className="p-4">
               <p className="mb-3 text-sm font-semibold text-text-primary">Количество</p>
               <div className="flex items-center gap-3">
                 <StepperButton label="−" onClick={() => setAmount((a) => Math.max(1, a - 10))} />
@@ -231,12 +232,9 @@ export function TopUpBalanceView() {
                   </button>
                 ))}
               </div>
-            </section>
-
-            <section
-              className={cn("rounded-2xl p-4", PANEL_GRADIENT)}
-              style={{ border: `1px solid ${CHAT_BORDER}` }}
-            >
+              </div>
+              <Separator />
+              <div className="p-4">
               <p className="mb-3 text-sm font-semibold text-text-primary">Промокод</p>
               <div className="flex gap-2">
                 <input
@@ -294,7 +292,8 @@ export function TopUpBalanceView() {
                   {promoError}
                 </p>
               )}
-            </section>
+              </div>
+            </ListPanel>
 
             <button
               type="button"
@@ -315,32 +314,26 @@ export function TopUpBalanceView() {
             className="space-y-4"
           >
             {quote && (
-              <section
-                className={cn("space-y-3 rounded-2xl p-4 text-sm", PANEL_GRADIENT)}
-                style={{ border: `1px solid ${CHAT_BORDER}` }}
-              >
+              <ListPanel className="space-y-0 p-4 text-sm">
                 <SummaryRow
                   label="Получите"
                   value={`${formatGems(amount)} ${currency === "gems" ? "гемов" : "кредитов"}`}
                 />
+                {(quote.discount_percent > 0 || appliedPromo) && <Separator className="my-3" />}
                 {quote.discount_percent > 0 && (
                   <SummaryRow label="Скидка" value={`${quote.discount_percent}%`} accent />
                 )}
                 {appliedPromo && (
                   <SummaryRow label="Промокод" value={appliedPromo} accent />
                 )}
-                <div
-                  className={cn("rounded-xl px-3 py-3", PANEL_ACTIVE)}
-                  style={{ border: `1px solid rgba(199, 125, 255, 0.4)` }}
-                >
-                  <SummaryRow label="К оплате" value={`⭐ ${quote.stars_amount}`} bold />
-                  <SummaryRow label="≈ USD" value={`$${quote.usd_amount.toFixed(2)}`} muted />
-                </div>
-              </section>
+                <Separator className="my-3" />
+                <SummaryRow label="К оплате" value={`⭐ ${quote.stars_amount}`} bold />
+                <SummaryRow label="≈ USD" value={`$${quote.usd_amount.toFixed(2)}`} muted />
+              </ListPanel>
             )}
 
             <p className="text-sm font-medium text-text-secondary">Способ оплаты</p>
-            <div className="space-y-2">
+            <ListPanel>
               <PaymentOption
                 active={paymentMethod === "stars"}
                 onClick={() => setPaymentMethod("stars")}
@@ -348,6 +341,7 @@ export function TopUpBalanceView() {
                 label="Telegram Stars"
                 hint={starsAvailable ? "Рекомендуется" : "Только в Telegram"}
                 disabled={!starsAvailable}
+                showSeparator
               />
               <PaymentOption
                 active={paymentMethod === "other"}
@@ -356,7 +350,7 @@ export function TopUpBalanceView() {
                 label="Другой способ"
                 hint="Скоро"
               />
-            </div>
+            </ListPanel>
 
             <button
               type="button"
@@ -394,10 +388,9 @@ function CurrencyOption({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center gap-2 rounded-2xl px-3 py-4 transition-all",
-        active ? cn(PANEL_ACTIVE, "text-white") : cn(PANEL_INACTIVE, "text-text-muted")
+        "flex w-full flex-col items-center gap-2 px-3 py-4 transition-all",
+        active ? cn(PANEL_ACTIVE, "text-white") : "text-text-muted hover:bg-bg-elevated/40"
       )}
-      style={{ border: `1px solid ${CHAT_BORDER}` }}
     >
       {icon}
       <span className="text-sm font-semibold">{label}</span>
@@ -428,6 +421,7 @@ function PaymentOption({
   label,
   hint,
   disabled,
+  showSeparator,
 }: {
   active: boolean;
   onClick: () => void;
@@ -435,6 +429,7 @@ function PaymentOption({
   label: string;
   hint: string;
   disabled?: boolean;
+  showSeparator?: boolean;
 }) {
   return (
     <button
@@ -442,11 +437,11 @@ function PaymentOption({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 text-left transition-all",
+        "flex w-full items-center gap-3 px-4 py-3.5 text-left transition-all",
         disabled && "cursor-not-allowed opacity-45",
-        active && !disabled ? cn(PANEL_ACTIVE, "text-white") : cn(PANEL_INACTIVE, "text-text-muted")
+        active && !disabled ? cn(PANEL_ACTIVE, "text-white") : "text-text-muted hover:bg-bg-elevated/50"
       )}
-      style={{ border: `1px solid ${CHAT_BORDER}` }}
+      style={showSeparator ? chatSeparatorStyle : undefined}
     >
       <span
         className={cn(
@@ -455,7 +450,7 @@ function PaymentOption({
             ? "bg-gradient-to-br from-white/20 to-white/5 text-accent-light"
             : "bg-gradient-to-br from-[#1a1228] to-[#130d1c] text-text-muted"
         )}
-        style={{ border: `1px solid ${CHAT_BORDER}` }}
+        style={chatBorderStyle}
       >
         {icon}
       </span>
