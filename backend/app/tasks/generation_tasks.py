@@ -55,6 +55,7 @@ def process_image_generation(self, generation_id: str):
                     ImageGenerationRequest(
                         prompt=generation.prompt,
                         negative_prompt=generation.negative_prompt or "",
+                        model=generation.model_id,
                     )
                 )
 

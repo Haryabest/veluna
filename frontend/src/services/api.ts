@@ -117,7 +117,7 @@ export const chatService = {
 };
 
 export const generationService = {
-  async create(payload: { prompt: string; negative_prompt?: string; character_id?: string }) {
+  async create(payload: { prompt: string; negative_prompt?: string; character_id?: string; model_id?: string; width?: number; height?: number }) {
     const { data } = await apiClient.post("/generations", payload);
     return data;
   },
@@ -130,6 +130,11 @@ export const generationService = {
   async list(page = 1) {
     const { data } = await apiClient.get("/generations", { params: { page } });
     return data;
+  },
+
+  async translate(text: string) {
+    const { data } = await apiClient.post<{ translated: string }>("/generations/translate", { text });
+    return data.translated;
   },
 };
 

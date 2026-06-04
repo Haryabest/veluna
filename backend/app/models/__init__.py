@@ -187,6 +187,7 @@ class Generation(Base, TimestampMixin):
     character_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("characters.id"), nullable=True)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     negative_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    model_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[GenerationStatus] = mapped_column(
         _pg_enum(GenerationStatus), default=GenerationStatus.PENDING
     )

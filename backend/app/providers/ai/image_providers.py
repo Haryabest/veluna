@@ -91,3 +91,69 @@ class ReplicateProvider(ImageGenerationProvider):
 
     async def health_check(self) -> bool:
         return bool(self._api_token)
+
+
+class CivitaiProvider(ImageGenerationProvider):
+    BASE_URL = "https://orchestration.civitai.com/api/v1"
+
+    def __init__(self):
+        settings = get_settings()
+        self._api_key = settings.civitai_api_key
+
+    @property
+    def provider_name(self) -> str:
+        return "civitai"
+
+    async def generate(self, request: ImageGenerationRequest) -> ImageGenerationResponse:
+        async with httpx.AsyncClient() as client:
+            create_resp = await client.post(
+                f"{self.BASE_URL}/image/create",
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "prompt": request.prompt,
+                    "negativePrompt": request.negative_prompt or "",
+                    "model": request.model or "urn:air:sd1:checkpoint:civitai:101055@762648",
+                    "width": request.width,
+                    "height": request.height,
+                    "steps": request.num_inference_steps,
+                    "quantity": 1,
+                },
+                timeout=30.0,
+            )
+            create_resp.raise_for_status()
+            job = create_resp.json()
+            job_id = job.get("jobId") or job.get("id")
+            if not job_id:
+                raise RuntimeError(f"CivitAI did not return a job ID: {job}")
+
+            import asyncio
+            for _ in range(60):
+                await asyncio.sleep(2)
+                status_resp = await client.get(
+                    f"{self.BASE_URL}/image/status/{job_id}",
+                    headers={"Authorization": f"Bearer {self._api_key}"},
+                    timeout=30.0,
+                )
+                status_resp.raise_for_status()
+                status_data = status_resp.json()
+                state = status_data.get("status") or status_data.get("state", "")
+                if state in ("succeeded", "completed", "done"):
+                    images = status_data.get("images") or status_data.get("results") or []
+                    image_url = images[0].get("url") if images else ""
+                    if not image_url and isinstance(images, list) and images:
+                        image_url = images[0] if isinstance(images[0], str) else ""
+                    return ImageGenerationResponse(
+                        image_url=image_url,
+                        provider=self.provider_name,
+                        metadata={"job_id": job_id},
+                    )
+                if state in ("failed", "error", "cancelled"):
+                    raise RuntimeError(f"CivitAI job {job_id} {state}: {status_data}")
+
+            raise TimeoutError(f"CivitAI job {job_id} timed out after 120s")
+
+    async def health_check(self) -> bool:
+        return bool(self._api_key)

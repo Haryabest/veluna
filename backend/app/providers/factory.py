@@ -5,7 +5,7 @@ from app.providers.ai.base import AIChatProvider
 from app.providers.ai.chat_providers import GroqProvider, OpenAIProvider, OpenRouterProvider
 from app.providers.ai.stub_provider import StubChatProvider
 from app.providers.ai.image_base import ImageGenerationProvider
-from app.providers.ai.image_providers import FalProvider, ReplicateProvider
+from app.providers.ai.image_providers import CivitaiProvider, FalProvider, ReplicateProvider
 from app.providers.storage.base import StorageProvider
 from app.providers.storage.providers import MinioStorageProvider, S3StorageProvider
 
@@ -43,6 +43,7 @@ def get_image_provider() -> ImageGenerationProvider:
     providers = {
         "fal": FalProvider,
         "replicate": ReplicateProvider,
+        "civitai": CivitaiProvider,
     }
     provider_cls = providers.get(settings.image_provider)
     if not provider_cls:

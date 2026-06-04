@@ -39,6 +39,7 @@ class GenerationService:
             character_id=data.character_id,
             prompt=data.prompt,
             negative_prompt=data.negative_prompt,
+            model_id=data.model_id,
             gems_cost=gems_cost,
             status=GenerationStatus.PENDING,
         )

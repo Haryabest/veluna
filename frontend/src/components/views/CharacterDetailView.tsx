@@ -1,19 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import { motion } from "framer-motion";
-import { Heart } from "lucide-react";
 import { BackButton } from "@/components/shared/BackButton";
 import { useCharacter } from "@/hooks/use-character";
 import { useNavStore } from "@/store/nav-store";
-import { cn } from "@/lib/utils";
 
 export function CharacterDetailView() {
   const characterId = useNavStore((s) => s.characterId);
   const goBack = useNavStore((s) => s.goBack);
   const openScenarios = useNavStore((s) => s.openScenarios);
-  const [favorite, setFavorite] = useState(false);
-
   const { character, isLoading, isError } = useCharacter(characterId);
 
   if (isLoading) {
@@ -56,26 +51,12 @@ export function CharacterDetailView() {
 
         <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-bg-primary via-bg-primary/90 to-transparent" />
 
-        <div className="absolute inset-x-0 top-0 flex items-start justify-between px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <div className="absolute inset-x-0 top-0 flex items-start px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
           <BackButton
             onClick={goBack}
             className="glass bg-black/25 text-white backdrop-blur-md"
             iconClassName="text-white"
           />
-          <button
-            type="button"
-            aria-label={favorite ? "Убрать из избранного" : "В избранное"}
-            onClick={() => setFavorite((v) => !v)}
-            className="glass flex h-9 w-9 items-center justify-center rounded-full bg-black/25 backdrop-blur-md transition-transform active:scale-90"
-          >
-            <Heart
-              className={cn(
-                "h-5 w-5",
-                favorite ? "fill-accent-light text-accent-light" : "text-white"
-              )}
-              strokeWidth={2}
-            />
-          </button>
         </div>
 
         <div className="absolute inset-x-0 bottom-0 px-5 pb-5">

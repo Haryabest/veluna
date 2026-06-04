@@ -176,6 +176,7 @@ class GenerationCreate(BaseSchema):
     prompt: str = Field(min_length=1, max_length=2000)
     negative_prompt: str = ""
     character_id: UUID | None = None
+    model_id: str | None = None
     width: int = 512
     height: int = 768
 

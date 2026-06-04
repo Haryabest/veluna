@@ -44,9 +44,10 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
 
-    image_provider: Literal["fal", "replicate"] = "fal"
+    image_provider: Literal["fal", "replicate", "civitai"] = "fal"
     fal_api_key: str = ""
     replicate_api_token: str = ""
+    civitai_api_key: str = ""
 
     storage_provider: Literal["minio", "s3"] = "minio"
     minio_endpoint: str = "localhost:9000"
