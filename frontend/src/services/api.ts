@@ -182,11 +182,23 @@ export const balanceService = {
   },
 
   async getHistory(type: "expense" | "deposit", page = 1) {
-    const { data } = await apiClient.get<{ items: BalanceHistoryItem[]; type: string }>(
-      "/users/transactions",
-      { params: { type, page } }
-    );
-    return data;
+    const { data } = await apiClient.get<{
+      items: Array<{
+        id: string;
+        amount: number;
+        description: string;
+        created_at: string;
+        type?: string;
+      }>;
+    }>("/users/transactions", { params: { type, page } });
+    const items: BalanceHistoryItem[] = (data.items ?? []).map((t) => ({
+      id: t.id,
+      amount: t.amount,
+      currency: "gems",
+      description: t.description || "Операция",
+      created_at: t.created_at,
+    }));
+    return { items, type };
   },
 
   async getTopUpQuote(payload: {
@@ -194,7 +206,7 @@ export const balanceService = {
     amount: number;
     promo_code?: string;
   }) {
-    const { data } = await apiClient.post<TopUpQuote>("/balance/topup/quote", payload);
+    const { data } = await apiClient.post<TopUpQuote>("/payments/topup/quote", payload);
     return data;
   },
 
@@ -209,7 +221,7 @@ export const balanceService = {
       invoice_url: string;
       status: string;
       ok: boolean;
-    }>("/balance/topup/checkout", {
+    }>("/payments/topup/checkout", {
       ...payload,
       payment_method: "stars",
     });

@@ -34,3 +34,33 @@ class CheckoutResponse(BaseSchema):
     product_name: str
     gems_amount: int
     credits_amount: int
+
+
+TopUpCurrency = Literal["gems", "credits"]
+
+
+class TopUpQuoteRequest(BaseSchema):
+    currency_type: TopUpCurrency = "gems"
+    amount: int = Field(gt=0, le=10000)
+    promo_code: str | None = None
+
+
+class TopUpQuoteResponse(BaseSchema):
+    currency_type: TopUpCurrency
+    amount: int
+    promo_code: str | None = None
+    discount_percent: int = 0
+    promo_valid: bool = True
+    promo_message: str | None = None
+    stars_amount: int
+    usd_amount: float
+    ok: bool = True
+
+
+class TopUpCheckoutRequest(BaseSchema):
+    currency_type: TopUpCurrency = "gems"
+    amount: int = Field(gt=0, le=10000)
+    promo_code: str | None = None
+    stars_amount: int = Field(gt=0)
+    payment_method: PaymentMethod = "stars"
+    init_data: str | None = None

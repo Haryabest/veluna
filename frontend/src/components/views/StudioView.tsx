@@ -1,10 +1,13 @@
 "use client";
 
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { useNavStore } from "@/store/nav-store";
-import { STUDIO_GALLERY } from "@/lib/studio";
+import { generationService } from "@/services/api";
+import { QUERY_KEYS } from "@/lib/constants";
 import { chatBorderStyle } from "@/lib/theme";
 
 export function StudioView() {
@@ -12,6 +15,23 @@ export function StudioView() {
   const tab = useNavStore((s) => s.tab);
   const openStudioCreate = useNavStore((s) => s.openStudioCreate);
   const showFab = tab === "studio" && screen === "studio";
+
+  const { data, isLoading } = useQuery({
+    queryKey: QUERY_KEYS.generations,
+    queryFn: () => generationService.list(1),
+    staleTime: 20_000,
+  });
+
+  const gallery = useMemo(() => {
+    const items = data?.items;
+    if (!Array.isArray(items)) return [];
+    return items
+      .filter((g: { image_url?: string | null; status?: string }) => g.image_url && g.status === "completed")
+      .map((g: { id: string; image_url: string; thumbnail_url?: string | null }) => ({
+        id: g.id,
+        imageUrl: g.thumbnail_url || g.image_url,
+      }));
+  }, [data]);
 
   return (
     <div className="relative mx-auto max-w-lg px-4 pb-36 pt-6">
@@ -40,7 +60,14 @@ export function StudioView() {
         transition={{ delay: 0.05 }}
         className="grid grid-cols-2 gap-3"
       >
-        {STUDIO_GALLERY.map((art, i) => (
+        {isLoading ? (
+          <p className="col-span-2 py-12 text-center text-sm text-text-muted">Загрузка…</p>
+        ) : gallery.length === 0 ? (
+          <p className="col-span-2 py-12 text-center text-sm text-text-muted">
+            Пока нет артов — нажми + чтобы создать
+          </p>
+        ) : (
+        gallery.map((art, i) => (
           <motion.div
             key={art.id}
             initial={{ opacity: 0, scale: 0.96 }}
@@ -52,7 +79,8 @@ export function StudioView() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={art.imageUrl} alt="" className="h-full w-full object-cover" />
           </motion.div>
-        ))}
+        ))
+        )}
       </motion.div>
 
       {showFab &&

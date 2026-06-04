@@ -1,9 +1,10 @@
 from typing import Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.schemas import BaseSchema
+from app.utils.media_url import normalize_media_url
 
 
 class HomeArtResponse(BaseSchema):
@@ -12,6 +13,11 @@ class HomeArtResponse(BaseSchema):
     description: str
     image_url: str | None
     sort_order: int
+
+    @field_validator("image_url", mode="before")
+    @classmethod
+    def _normalize_media(cls, v: str | None) -> str | None:
+        return normalize_media_url(v)
 
 
 class PromoCodeResponse(BaseSchema):
@@ -93,6 +99,11 @@ class ShopProductResponse(BaseSchema):
     credits_amount: int
     image_url: str | None = None
     is_active: bool
+
+    @field_validator("image_url", mode="before")
+    @classmethod
+    def _normalize_media(cls, v: str | None) -> str | None:
+        return normalize_media_url(v)
 
 
 class AdminUserStatsResponse(BaseSchema):

@@ -20,7 +20,8 @@ export function ChatsView() {
   const openChat = useNavStore((s) => s.openChat);
   const { toast } = useToast();
   const { openModal, closeModal } = useModal();
-  const init = useChatsListStore((s) => s.init);
+  const load = useChatsListStore((s) => s.load);
+  const loading = useChatsListStore((s) => s.loading);
   const chats = useChatsListStore((s) => s.chats);
   const pinChat = useChatsListStore((s) => s.pinChat);
   const renameChat = useChatsListStore((s) => s.renameChat);
@@ -30,8 +31,8 @@ export function ChatsView() {
   const [menuAnchor, setMenuAnchor] = useState<ChatMenuAnchor | null>(null);
 
   useEffect(() => {
-    init();
-  }, [init]);
+    load();
+  }, [load]);
 
   const menuChat = chats.find((c) => c.id === menuChatId);
 
@@ -115,7 +116,9 @@ export function ChatsView() {
         <h1 className="text-2xl font-bold">Чаты</h1>
       </header>
 
-      {chats.length === 0 ? (
+      {loading ? (
+        <p className="py-12 text-center text-sm text-text-muted">Загрузка…</p>
+      ) : chats.length === 0 ? (
         <p className="py-12 text-center text-sm text-text-muted">Нет чатов</p>
       ) : (
         <ListPanel>
@@ -227,12 +230,18 @@ function ChatRow({
         />
       )}
       <div className="relative z-[1] shrink-0">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={chat.avatarUrl}
-          alt={chat.displayName}
-          className="h-12 w-12 rounded-full object-cover"
-        />
+        {chat.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={chat.avatarUrl}
+            alt={chat.displayName}
+            className="h-12 w-12 rounded-full object-cover"
+          />
+        ) : (
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-bg-elevated text-lg text-text-muted">
+            👤
+          </div>
+        )}
         {chat.isSystem && (
           <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-accent" />
         )}

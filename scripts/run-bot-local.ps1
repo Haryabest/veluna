@@ -21,5 +21,14 @@ if (-not (Test-Path "$venv\Scripts\python.exe")) {
 }
 
 Copy-Item (Join-Path $Root ".env") (Join-Path $PWD ".env") -Force
+
+Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match 'app\.bot\.main' } |
+    ForEach-Object {
+        Write-Host "Stopping old bot pid=$($_.ProcessId)..."
+        Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+Start-Sleep -Seconds 1
+
 Write-Host "Starting bot on host (Ctrl+C to stop)..."
 & "$venv\Scripts\python" -m app.bot.main

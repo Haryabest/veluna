@@ -12,6 +12,10 @@ const nextConfig = {
         source: '/api/:path*',
         destination: `http://${backendHost}:${backendPort}/api/:path*`,
       },
+      {
+        source: '/media/:path*',
+        destination: `http://${backendHost}:9000/veluna/:path*`,
+      },
     ];
   },
   images: {

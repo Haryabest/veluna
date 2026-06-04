@@ -133,7 +133,7 @@ export function TopUpBalanceView() {
           toast("Не удалось завершить оплату Stars", "error");
         }
       } else {
-        toast(`Заглушка: ${quote.stars_amount} ⭐ за ${amount} ${currencyLabel}`, "info");
+        toast(`К оплате: ${quote.stars_amount} ⭐ за ${amount} ${currencyLabel}`, "info");
         goBack();
       }
     } catch {

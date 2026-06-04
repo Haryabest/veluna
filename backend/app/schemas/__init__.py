@@ -1,7 +1,9 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.utils.media_url import normalize_media_url
 
 
 class BaseSchema(BaseModel):
@@ -83,6 +85,11 @@ class CharacterResponse(BaseSchema):
     is_nsfw: bool
     sort_order: int
 
+    @field_validator("avatar_url", "preview_url", mode="before")
+    @classmethod
+    def _normalize_media(cls, v: str | None) -> str | None:
+        return normalize_media_url(v)
+
 
 class CharacterDetailResponse(CharacterResponse):
     personality_prompt: str
@@ -110,6 +117,33 @@ class ChatResponse(BaseSchema):
     message_count: int
     last_message_at: datetime | None
     created_at: datetime
+
+
+class ChatListResponse(BaseSchema):
+    id: UUID
+    character_id: UUID
+    character_name: str
+    character_avatar_url: str | None = None
+    display_title: str
+    is_pinned: bool = False
+    is_system: bool = False
+    last_message_preview: str | None = None
+    last_message_at: datetime | None = None
+    message_count: int = 0
+    unread: int = 0
+
+    @field_validator("character_avatar_url", mode="before")
+    @classmethod
+    def _normalize_media(cls, v: str | None) -> str | None:
+        return normalize_media_url(v)
+
+
+class ChatUpdate(BaseSchema):
+    title: str = Field(min_length=1, max_length=64)
+
+
+class ChatPinUpdate(BaseSchema):
+    pinned: bool
 
 
 class MessageCreate(BaseSchema):
@@ -142,6 +176,11 @@ class GenerationResponse(BaseSchema):
     thumbnail_url: str | None
     gems_cost: int
     created_at: datetime
+
+    @field_validator("image_url", "thumbnail_url", mode="before")
+    @classmethod
+    def _normalize_media(cls, v: str | None) -> str | None:
+        return normalize_media_url(v)
 
 
 class PurchaseCreate(BaseSchema):

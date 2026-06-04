@@ -9,7 +9,13 @@ from app.core.exceptions import NotFoundError, ValidationError
 from app.models import Purchase, PurchaseStatus, ShopProduct
 from app.repositories.catalog_repository import CatalogRepository
 from app.repositories.generation_repository import PaymentRepository
-from app.schemas.shop import CheckoutResponse, PromoValidateResponse
+from app.schemas.shop import (
+    CheckoutResponse,
+    PromoValidateResponse,
+    TopUpCheckoutRequest,
+    TopUpQuoteRequest,
+    TopUpQuoteResponse,
+)
 
 
 STARS_TO_USD = 0.02  # display estimate only
@@ -41,6 +47,79 @@ class ShopService:
         if discount_percent > 0:
             base = max(1, int(base * (100 - discount_percent) / 100))
         return max(1, base)
+
+    async def topup_quote(self, data: TopUpQuoteRequest) -> TopUpQuoteResponse:
+        promo_code = (data.promo_code or "").strip().upper()
+        discount = 0
+        promo_valid = True
+        promo_message = None
+        if promo_code:
+            promo_result = await self.validate_promo(promo_code)
+            promo_valid = promo_result.valid
+            discount = promo_result.discount_percent if promo_result.valid else 0
+            promo_message = promo_result.message if promo_result.valid else promo_result.message
+
+        unit_stars = 1 if data.currency_type == "gems" else 2
+        subtotal = data.amount * unit_stars
+        stars_amount = max(1, int(subtotal * (100 - discount) / 100)) if discount else max(1, subtotal)
+
+        return TopUpQuoteResponse(
+            currency_type=data.currency_type,
+            amount=data.amount,
+            promo_code=promo_code or None,
+            discount_percent=discount,
+            promo_valid=promo_valid if not promo_code else promo_valid,
+            promo_message=promo_message,
+            stars_amount=stars_amount,
+            usd_amount=round(stars_amount * STARS_TO_USD, 2),
+        )
+
+    async def topup_checkout(self, user_id: UUID, data: TopUpCheckoutRequest) -> CheckoutResponse:
+        quote = await self.topup_quote(
+            TopUpQuoteRequest(
+                currency_type=data.currency_type,
+                amount=data.amount,
+                promo_code=data.promo_code,
+            )
+        )
+        if data.stars_amount != quote.stars_amount:
+            raise ValidationError("Сумма устарела — пересчитайте пополнение")
+
+        label = "гемов" if data.currency_type == "gems" else "сердец"
+        product_name = f"Пополнение {data.amount} {label}"
+        purchase = Purchase(
+            user_id=user_id,
+            gems_amount=data.amount if data.currency_type == "gems" else 0,
+            stars_amount=quote.stars_amount,
+            status=PurchaseStatus.PENDING,
+            metadata_={
+                "topup": True,
+                "currency_type": data.currency_type,
+                "credits_amount": data.amount if data.currency_type == "credits" else 0,
+                "product_name": product_name,
+                "promo_code": quote.promo_code,
+                "discount_percent": quote.discount_percent,
+            },
+        )
+        self._session.add(purchase)
+        await self._session.flush()
+
+        invoice_url = await self._create_invoice_link(
+            title=product_name[:32],
+            description=f"Veluna — {product_name}",
+            payload=f"purchase:{purchase.id}",
+            stars=quote.stars_amount,
+        )
+
+        return CheckoutResponse(
+            purchase_id=purchase.id,
+            invoice_url=invoice_url,
+            stars_amount=quote.stars_amount,
+            usd_amount=quote.usd_amount,
+            product_name=product_name,
+            gems_amount=purchase.gems_amount,
+            credits_amount=int(purchase.metadata_.get("credits_amount") or 0),
+        )
 
     async def checkout(self, user_id: UUID, product_id: UUID, promo_code: str | None = None) -> CheckoutResponse:
         await self._expire_stale_pending(user_id)

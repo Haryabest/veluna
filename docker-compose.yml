@@ -68,6 +68,8 @@ services:
       mc alias set veluna http://minio:9000 ${MINIO_ACCESS_KEY:-veluna_minio} ${MINIO_SECRET_KEY:-veluna_minio_secret};
       mc mb --ignore-existing veluna/${MINIO_BUCKET:-veluna};
       mc anonymous set download veluna/${MINIO_BUCKET:-veluna}/previews;
+      mc anonymous set download veluna/${MINIO_BUCKET:-veluna}/characters;
+      mc anonymous set download veluna/${MINIO_BUCKET:-veluna}/generations;
       exit 0;
       "
     networks:
