@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { useNavStore } from "@/store/nav-store";
 import { useMounted } from "@/hooks/use-mounted";
 import { balanceService } from "@/services/api";
+import { ensureTelegramSession, getApiError } from "@/lib/api-client";
 import { QUERY_KEYS } from "@/lib/constants";
 import { BackButton } from "@/components/shared/BackButton";
 import { ListPanel } from "@/components/shared/ListPanel";
@@ -25,9 +26,13 @@ export function HistoryView() {
   const goBack = useNavStore((s) => s.goBack);
   const [tab, setTab] = useState<HistoryTab>("expense");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: QUERY_KEYS.balanceHistory(tab),
-    queryFn: () => balanceService.getHistory(tab),
+    queryFn: async () => {
+      await ensureTelegramSession();
+      return balanceService.getHistory(tab);
+    },
+    retry: 2,
   });
 
   const items = data?.items ?? [];
@@ -69,7 +74,11 @@ export function HistoryView() {
         ))}
       </div>
 
-      {isLoading ? (
+      {isError ? (
+        <p className="py-12 text-center text-sm text-rose-300/90">
+          {getApiError(error).message || "Не удалось загрузить историю"}
+        </p>
+      ) : isLoading ? (
         <ListPanel>
           {[1, 2, 3].map((i) => (
             <div

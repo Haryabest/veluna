@@ -112,6 +112,19 @@ class Settings(BaseSettings):
             return 604_800  # 7 days
         return 86_400  # 24 h
 
+    @property
+    def telegram_bot_link(self) -> str:
+        """Public t.me link to the bot (for share captions)."""
+        url = (self.telegram_webapp_url or "").strip().rstrip("/")
+        if not url:
+            return ""
+        marker = "t.me/"
+        if marker not in url.lower():
+            return ""
+        tail = url.lower().split(marker, 1)[1]
+        username = tail.split("/")[0].strip()
+        return f"https://t.me/{username}" if username else ""
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -1,18 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Download, Share2, Sparkles } from "lucide-react";
+import { Share2, Sparkles } from "lucide-react";
 import { BackButton } from "@/components/shared/BackButton";
 import { useNavStore } from "@/store/nav-store";
 import { useToast } from "@/hooks/use-toast";
 import { generationService } from "@/services/api";
-import { getApiError } from "@/lib/api-client";
+import { ensureTelegramSession, getApiError } from "@/lib/api-client";
 import { QUERY_KEYS } from "@/lib/constants";
 import { chatBorderStyle } from "@/lib/theme";
 import { translateGenerationStatus } from "@/lib/i18n";
 import { logGeneration } from "@/lib/generation-log";
+import {
+  canShareViaTelegram,
+  getTelegramBotLink,
+  openTelegramTextShare,
+  sharePreparedTelegramMessage,
+} from "@/lib/telegram-share";
 import { cn } from "@/lib/utils";
 
 const POLL_STATUSES = new Set(["pending", "processing"]);
@@ -24,7 +30,9 @@ function isInProgress(status: string | undefined) {
 export function StudioResultView() {
   const generationId = useNavStore((s) => s.generationId);
   const goBack = useNavStore((s) => s.goBack);
+  const goToStudio = useNavStore((s) => s.goToStudio);
   const { toast } = useToast();
+  const [sharing, setSharing] = useState(false);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [...QUERY_KEYS.generations, generationId] as const,
@@ -55,53 +63,36 @@ export function StudioResultView() {
     }
   }, [generationId, status]);
 
-  const handleDownload = useCallback(async () => {
-    if (!imageUrl) {
-      toast("Изображение ещё не готово", "info");
-      return;
-    }
-    logGeneration("download", { id: generationId, url: imageUrl });
-    try {
-      const res = await fetch(imageUrl);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `veluna-art-${generationId ?? "art"}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast("Скачивание началось", "success");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logGeneration("error", { action: "download", error: msg });
-      toast("Не удалось скачать", "error");
-    }
-  }, [generationId, imageUrl, toast]);
-
   const handleShare = useCallback(async () => {
-    if (!imageUrl) {
+    if (!imageUrl || !generationId) {
       toast("Изображение ещё не готово", "info");
       return;
     }
+    if (!canShareViaTelegram()) {
+      toast("Поделиться можно только в Telegram Mini App", "info");
+      return;
+    }
+
+    setSharing(true);
     logGeneration("share", { id: generationId, url: imageUrl });
-    const shareText = "Мой арт из Veluna";
     try {
-      if (typeof navigator !== "undefined" && navigator.share) {
-        await navigator.share({ title: shareText, text: shareText, url: imageUrl });
-        return;
+      await ensureTelegramSession();
+      const prepared = await generationService.prepareShare(generationId);
+      const botLink = getTelegramBotLink(prepared.bot_link);
+      const shared = await sharePreparedTelegramMessage(prepared.prepared_message_id);
+      if (!shared) {
+        openTelegramTextShare(botLink);
       }
-      await navigator.clipboard.writeText(imageUrl);
-      toast("Ссылка скопирована", "success");
     } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") return;
+      const msg = getApiError(err).message;
+      logGeneration("error", { action: "share", error: msg });
       try {
-        await navigator.clipboard.writeText(imageUrl);
-        toast("Ссылка скопирована", "success");
+        openTelegramTextShare(getTelegramBotLink());
       } catch {
-        logGeneration("error", { action: "share", error: String(err) });
-        toast("Не удалось поделиться", "error");
+        toast(msg || "Не удалось поделиться", "error");
       }
+    } finally {
+      setSharing(false);
     }
   }, [generationId, imageUrl, toast]);
 
@@ -124,12 +115,7 @@ export function StudioResultView() {
   if (isError) {
     const msg = getApiError(error).message || "Ошибка загрузки результата";
     logGeneration("error", { id: generationId, error: msg });
-    return (
-      <ResultError
-        message={msg}
-        onBack={goBack}
-      />
-    );
+    return <ResultError message={msg} onBack={goBack} />;
   }
 
   if (isInProgress(status)) {
@@ -168,33 +154,32 @@ export function StudioResultView() {
         </motion.div>
 
         {data?.prompt ? (
-          <p className="mt-4 line-clamp-3 text-center text-xs text-text-muted">{data.prompt}</p>
+          <p className="mt-4 text-center text-sm text-text-secondary">{data.prompt}</p>
         ) : null}
 
-        <div className="mt-6 flex gap-3">
-          <button
-            type="button"
-            onClick={handleDownload}
-            className={cn(
-              "flex flex-1 items-center justify-center gap-2 rounded-2xl bg-bg-elevated/80 py-3.5 text-sm font-semibold text-text-primary transition-colors hover:bg-bg-elevated"
-            )}
-            style={chatBorderStyle}
-          >
-            <Download className="h-4 w-4" />
-            Скачать
-          </button>
+        <div className="mt-6 flex flex-col gap-3">
           <button
             type="button"
             onClick={handleShare}
+            disabled={sharing}
             className={cn(
-              "flex flex-1 items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold text-white"
+              "flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold text-white transition-opacity",
+              sharing && "opacity-70"
             )}
             style={{
               background: "linear-gradient(135deg, #f9a8d4 0%, #ec4899 100%)",
             }}
           >
             <Share2 className="h-4 w-4" />
-            Поделиться
+            {sharing ? "Открываю…" : "Поделиться"}
+          </button>
+          <button
+            type="button"
+            onClick={goToStudio}
+            className="w-full rounded-2xl bg-bg-elevated/80 py-3.5 text-sm font-semibold text-text-primary transition-colors hover:bg-bg-elevated"
+            style={chatBorderStyle}
+          >
+            Вернуться в студию
           </button>
         </div>
       </div>
