@@ -48,6 +48,7 @@ async def veluna_exception_handler(_request, exc: VelunaError):
         "FORBIDDEN": 403,
         "INSUFFICIENT_BALANCE": 402,
         "RATE_LIMIT": 429,
+        "SERVICE_UNAVAILABLE": 503,
     }
     return JSONResponse(
         status_code=status_map.get(exc.code, 400),

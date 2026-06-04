@@ -28,6 +28,29 @@ async def _set_menu_webapp(bot: Bot, webapp_url: str) -> None:
         logger.warning("Menu Web App not set: %s", exc)
 
 
+async def _wait_for_telegram_api(bot: Bot, retries: int = 12, delay: float = 5.0) -> None:
+    """Retry when api.telegram.org is blocked (VPN/firewall on Windows host)."""
+    last_exc: Exception | None = None
+    for attempt in range(1, retries + 1):
+        try:
+            me = await bot.get_me()
+            logger.info("Connected to Telegram as @%s", me.username)
+            return
+        except TelegramNetworkError as exc:
+            last_exc = exc
+            logger.warning(
+                "Telegram API unreachable (attempt %s/%s): %s",
+                attempt,
+                retries,
+                exc,
+            )
+            if attempt < retries:
+                await asyncio.sleep(delay)
+    if last_exc:
+        raise last_exc
+    raise RuntimeError("api.telegram.org unreachable")
+
+
 async def _watch_tunnel_url(bot: Bot, interval: float = 20.0) -> None:
     """Re-read .env when dev-miniapp-up.ps1 changes TELEGRAM_WEBAPP_URL."""
     last_url = ""
@@ -58,6 +81,8 @@ async def run_bot() -> None:
     dp.include_router(payments_router)
     dp.include_router(admin_router)
 
+    await _wait_for_telegram_api(bot)
+
     if settings.telegram_webapp_url:
         await _set_menu_webapp(bot, settings.telegram_webapp_url)
 
@@ -65,7 +90,7 @@ async def run_bot() -> None:
         asyncio.create_task(_watch_tunnel_url(bot))
 
     logger.info("Veluna Telegram bot started (polling)")
-    await dp.start_polling(bot)
+    await dp.start_polling(bot, handle_signals=False)
 
 
 def main() -> None:

@@ -13,6 +13,7 @@ import { QUERY_KEYS } from "@/lib/constants";
 import { chatBorderStyle, chatSeparatorStyle } from "@/lib/theme";
 import { truncate } from "@/lib/utils";
 import { characterService, chatService } from "@/services/api";
+import { getApiError } from "@/lib/api-client";
 import type { CharacterScenario } from "@/store/character-store";
 
 function scenarioDescription(scenario: CharacterScenario): string {
@@ -25,29 +26,34 @@ export function ScenarioSelectView() {
   const goBack = useNavStore((s) => s.goBack);
   const openChat = useNavStore((s) => s.openChat);
   const loadChats = useChatsListStore((s) => s.load);
+  const upsertChat = useChatsListStore((s) => s.upsertFromDetail);
   const { toast } = useToast();
   const [starting, setStarting] = useState(false);
 
   const { character } = useCharacter(characterId);
+  const resolvedCharacterId = character?.id ?? characterId;
 
-  const startChat = async () => {
-    if (!characterId || starting) return;
+  const startChat = async (scenario: CharacterScenario) => {
+    const cid = resolvedCharacterId;
+    if (!cid || starting) return;
     setStarting(true);
     try {
-      const chat = await chatService.create(characterId);
+      const chat = await chatService.create(cid, scenario.id);
+      upsertChat(chat);
       await loadChats();
       openChat(chat.id);
-    } catch {
-      toast("Не удалось открыть чат", "error");
+    } catch (err) {
+      toast(getApiError(err).message || "Не удалось открыть чат", "error");
     } finally {
       setStarting(false);
     }
   };
 
   const { data: scenarios = [], isLoading } = useQuery<CharacterScenario[]>({
-    queryKey: QUERY_KEYS.characterScenarios(characterId ?? ""),
-    queryFn: () => characterService.listScenarios(characterId!) as Promise<CharacterScenario[]>,
-    enabled: !!characterId,
+    queryKey: QUERY_KEYS.characterScenarios(resolvedCharacterId ?? ""),
+    queryFn: () =>
+      characterService.listScenarios(resolvedCharacterId!) as Promise<CharacterScenario[]>,
+    enabled: !!resolvedCharacterId,
     retry: 1,
   });
 
@@ -81,7 +87,7 @@ export function ScenarioSelectView() {
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04 }}
-              onClick={startChat}
+              onClick={() => startChat(scenario)}
               disabled={starting}
               className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-bg-elevated active:bg-bg-elevated/80"
               style={i < scenarios.length - 1 ? chatSeparatorStyle : undefined}

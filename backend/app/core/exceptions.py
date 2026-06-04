@@ -36,6 +36,11 @@ class ValidationError(VelunaError):
         super().__init__(message, code="VALIDATION_ERROR")
 
 
+class ServiceUnavailableError(VelunaError):
+    def __init__(self, message: str = "Service temporarily unavailable"):
+        super().__init__(message, code="SERVICE_UNAVAILABLE")
+
+
 def veluna_error_handler(_request, exc: VelunaError):
     status_map = {
         "NOT_FOUND": status.HTTP_404_NOT_FOUND,

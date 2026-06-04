@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { Grid3X3 } from "lucide-react";
 import { BackButton } from "@/components/shared/BackButton";
 import { AnimeGemIcon } from "@/components/icons/CurrencyIcons";
 import { useNavStore } from "@/store/nav-store";
 import { useToast } from "@/hooks/use-toast";
+import { generationService } from "@/services/api";
+import { ensureTelegramSession, getApiError } from "@/lib/api-client";
 import {
   ASPECT_RATIOS,
   STUDIO_GENERATION_COST,
@@ -16,23 +19,61 @@ import {
 } from "@/lib/studio";
 import { CHAT_BORDER } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { logGeneration } from "@/lib/generation-log";
 
 const SELECTED_BORDER = "2px solid #f472b6";
 const SELECTED_GLOW = "0 0 14px rgba(244, 114, 182, 0.4)";
 
 export function StudioCreateView() {
   const goBack = useNavStore((s) => s.goBack);
+  const openStudioGenerating = useNavStore((s) => s.openStudioGenerating);
+  const openStudioResult = useNavStore((s) => s.openStudioResult);
+  const openStudioAllModels = useNavStore((s) => s.openStudioAllModels);
   const { toast } = useToast();
   const [prompt, setPrompt] = useState("");
-  const [modelId, setModelId] = useState(STUDIO_MODELS[0]?.id ?? "nebula");
+  const [modelId, setModelId] = useState(STUDIO_MODELS[0]?.id ?? "miaomiao");
   const [aspectId, setAspectId] = useState<AspectRatioId>("1:1");
+  const [loading, setLoading] = useState(false);
 
-  const handleGenerate = () => {
+  const selectedModel = STUDIO_MODELS.find((m) => m.id === modelId) ?? STUDIO_MODELS[0];
+
+  const handleGenerate = async () => {
     if (!prompt.trim()) {
       toast("Опиши арт перед генерацией", "info");
       return;
     }
-    toast("Генерация скоро будет доступна ✨", "info");
+    setLoading(true);
+    const finalPrompt = prompt.trim();
+    logGeneration("start", { prompt: finalPrompt, model: selectedModel.name, aspect: aspectId });
+    try {
+      const authed = await ensureTelegramSession();
+      if (!authed) {
+        toast("Войдите через Telegram или обновите страницу на localhost", "error");
+        return;
+      }
+      const [w, h] = aspectId.split(":").map(Number);
+      const width = w >= h ? 1024 : 768;
+      const height = h >= w ? 1024 : 768;
+
+      openStudioGenerating();
+
+      logGeneration("request", { prompt: finalPrompt, model: selectedModel.civitaiModelId, width, height });
+      const result = await generationService.create({
+        prompt: finalPrompt,
+        model_id: selectedModel.civitaiModelId,
+        width,
+        height,
+      });
+      logGeneration("created", { id: result.id, status: result.status });
+
+      openStudioResult(result.id);
+    } catch (err: unknown) {
+      const apiErr = getApiError(err);
+      logGeneration("error", { error: apiErr.message, code: apiErr.code });
+      toast(apiErr.message || "Ошибка генерации. Попробуй позже", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -64,6 +105,14 @@ export function StudioCreateView() {
       <section className="mb-6">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-text-primary">Модель</h2>
+          <button
+            type="button"
+            onClick={openStudioAllModels}
+            className="flex items-center gap-1.5 rounded-xl bg-bg-elevated/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
+          >
+            <Grid3X3 className="h-3.5 w-3.5" />
+            Все модели
+          </button>
         </div>
         <div className="flex gap-3 overflow-x-auto px-0.5 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {STUDIO_MODELS.map((model) => {
@@ -160,9 +209,13 @@ export function StudioCreateView() {
         type="button"
         whileTap={{ scale: 0.98 }}
         onClick={handleGenerate}
-        className="studio-generate-btn flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-bold text-white"
+        disabled={loading}
+        className={cn(
+          "studio-generate-btn flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-bold text-white",
+          loading && "opacity-70"
+        )}
       >
-        Сгенерировать ({STUDIO_GENERATION_COST}{" "}
+        {loading ? "Генерация..." : "Сгенерировать"} ({STUDIO_GENERATION_COST}{" "}
         <AnimeGemIcon className="h-5 w-5" />)
       </motion.button>
     </div>

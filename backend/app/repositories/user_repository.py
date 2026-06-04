@@ -23,6 +23,16 @@ class UserRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_first_active(self) -> User | None:
+        result = await self._session.execute(
+            select(User)
+            .options(selectinload(User.balance))
+            .where(User.is_active.is_(True), User.is_banned.is_(False))
+            .order_by(User.created_at.asc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def create(self, telegram_id: int, **kwargs) -> User:
         user = User(telegram_id=telegram_id, **kwargs)
         self._session.add(user)

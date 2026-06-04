@@ -22,10 +22,30 @@ foreach ($f in @(".env", "backend\.env")) {
 }
 
 $envLocal = Join-Path $Root "frontend\.env.local"
-$backendPort = "8020"
-if (Test-Path $envLocal) {
-    Get-Content $envLocal | ForEach-Object {
-        if ($_ -match '^BACKEND_PORT=(.+)$') { $backendPort = $matches[1].Trim() }
+$backendPort = "8000"
+$dockerBackend = $false
+# Docker backend maps container :8000 -> host :8020 (ignore stale BACKEND_PORT in .env)
+try {
+    docker info 2>$null | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        $running = docker inspect -f "{{.State.Status}}" veluna-backend 2>$null
+        if ($running -eq "running") {
+            $dockerBackend = $true
+            $mapped = docker port veluna-backend 8000/tcp 2>$null
+            if ($mapped -match ':(\d+)->') {
+                $backendPort = $matches[1]
+            } else {
+                $backendPort = "8020"
+            }
+        }
+    }
+} catch {}
+if (-not $dockerBackend) {
+    $rootEnv = Join-Path $Root ".env"
+    if (Test-Path $rootEnv) {
+        Get-Content $rootEnv | ForEach-Object {
+            if ($_ -match '^BACKEND_PORT=(.+)$') { $backendPort = $matches[1].Trim() }
+        }
     }
 }
 @(
@@ -66,4 +86,5 @@ if (-not $SkipMenuButton) {
     }
 }
 
-Write-Host "Restart frontend if already running: cd frontend; npm run dev"
+Write-Host "BACKEND_PORT=$backendPort in frontend/.env.local" -ForegroundColor Green
+Write-Host "Restart frontend (required after port change): stop :3000, then npm run dev or npm run start" -ForegroundColor Yellow

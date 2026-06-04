@@ -11,6 +11,14 @@ export const authService = {
     return data;
   },
 
+  /** Localhost dev when opened outside Telegram WebApp */
+  async authenticateDev() {
+    const { data } = await apiClient.post<{ access_token: string; refresh_token: string }>(
+      "/auth/dev"
+    );
+    return data;
+  },
+
   async getMe(): Promise<User> {
     const { data } = await apiClient.get<User>("/users/me");
     return data;
@@ -52,20 +60,29 @@ export const characterService = {
   },
 };
 
+export type ChatListApiItem = {
+  id: string;
+  character_id: string;
+  character_name: string;
+  scenario_id?: string | null;
+  scenario_title?: string | null;
+  character_avatar_url?: string | null;
+  display_title: string;
+  is_pinned?: boolean;
+  is_system?: boolean;
+  last_message_preview?: string | null;
+  last_message_at?: string | null;
+  unread?: number;
+};
+
 export const chatListService = {
   async pin(chatId: string, pinned: boolean) {
-    const { data } = await apiClient.patch<{ id: string; pinned: boolean; ok: boolean }>(
-      `/chats/${chatId}/pin`,
-      { pinned }
-    );
+    const { data } = await apiClient.patch<ChatListApiItem>(`/chats/${chatId}/pin`, { pinned });
     return data;
   },
 
   async rename(chatId: string, title: string) {
-    const { data } = await apiClient.patch<{ id: string; title: string; ok: boolean }>(
-      `/chats/${chatId}`,
-      { title }
-    );
+    const { data } = await apiClient.patch<ChatListApiItem>(`/chats/${chatId}`, { title });
     return data;
   },
 
@@ -83,8 +100,16 @@ export const chatService = {
     return data;
   },
 
-  async create(characterId: string) {
-    const { data } = await apiClient.post("/chats", { character_id: characterId });
+  async create(characterId: string, scenarioId: string) {
+    const { data } = await apiClient.post("/chats", {
+      character_id: characterId,
+      scenario_id: scenarioId,
+    });
+    return data;
+  },
+
+  async get(chatId: string) {
+    const { data } = await apiClient.get(`/chats/${chatId}`);
     return data;
   },
 
@@ -100,7 +125,7 @@ export const chatService = {
 };
 
 export const generationService = {
-  async create(payload: { prompt: string; negative_prompt?: string; character_id?: string }) {
+  async create(payload: { prompt: string; negative_prompt?: string; character_id?: string; model_id?: string; width?: number; height?: number }) {
     const { data } = await apiClient.post("/generations", payload);
     return data;
   },
@@ -113,6 +138,11 @@ export const generationService = {
   async list(page = 1) {
     const { data } = await apiClient.get("/generations", { params: { page } });
     return data;
+  },
+
+  async translate(text: string) {
+    const { data } = await apiClient.post<{ translated: string }>("/generations/translate", { text });
+    return data.translated;
   },
 };
 

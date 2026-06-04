@@ -9,7 +9,10 @@ export type AppScreen =
   | "shop"
   | "history"
   | "topup"
-  | "studio-create";
+  | "studio-create"
+  | "studio-generating"
+  | "studio-result"
+  | "studio-all-models";
 
 interface NavState {
   tab: AppTab;
@@ -27,7 +30,11 @@ interface NavState {
   openHistory: () => void;
   openTopUp: () => void;
   openStudioCreate: () => void;
+  openStudioGenerating: () => void;
+  openStudioResult: (generationId: string) => void;
+  openStudioAllModels: () => void;
   goBack: () => void;
+  generationId: string | null;
 }
 
 export const useNavStore = create<NavState>((set, get) => ({
@@ -36,6 +43,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   returnTo: null,
   characterId: null,
   chatId: null,
+  generationId: null,
 
   setTab: (tab) =>
     set({ tab, screen: tab, returnTo: null, characterId: null, chatId: null }),
@@ -80,6 +88,12 @@ export const useNavStore = create<NavState>((set, get) => ({
 
   openStudioCreate: () => set({ screen: "studio-create", tab: "studio", returnTo: "studio" }),
 
+  openStudioGenerating: () => set({ screen: "studio-generating", tab: "studio", returnTo: "studio-create" }),
+
+  openStudioResult: (generationId: string) => set({ screen: "studio-result", tab: "studio", generationId, returnTo: "studio" }),
+
+  openStudioAllModels: () => set({ screen: "studio-all-models", tab: "studio", returnTo: "studio-create" }),
+
   goBack: () => {
     const { screen, tab, returnTo } = get();
 
@@ -89,6 +103,18 @@ export const useNavStore = create<NavState>((set, get) => ({
     }
     if (screen === "studio-create") {
       set({ screen: "studio", returnTo: null });
+      return;
+    }
+    if (screen === "studio-generating") {
+      set({ screen: "studio-create", returnTo: null });
+      return;
+    }
+    if (screen === "studio-result") {
+      set({ screen: "studio", generationId: null, returnTo: null });
+      return;
+    }
+    if (screen === "studio-all-models") {
+      set({ screen: "studio-create", returnTo: null });
       return;
     }
     if (screen === "history") {

@@ -3,10 +3,21 @@ from functools import lru_cache
 from app.core.config import get_settings
 from app.providers.ai.base import AIChatProvider
 from app.providers.ai.chat_providers import GroqProvider, OpenAIProvider, OpenRouterProvider
+from app.providers.ai.stub_provider import StubChatProvider
 from app.providers.ai.image_base import ImageGenerationProvider
-from app.providers.ai.image_providers import FalProvider, ReplicateProvider
+from app.providers.ai.image_providers import CivitaiProvider, FalProvider, ReplicateProvider
 from app.providers.storage.base import StorageProvider
 from app.providers.storage.providers import MinioStorageProvider, S3StorageProvider
+
+
+def _provider_has_key(settings, name: str) -> bool:
+    if name == "openai":
+        return bool(settings.openai_api_key.strip())
+    if name == "openrouter":
+        return bool(settings.openrouter_api_key.strip())
+    if name == "groq":
+        return bool(settings.groq_api_key.strip())
+    return False
 
 
 @lru_cache
@@ -17,10 +28,23 @@ def get_chat_provider() -> AIChatProvider:
         "openrouter": OpenRouterProvider,
         "groq": GroqProvider,
     }
-    provider_cls = providers.get(settings.ai_chat_provider)
-    if not provider_cls:
-        raise ValueError(f"Unknown chat provider: {settings.ai_chat_provider}")
-    return provider_cls()
+    preferred = settings.ai_chat_provider
+    if _provider_has_key(settings, preferred):
+        return providers[preferred]()
+    for name in ("groq", "openrouter", "openai"):
+        if name != preferred and _provider_has_key(settings, name):
+            return providers[name]()
+    return StubChatProvider()
+
+
+def _image_provider_has_key(settings, name: str) -> bool:
+    if name == "fal":
+        return bool(settings.fal_api_key.strip())
+    if name == "replicate":
+        return bool(settings.replicate_api_token.strip())
+    if name == "civitai":
+        return bool(settings.civitai_api_key.strip())
+    return False
 
 
 @lru_cache
@@ -29,8 +53,15 @@ def get_image_provider() -> ImageGenerationProvider:
     providers = {
         "fal": FalProvider,
         "replicate": ReplicateProvider,
+        "civitai": CivitaiProvider,
     }
-    provider_cls = providers.get(settings.image_provider)
+    preferred = settings.image_provider
+    if _image_provider_has_key(settings, preferred):
+        return providers[preferred]()
+    for name in ("civitai", "fal", "replicate"):
+        if name != preferred and _image_provider_has_key(settings, name):
+            return providers[name]()
+    provider_cls = providers.get(preferred)
     if not provider_cls:
         raise ValueError(f"Unknown image provider: {settings.image_provider}")
     return provider_cls()

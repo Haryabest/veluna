@@ -28,8 +28,22 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
 /** Re-login from Telegram initData before pay / after 401. */
 export async function ensureTelegramSession(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if (localStorage.getItem("access_token")) return true;
   try {
-    return (await reauthFromTelegram()) !== null;
+    const initData = getTelegramInitData();
+    if (initData) {
+      return (await reauthFromTelegram()) !== null;
+    }
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") {
+      const { authService } = await import("@/services/api");
+      const tokens = await authService.authenticateDev();
+      localStorage.setItem("access_token", tokens.access_token);
+      localStorage.setItem("refresh_token", tokens.refresh_token);
+      return true;
+    }
+    return false;
   } catch {
     return false;
   }
@@ -100,6 +114,30 @@ export function getApiError(error: unknown): ApiError {
       return {
         code: detail.code || "ERROR",
         message: detail.message || "Неизвестная ошибка",
+      };
+    }
+    if (typeof detail === "string" && detail) {
+      return { code: "ERROR", message: detail };
+    }
+    if (!error.response) {
+      const code = (error as { code?: string }).code;
+      if (code === "ECONNREFUSED" || error.message.includes("Network Error")) {
+        return {
+          code: "BACKEND_OFFLINE",
+          message:
+            "Сервер API недоступен. Запустите .\\scripts\\veluna-up.ps1, затем .\\scripts\\restart-frontend.ps1 (Docker: порт 8020).",
+        };
+      }
+    }
+    const status = error.response?.status;
+    if (
+      (status === 500 || status === 502 || status === 503) &&
+      typeof error.response?.data === "string"
+    ) {
+      return {
+        code: "ERROR",
+        message:
+          "Ошибка сервера генерации. Проверьте логи backend и примените миграции: .\\scripts\\veluna-up.ps1 -SkipBuild",
       };
     }
     return { code: "ERROR", message: translateApiError(error.message) };

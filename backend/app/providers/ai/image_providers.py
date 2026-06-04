@@ -1,6 +1,14 @@
+import os
+from typing import Any
+
 import httpx
 
 from app.core.config import get_settings
+from app.utils.civitai_air import (
+    ecosystem_from_air,
+    resolve_civitai_model_air,
+    resolve_civitai_model_label,
+)
 from app.providers.ai.image_base import (
     ImageGenerationProvider,
     ImageGenerationRequest,
@@ -91,3 +99,285 @@ class ReplicateProvider(ImageGenerationProvider):
 
     async def health_check(self) -> bool:
         return bool(self._api_token)
+
+
+class CivitaiProvider(ImageGenerationProvider):
+    def __init__(self):
+        settings = get_settings()
+        self._api_key = settings.civitai_api_key
+
+    @property
+    def provider_name(self) -> str:
+        return "civitai"
+
+    async def generate(self, request: ImageGenerationRequest) -> ImageGenerationResponse:
+        import asyncio
+
+        model_urn = await resolve_civitai_model_air(request.model)
+        model_label = await resolve_civitai_model_label(request.model)
+        ecosystem = ecosystem_from_air(model_urn)
+        if not model_urn:
+            raise ValueError("Civitai model is required")
+
+        sdk_input = {
+            "model": model_urn,
+            "params": {
+                "prompt": request.prompt,
+                "negativePrompt": request.negative_prompt or "",
+                "scheduler": "EulerA",
+                "steps": request.num_inference_steps or (30 if ecosystem == "anima" else 28),
+                "cfgScale": 4 if ecosystem == "anima" else 7,
+                "width": request.width or 1024,
+                "height": request.height or 1024,
+                "clipSkip": 2,
+            },
+            "quantity": 1,
+        }
+
+        # civitai-py reads the token during import from CIVITAI_API_TOKEN.
+        os.environ["CIVITAI_API_TOKEN"] = self._api_key
+        import civitai
+
+        try:
+            sdk_response = await civitai.image.create(sdk_input, wait=True)
+        except Exception as exc:
+            if self._should_fallback_from_sdk(exc):
+                return await self._generate_v2_workflow(
+                    request,
+                    model_urn=model_urn,
+                    model_label=model_label,
+                    ecosystem=ecosystem,
+                )
+            raise ValueError(self._format_sdk_error(exc)) from exc
+
+        image_url = self._extract_sdk_image_url(sdk_response)
+        if not image_url:
+            raise RuntimeError(f"Civitai SDK completed but returned no image URL: {sdk_response}")
+
+        return ImageGenerationResponse(
+            image_url=image_url,
+            provider=self.provider_name,
+            metadata={
+                "model_name": model_label,
+                "model_air": model_urn,
+                "requested_model": request.model,
+                "civitai_response": self._summarize_sdk_response(sdk_response),
+            },
+        )
+
+    async def _generate_v2_workflow(
+        self,
+        request: ImageGenerationRequest,
+        *,
+        model_urn: str,
+        model_label: str,
+        ecosystem: str,
+    ) -> ImageGenerationResponse:
+        body: dict[str, Any] = {
+            "allowMatureContent": False,
+            "currencies": ["blue"],
+            "steps": [{
+                "$type": "imageGen",
+                "input": {
+                    "engine": "sdcpp",
+                    "ecosystem": ecosystem,
+                    "operation": "createImage",
+                    "model": model_urn,
+                    "prompt": request.prompt,
+                    "negativePrompt": request.negative_prompt or "",
+                    "width": request.width or 1024,
+                    "height": request.height or 1024,
+                    "cfgScale": 4 if ecosystem == "anima" else 7,
+                    "steps": request.num_inference_steps or (30 if ecosystem == "anima" else 28),
+                    "quantity": 1,
+                },
+            }],
+        }
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+        }
+
+        async with httpx.AsyncClient() as client:
+            submit_resp = await client.post(
+                "https://orchestration.civitai.com/v2/consumer/workflows?wait=90",
+                headers=headers,
+                json=body,
+                timeout=120.0,
+            )
+            if submit_resp.status_code >= 400:
+                raise ValueError(self._format_v2_error(submit_resp))
+
+            workflow = submit_resp.json()
+            workflow_id = workflow.get("id", "")
+            image_url = self._extract_workflow_image_url(workflow)
+            if image_url:
+                return self._image_response(image_url, model_label, model_urn, request.model, workflow_id)
+
+            for _ in range(45):
+                await asyncio.sleep(2)
+                poll_resp = await client.get(
+                    f"https://orchestration.civitai.com/v2/consumer/workflows/{workflow_id}",
+                    headers=headers,
+                    timeout=30.0,
+                )
+                poll_resp.raise_for_status()
+                workflow = poll_resp.json()
+                image_url = self._extract_workflow_image_url(workflow)
+                if image_url:
+                    return self._image_response(image_url, model_label, model_urn, request.model, workflow_id)
+                if workflow.get("status") in {"failed", "canceled"}:
+                    raise RuntimeError(f"Civitai workflow {workflow_id} {workflow.get('status')}: {workflow}")
+
+        raise TimeoutError(f"Civitai workflow {workflow_id} timed out")
+
+    def _image_response(
+        self,
+        image_url: str,
+        model_label: str,
+        model_urn: str,
+        requested_model: str | None,
+        workflow_id: str | None = None,
+    ) -> ImageGenerationResponse:
+        metadata: dict[str, Any] = {
+            "model_name": model_label,
+            "model_air": model_urn,
+            "requested_model": requested_model,
+        }
+        if workflow_id:
+            metadata["workflow_id"] = workflow_id
+        return ImageGenerationResponse(
+            image_url=image_url,
+            provider=self.provider_name,
+            metadata=metadata,
+        )
+
+    def _extract_workflow_image_url(self, workflow: dict[str, Any]) -> str | None:
+        for step in workflow.get("steps", []):
+            output = step.get("output") if isinstance(step, dict) else None
+            if not isinstance(output, dict):
+                continue
+            for collection_key in ("images", "blobs"):
+                collection = output.get(collection_key)
+                if isinstance(collection, list):
+                    for item in collection:
+                        found = self._extract_sdk_image_url(item)
+                        if found:
+                            return found
+        return None
+
+    def _extract_sdk_image_url(self, response: Any) -> str | None:
+        if isinstance(response, str):
+            return response if response.startswith(("http://", "https://")) else None
+
+        if isinstance(response, dict):
+            for key in ("url", "imageUrl", "blobUrl", "previewUrl", "downloadUrl"):
+                value = response.get(key)
+                if isinstance(value, str) and value.startswith(("http://", "https://")):
+                    return value
+
+            result = response.get("result")
+            if result:
+                found = self._extract_sdk_image_url(result)
+                if found:
+                    return found
+
+            for collection_key in ("jobs", "images", "blobs", "outputs"):
+                collection = response.get(collection_key)
+                if isinstance(collection, list):
+                    for item in collection:
+                        found = self._extract_sdk_image_url(item)
+                        if found:
+                            return found
+
+            for value in response.values():
+                if isinstance(value, (dict, list)):
+                    found = self._extract_sdk_image_url(value)
+                    if found:
+                        return found
+
+        if isinstance(response, list):
+            for item in response:
+                found = self._extract_sdk_image_url(item)
+                if found:
+                    return found
+
+        if hasattr(response, "model_dump"):
+            return self._extract_sdk_image_url(response.model_dump())
+
+        for key in ("url", "imageUrl", "blobUrl", "previewUrl", "downloadUrl", "result"):
+            if hasattr(response, key):
+                found = self._extract_sdk_image_url(getattr(response, key))
+                if found:
+                    return found
+
+        return None
+
+    def _summarize_sdk_response(self, response: Any) -> dict[str, Any]:
+        if hasattr(response, "model_dump"):
+            response = response.model_dump()
+        if not isinstance(response, dict):
+            return {"type": type(response).__name__}
+        jobs = response.get("jobs")
+        return {
+            "token": response.get("token"),
+            "jobs": [
+                {
+                    "jobId": job.get("jobId"),
+                    "cost": job.get("cost"),
+                    "scheduled": job.get("scheduled"),
+                }
+                for job in jobs
+                if isinstance(job, dict)
+            ] if isinstance(jobs, list) else None,
+        }
+
+    def _format_sdk_error(self, exc: Exception) -> str:
+        text = str(exc)
+        lower = text.lower()
+        if "insufficient" in lower and "buzz" in lower:
+            return "На Civitai API токене недостаточно Buzz для генерации. Проверьте баланс аккаунта Civitai для этого API токена."
+        if "validation error" in lower:
+            return f"Civitai SDK отклонил параметры генерации: {text}"
+        detail = text or exc.__class__.__name__
+        return f"Civitai SDK error: {detail[:500]}"
+
+    def _should_fallback_from_sdk(self, exc: Exception) -> bool:
+        text = str(exc).lower()
+        name = exc.__class__.__name__.lower()
+        return (
+            "403" in text
+            or "timeout" in text
+            or "timeout" in name
+            or "network" in text
+            or "network" in name
+            or isinstance(exc, (httpx.TimeoutException, httpx.NetworkError))
+        )
+
+    def _format_v2_error(self, response: httpx.Response) -> str:
+        try:
+            data = response.json()
+        except ValueError:
+            return f"Civitai API error {response.status_code}: {response.text[:500]}"
+
+        if not isinstance(data, dict):
+            text = str(data)
+            if "insufficient" in text.lower() and "buzz" in text.lower():
+                return "На Civitai API токене недостаточно Blue Buzz для генерации. Проверьте баланс аккаунта Civitai для этого API токена."
+            return f"Civitai API error {response.status_code}: {text[:500]}"
+
+        if data.get("transactions", {}).get("insufficientBuzz") or data.get("insufficientBuzz"):
+            return "На Civitai API токене недостаточно Blue Buzz для генерации. Проверьте баланс аккаунта Civitai для этого API токена."
+
+        errors = data.get("errors")
+        if errors:
+            return f"Civitai отклонил запрос генерации: {errors}"
+
+        title = data.get("title") or data.get("detail") or data.get("message")
+        if title:
+            return f"Civitai API error {response.status_code}: {title}"
+
+        return f"Civitai API error {response.status_code}: {str(data)[:500]}"
+
+    async def health_check(self) -> bool:
+        return bool(self._api_key)

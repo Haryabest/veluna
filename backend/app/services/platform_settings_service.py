@@ -19,7 +19,10 @@ class PlatformSettingsService:
         )
 
     async def get_pricing(self) -> PricingConfigResponse:
-        raw = await cache_client.get(PRICING_CACHE_KEY)
+        try:
+            raw = await cache_client.get(PRICING_CACHE_KEY)
+        except Exception:
+            return self._defaults()
         if not raw:
             return self._defaults()
         data = json.loads(raw)

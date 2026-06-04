@@ -5,6 +5,8 @@ export type ChatListItem = {
   id: string;
   characterId: string;
   characterName: string;
+  scenarioId: string | null;
+  scenarioTitle: string | null;
   avatarUrl: string;
   preview: string;
   time: string;
@@ -37,6 +39,8 @@ function mapApiChat(raw: {
   id: string;
   character_id: string;
   character_name: string;
+  scenario_id?: string | null;
+  scenario_title?: string | null;
   character_avatar_url?: string | null;
   display_title: string;
   is_pinned?: boolean;
@@ -45,17 +49,46 @@ function mapApiChat(raw: {
   last_message_at?: string | null;
   unread?: number;
 }): ChatListItem {
+  const characterName = raw.character_name;
+  const scenarioTitle = raw.scenario_title ?? null;
   return {
     id: raw.id,
     characterId: raw.character_id,
-    characterName: raw.character_name,
+    characterName,
+    scenarioId: raw.scenario_id ?? null,
+    scenarioTitle,
     avatarUrl: raw.character_avatar_url || "",
     preview: raw.last_message_preview || "Начни диалог…",
     time: formatChatTime(raw.last_message_at),
     unread: raw.unread ?? 0,
     isSystem: raw.is_system ?? false,
     isPinned: raw.is_pinned ?? false,
-    displayName: raw.display_title || raw.character_name,
+    displayName: raw.display_title || characterName,
+  };
+}
+
+export function mapApiChatDetail(raw: {
+  id: string;
+  character_id: string;
+  character_name: string;
+  scenario_id?: string | null;
+  scenario_title?: string | null;
+  character_avatar_url?: string | null;
+}): ChatListItem {
+  const characterName = raw.character_name;
+  const scenarioTitle = raw.scenario_title ?? null;
+  const displayName = scenarioTitle ? `${characterName} · ${scenarioTitle}` : characterName;
+  return {
+    id: raw.id,
+    characterId: raw.character_id,
+    characterName,
+    scenarioId: raw.scenario_id ?? null,
+    scenarioTitle,
+    avatarUrl: raw.character_avatar_url || "",
+    preview: "",
+    time: "",
+    isPinned: false,
+    displayName,
   };
 }
 
@@ -74,6 +107,7 @@ interface ChatsListState {
   initialized: boolean;
   loading: boolean;
   load: () => Promise<void>;
+  upsertFromDetail: (raw: Parameters<typeof mapApiChatDetail>[0]) => void;
   getChat: (id: string) => ChatListItem | undefined;
   pinChat: (id: string) => Promise<void>;
   renameChat: (id: string, title: string) => Promise<void>;
@@ -96,33 +130,38 @@ export const useChatsListStore = create<ChatsListState>((set, get) => ({
     }
   },
 
+  upsertFromDetail: (raw) => {
+    const item = mapApiChatDetail(raw);
+    const chats = get().chats.filter((c) => c.id !== item.id);
+    set({ chats: sortChats([item, ...chats]), initialized: true });
+  },
+
   getChat: (id) => get().chats.find((c) => c.id === id),
 
   pinChat: async (id) => {
     const chat = get().chats.find((c) => c.id === id);
-    if (!chat) return;
+    if (!chat) throw new Error("Chat not found");
     const pinned = !chat.isPinned;
-    await chatListService.pin(id, pinned);
+    const raw = await chatListService.pin(id, pinned);
+    const item = mapApiChat(raw);
     set({
-      chats: sortChats(
-        get().chats.map((c) => (c.id === id ? { ...c, isPinned: pinned } : c))
-      ),
+      chats: sortChats(get().chats.map((c) => (c.id === id ? item : c))),
     });
   },
 
   renameChat: async (id, title) => {
     const trimmed = title.trim();
     if (!trimmed) return;
-    await chatListService.rename(id, trimmed);
+    const raw = await chatListService.rename(id, trimmed);
+    const item = mapApiChat(raw);
     set({
-      chats: get().chats.map((c) =>
-        c.id === id ? { ...c, displayName: trimmed } : c
-      ),
+      chats: sortChats(get().chats.map((c) => (c.id === id ? item : c))),
     });
   },
 
   removeChat: async (id) => {
     await chatListService.remove(id);
     set({ chats: get().chats.filter((c) => c.id !== id) });
+    await get().load();
   },
 }));
