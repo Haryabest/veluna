@@ -73,6 +73,7 @@ class Settings(BaseSettings):
 
     admin_telegram_ids: str = ""
     admin_telegram_usernames: str = "Iabobuss", "romanov_vrd"
+    dev_telegram_id: int | None = None
 
     @property
     def cors_origins_list(self) -> list[str]:

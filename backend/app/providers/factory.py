@@ -37,6 +37,16 @@ def get_chat_provider() -> AIChatProvider:
     return StubChatProvider()
 
 
+def _image_provider_has_key(settings, name: str) -> bool:
+    if name == "fal":
+        return bool(settings.fal_api_key.strip())
+    if name == "replicate":
+        return bool(settings.replicate_api_token.strip())
+    if name == "civitai":
+        return bool(settings.civitai_api_key.strip())
+    return False
+
+
 @lru_cache
 def get_image_provider() -> ImageGenerationProvider:
     settings = get_settings()
@@ -45,7 +55,13 @@ def get_image_provider() -> ImageGenerationProvider:
         "replicate": ReplicateProvider,
         "civitai": CivitaiProvider,
     }
-    provider_cls = providers.get(settings.image_provider)
+    preferred = settings.image_provider
+    if _image_provider_has_key(settings, preferred):
+        return providers[preferred]()
+    for name in ("civitai", "fal", "replicate"):
+        if name != preferred and _image_provider_has_key(settings, name):
+            return providers[name]()
+    provider_cls = providers.get(preferred)
     if not provider_cls:
         raise ValueError(f"Unknown image provider: {settings.image_provider}")
     return provider_cls()

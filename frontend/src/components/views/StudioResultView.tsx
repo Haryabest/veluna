@@ -8,6 +8,7 @@ import { BackButton } from "@/components/shared/BackButton";
 import { useNavStore } from "@/store/nav-store";
 import { useToast } from "@/hooks/use-toast";
 import { generationService } from "@/services/api";
+import { getApiError } from "@/lib/api-client";
 import { QUERY_KEYS } from "@/lib/constants";
 import { chatBorderStyle } from "@/lib/theme";
 import { translateGenerationStatus } from "@/lib/i18n";
@@ -34,6 +35,8 @@ export function StudioResultView() {
     },
     enabled: Boolean(generationId),
     refetchInterval: (query) => (isInProgress(query.state.data?.status) ? 2500 : false),
+    retry: 3,
+    retryDelay: 1500,
   });
 
   const status = data?.status as string | undefined;
@@ -119,7 +122,7 @@ export function StudioResultView() {
   }
 
   if (isError) {
-    const msg = error instanceof Error ? error.message : "Ошибка загрузки";
+    const msg = getApiError(error).message || "Ошибка загрузки результата";
     logGeneration("error", { id: generationId, error: msg });
     return (
       <ResultError
@@ -139,7 +142,7 @@ export function StudioResultView() {
         message={
           status === "moderated"
             ? "Изображение не прошло модерацию"
-            : "Генерация не удалась. Попробуй снова"
+            : data?.error_message || "Генерация не удалась. Попробуй снова"
         }
         onBack={goBack}
       />

@@ -1,5 +1,19 @@
 /** @type {import('next').NextConfig} */
-const backendPort = process.env.BACKEND_PORT || '8000';
+const fs = require('fs');
+const path = require('path');
+
+function resolveBackendPort() {
+  if (process.env.BACKEND_PORT) return process.env.BACKEND_PORT;
+  const envLocal = path.join(__dirname, '.env.local');
+  if (fs.existsSync(envLocal)) {
+    const m = fs.readFileSync(envLocal, 'utf8').match(/^BACKEND_PORT=(.+)$/m);
+    if (m) return m[1].trim();
+  }
+  // Docker maps host 8020 -> container 8000
+  return '8020';
+}
+
+const backendPort = resolveBackendPort();
 const backendHost = process.env.BACKEND_HOST || '127.0.0.1';
 
 const nextConfig = {

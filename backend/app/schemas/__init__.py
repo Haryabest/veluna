@@ -187,6 +187,7 @@ class GenerationResponse(BaseSchema):
     status: str
     image_url: str | None
     thumbnail_url: str | None
+    error_message: str | None
     gems_cost: int
     created_at: datetime
 

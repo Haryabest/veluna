@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user_flexible
 from app.database.session import get_db
 from app.providers.ai.base import ChatCompletionRequest, ChatMessage
 from app.providers.factory import get_chat_provider
@@ -25,7 +25,7 @@ class TranslateResponse(BaseModel):
 @router.post("/translate", response_model=TranslateResponse)
 async def translate_prompt(
     data: TranslateRequest,
-    user: UserResponse = Depends(get_current_user),
+    user: UserResponse = Depends(get_current_user_flexible),
 ):
     provider = get_chat_provider()
     system = "You are a translator. Translate the following Russian text to English. Output ONLY the translation, nothing else."
@@ -41,7 +41,7 @@ async def translate_prompt(
 @router.post("", response_model=GenerationResponse, status_code=202)
 async def create_generation(
     data: GenerationCreate,
-    user: UserResponse = Depends(get_current_user),
+    user: UserResponse = Depends(get_current_user_flexible),
     session: AsyncSession = Depends(get_db),
 ):
     service = GenerationService(session)
@@ -51,7 +51,7 @@ async def create_generation(
 @router.get("/{generation_id}", response_model=GenerationResponse)
 async def get_generation(
     generation_id: UUID,
-    user: UserResponse = Depends(get_current_user),
+    user: UserResponse = Depends(get_current_user_flexible),
     session: AsyncSession = Depends(get_db),
 ):
     service = GenerationService(session)
@@ -61,7 +61,7 @@ async def get_generation(
 @router.get("", response_model=PaginatedResponse)
 async def list_generations(
     page: int = Query(1, ge=1),
-    user: UserResponse = Depends(get_current_user),
+    user: UserResponse = Depends(get_current_user_flexible),
     session: AsyncSession = Depends(get_db),
 ):
     service = GenerationService(session)

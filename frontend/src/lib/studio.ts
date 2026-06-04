@@ -19,8 +19,8 @@ export interface AspectRatioOption {
 }
 
 export const STUDIO_MODELS: StudioModel[] = [
+  { id: "nova-anime-xl", name: "Nova Anime XL", civitaiModelId: "2741698" },
   { id: "miaomiao", name: "MiaoMiao", civitaiModelId: "934764" },
-  { id: "nova-anime-xl", name: "Nova Anime XL", civitaiModelId: "376130" },
   { id: "velvet-mythic", name: "Velvet's Mythic Fantasy Styles", civitaiModelId: "599757" },
   { id: "nova-orange-xl", name: "Nova Orange XL", civitaiModelId: "967405" },
 ];

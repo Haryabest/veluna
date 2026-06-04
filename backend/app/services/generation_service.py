@@ -5,7 +5,8 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.exceptions import NotFoundError, ServiceUnavailableError
+from app.core.exceptions import NotFoundError, ServiceUnavailableError, ValidationError
+from app.providers.factory import get_image_provider
 from app.services.platform_settings_service import PlatformSettingsService
 from app.models import GenerationStatus
 from app.repositories.character_repository import CharacterRepository
@@ -24,6 +25,17 @@ class GenerationService:
         self._platform = PlatformSettingsService()
 
     async def create_generation(self, user_id: UUID, data: GenerationCreate) -> GenerationResponse:
+        settings = get_settings()
+        image_provider = get_image_provider()
+        if image_provider.provider_name == "civitai" and not settings.civitai_api_key.strip():
+            raise ValidationError(
+                "Добавьте CIVITAI_API_KEY в .env (Orchestration API: https://developer.civitai.com/site/)"
+            )
+        if image_provider.provider_name == "fal" and not settings.fal_api_key.strip():
+            raise ValidationError("Добавьте FAL_API_KEY в .env")
+        if image_provider.provider_name == "replicate" and not settings.replicate_api_token.strip():
+            raise ValidationError("Добавьте REPLICATE_API_TOKEN в .env")
+
         pricing = await self._platform.get_pricing()
         gems_cost = pricing.gem_cost_per_generation
 

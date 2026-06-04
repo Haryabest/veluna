@@ -8,6 +8,7 @@ import { AnimeGemIcon } from "@/components/icons/CurrencyIcons";
 import { useNavStore } from "@/store/nav-store";
 import { useToast } from "@/hooks/use-toast";
 import { generationService } from "@/services/api";
+import { ensureTelegramSession, getApiError } from "@/lib/api-client";
 import {
   ASPECT_RATIOS,
   STUDIO_GENERATION_COST,
@@ -45,6 +46,11 @@ export function StudioCreateView() {
     const finalPrompt = prompt.trim();
     logGeneration("start", { prompt: finalPrompt, model: selectedModel.name, aspect: aspectId });
     try {
+      const authed = await ensureTelegramSession();
+      if (!authed) {
+        toast("Войдите через Telegram или обновите страницу на localhost", "error");
+        return;
+      }
       const [w, h] = aspectId.split(":").map(Number);
       const width = w >= h ? 1024 : 768;
       const height = h >= w ? 1024 : 768;
@@ -62,9 +68,9 @@ export function StudioCreateView() {
 
       openStudioResult(result.id);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logGeneration("error", { error: msg });
-      toast("Ошибка генерации. Попробуй позже", "error");
+      const apiErr = getApiError(err);
+      logGeneration("error", { error: apiErr.message, code: apiErr.code });
+      toast(apiErr.message || "Ошибка генерации. Попробуй позже", "error");
     } finally {
       setLoading(false);
     }

@@ -11,6 +11,14 @@ export const authService = {
     return data;
   },
 
+  /** Localhost dev when opened outside Telegram WebApp */
+  async authenticateDev() {
+    const { data } = await apiClient.post<{ access_token: string; refresh_token: string }>(
+      "/auth/dev"
+    );
+    return data;
+  },
+
   async getMe(): Promise<User> {
     const { data } = await apiClient.get<User>("/users/me");
     return data;

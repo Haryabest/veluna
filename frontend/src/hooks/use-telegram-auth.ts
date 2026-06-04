@@ -25,10 +25,34 @@ export function useTelegramAuth() {
         if (!initData) {
           const existingToken = localStorage.getItem("access_token");
           if (existingToken) {
-            const user = await authService.getMe();
-            setUser(user);
-            setLoading(false);
-            return;
+            try {
+              const user = await authService.getMe();
+              setUser(user);
+              setLoading(false);
+              return;
+            } catch {
+              localStorage.removeItem("access_token");
+              localStorage.removeItem("refresh_token");
+            }
+          }
+          const isLocalDev =
+            window.location.hostname === "localhost" ||
+            window.location.hostname === "127.0.0.1";
+          if (isLocalDev) {
+            try {
+              const tokens = await authService.authenticateDev();
+              setTokens(tokens.access_token, tokens.refresh_token);
+              const user = await authService.getMe();
+              setUser(user);
+              setLoading(false);
+              return;
+            } catch (err) {
+              setError(
+                err instanceof Error
+                  ? err.message
+                  : "Dev-вход не удался. Откройте через Telegram или /start в боте."
+              );
+            }
           }
           setLoading(false);
           return;

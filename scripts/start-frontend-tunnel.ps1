@@ -1,7 +1,23 @@
 # Production frontend for Pinggy (dev mode chunks often timeout through free tunnel).
 $ErrorActionPreference = "Stop"
 $Root = Split-Path $PSScriptRoot -Parent
+$backendPort = "8020"
+$envLocal = Join-Path $Root "frontend\.env.local"
+if (Test-Path $envLocal) {
+    Get-Content $envLocal | ForEach-Object {
+        if ($_ -match '^BACKEND_PORT=(.+)$') { $backendPort = $matches[1].Trim() }
+    }
+}
+try {
+    $running = docker inspect -f "{{.State.Status}}" veluna-backend 2>$null
+    if ($running -eq "running") {
+        $mapped = docker port veluna-backend 8000/tcp 2>$null
+        if ($mapped -match ':(\d+)->') { $backendPort = $matches[1] }
+    }
+} catch {}
 Set-Location (Join-Path $Root "frontend")
+$env:BACKEND_PORT = $backendPort
+Write-Host "API proxy target: 127.0.0.1:$backendPort" -ForegroundColor DarkGray
 
 foreach ($port in 3000, 3001) {
     Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
@@ -15,7 +31,7 @@ if ($LASTEXITCODE -ne 0) { throw "next build failed" }
 
 Write-Host "Starting on http://0.0.0.0:3000 ..." -ForegroundColor Green
 Start-Process -FilePath "powershell.exe" `
-    -ArgumentList "-NoExit", "-NoProfile", "-Command", "cd '$PWD'; npm run start" `
+    -ArgumentList "-NoExit", "-NoProfile", "-Command", "cd '$PWD'; `$env:BACKEND_PORT='$backendPort'; npm run start" `
     -WindowStyle Normal | Out-Null
 
 Start-Sleep 4

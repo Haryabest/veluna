@@ -68,6 +68,24 @@ class AuthService:
         tokens = create_token_pair(user.id)
         return TokenResponse(**tokens.model_dump())
 
+    async def authenticate_dev(self) -> TokenResponse:
+        """Local browser dev only — issue JWT without Telegram WebApp."""
+        if self._settings.app_env != "development" and not self._settings.debug:
+            raise ForbiddenError("Dev auth is disabled")
+
+        user = None
+        if self._settings.dev_telegram_id:
+            user = await self._users.get_by_telegram_id(self._settings.dev_telegram_id)
+        if not user:
+            user = await self._users.get_first_active()
+        if not user:
+            raise NotFoundError("User", "create a user via Telegram bot /start first")
+        if user.is_banned:
+            raise ForbiddenError("Account is banned")
+
+        tokens = create_token_pair(user.id)
+        return TokenResponse(**tokens.model_dump())
+
     async def refresh_token(self, refresh_token: str) -> TokenResponse:
         payload = verify_token(refresh_token, token_type="refresh")
         if not payload:
