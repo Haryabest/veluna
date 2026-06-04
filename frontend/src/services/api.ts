@@ -83,8 +83,16 @@ export const chatService = {
     return data;
   },
 
-  async create(characterId: string) {
-    const { data } = await apiClient.post("/chats", { character_id: characterId });
+  async create(characterId: string, scenarioId: string) {
+    const { data } = await apiClient.post("/chats", {
+      character_id: characterId,
+      scenario_id: scenarioId,
+    });
+    return data;
+  },
+
+  async get(chatId: string) {
+    const { data } = await apiClient.get(`/chats/${chatId}`);
     return data;
   },
 

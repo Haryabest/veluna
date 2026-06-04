@@ -5,6 +5,8 @@ export type ChatListItem = {
   id: string;
   characterId: string;
   characterName: string;
+  scenarioId: string | null;
+  scenarioTitle: string | null;
   avatarUrl: string;
   preview: string;
   time: string;
@@ -37,6 +39,8 @@ function mapApiChat(raw: {
   id: string;
   character_id: string;
   character_name: string;
+  scenario_id?: string | null;
+  scenario_title?: string | null;
   character_avatar_url?: string | null;
   display_title: string;
   is_pinned?: boolean;
@@ -45,17 +49,46 @@ function mapApiChat(raw: {
   last_message_at?: string | null;
   unread?: number;
 }): ChatListItem {
+  const characterName = raw.character_name;
+  const scenarioTitle = raw.scenario_title ?? null;
   return {
     id: raw.id,
     characterId: raw.character_id,
-    characterName: raw.character_name,
+    characterName,
+    scenarioId: raw.scenario_id ?? null,
+    scenarioTitle,
     avatarUrl: raw.character_avatar_url || "",
     preview: raw.last_message_preview || "Начни диалог…",
     time: formatChatTime(raw.last_message_at),
     unread: raw.unread ?? 0,
     isSystem: raw.is_system ?? false,
     isPinned: raw.is_pinned ?? false,
-    displayName: raw.display_title || raw.character_name,
+    displayName: raw.display_title || characterName,
+  };
+}
+
+export function mapApiChatDetail(raw: {
+  id: string;
+  character_id: string;
+  character_name: string;
+  scenario_id?: string | null;
+  scenario_title?: string | null;
+  character_avatar_url?: string | null;
+}): ChatListItem {
+  const characterName = raw.character_name;
+  const scenarioTitle = raw.scenario_title ?? null;
+  const displayName = scenarioTitle ? `${characterName} · ${scenarioTitle}` : characterName;
+  return {
+    id: raw.id,
+    characterId: raw.character_id,
+    characterName,
+    scenarioId: raw.scenario_id ?? null,
+    scenarioTitle,
+    avatarUrl: raw.character_avatar_url || "",
+    preview: "",
+    time: "",
+    isPinned: false,
+    displayName,
   };
 }
 

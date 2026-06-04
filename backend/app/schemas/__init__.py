@@ -108,20 +108,32 @@ class CharacterScenarioResponse(BaseSchema):
 
 class ChatCreate(BaseSchema):
     character_id: UUID
+    scenario_id: UUID
 
 
 class ChatResponse(BaseSchema):
     id: UUID
     character_id: UUID
+    scenario_id: UUID | None = None
+    character_name: str = ""
+    scenario_title: str | None = None
+    character_avatar_url: str | None = None
     status: str
     message_count: int
     last_message_at: datetime | None
     created_at: datetime
 
+    @field_validator("character_avatar_url", mode="before")
+    @classmethod
+    def _normalize_chat_avatar(cls, v: str | None) -> str | None:
+        return normalize_media_url(v)
+
 
 class ChatListResponse(BaseSchema):
     id: UUID
     character_id: UUID
+    scenario_id: UUID | None = None
+    scenario_title: str | None = None
     character_name: str
     character_avatar_url: str | None = None
     display_title: str

@@ -46,7 +46,17 @@ async def create_chat(
     session: AsyncSession = Depends(get_db),
 ):
     service = ChatService(session)
-    return await service.get_or_create_chat(user.id, data.character_id)
+    return await service.get_or_create_chat(user.id, data.character_id, data.scenario_id)
+
+
+@router.get("/{chat_id}", response_model=ChatResponse)
+async def get_chat(
+    chat_id: UUID,
+    user: UserResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    service = ChatService(session)
+    return await service.get_chat(user.id, chat_id)
 
 
 @router.patch("/{chat_id}", response_model=ChatListResponse)

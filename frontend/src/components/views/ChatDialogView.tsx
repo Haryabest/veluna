@@ -1,16 +1,22 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavStore } from "@/store/nav-store";
-import { useChatsListStore } from "@/store/chats-list-store";
-import { chatService } from "@/services/api";
+import { useChatsListStore, mapApiChatDetail } from "@/store/chats-list-store";
+import { characterService, chatService } from "@/services/api";
 import { QUERY_KEYS } from "@/lib/constants";
 import { EmojiPicker } from "@/components/widgets/EmojiPicker";
 import { AnimeGemIcon } from "@/components/icons/CurrencyIcons";
 import { BackButton } from "@/components/shared/BackButton";
+import {
+  ChatScenarioMenu,
+  type ChatMenuAnchor,
+} from "@/components/chats/ChatScenarioMenu";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { CHAT_BORDER } from "@/lib/theme";
+import type { CharacterScenario } from "@/store/character-store";
 
 const PHOTO_GRADIENT_BORDER =
   "linear-gradient(135deg, #e9d5ff 0%, #d8b4fe 18%, #c084fc 38%, #a855f7 58%, #9333ea 78%, #7c3aed 100%)";
@@ -50,16 +56,66 @@ function SendIcon({ className }: { className?: string }) {
   );
 }
 
+function ChatAvatar({
+  src,
+  name,
+  className,
+}: {
+  src?: string | null;
+  name: string;
+  className: string;
+}) {
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={src} alt="" className={className} />
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "flex shrink-0 items-center justify-center bg-bg-elevated text-sm font-bold text-text-muted",
+        className
+      )}
+    >
+      {name.trim().charAt(0) || "?"}
+    </div>
+  );
+}
+
 export function ChatDialogView() {
   const chatId = useNavStore((s) => s.chatId);
   const goBack = useNavStore((s) => s.goBack);
+  const openChat = useNavStore((s) => s.openChat);
   const listChat = useChatsListStore((s) => (chatId ? s.getChat(chatId) : undefined));
+  const loadChats = useChatsListStore((s) => s.load);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const [input, setInput] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<ChatMenuAnchor | null>(null);
+  const [switchingScenario, setSwitchingScenario] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
+
+  const { data: chatDetail, isLoading: chatLoading } = useQuery({
+    queryKey: QUERY_KEYS.chat(chatId ?? ""),
+    queryFn: () => chatService.get(chatId!),
+    enabled: !!chatId && !listChat,
+  });
+
+  const chatMeta = listChat ?? (chatDetail ? mapApiChatDetail(chatDetail) : undefined);
+  const characterId = chatMeta?.characterId;
+
+  const { data: scenarios = [], isLoading: scenariosLoading } = useQuery<CharacterScenario[]>({
+    queryKey: QUERY_KEYS.characterScenarios(characterId ?? ""),
+    queryFn: () => characterService.listScenarios(characterId!) as Promise<CharacterScenario[]>,
+    enabled: !!characterId && menuOpen,
+  });
 
   const { data: messages, isLoading } = useQuery({
     queryKey: QUERY_KEYS.messages(chatId ?? ""),
@@ -79,7 +135,42 @@ export function ChatDialogView() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, sendMutation.isPending]);
 
-  if (!chatId || !listChat) {
+  const openScenarioMenu = useCallback(() => {
+    const el = menuBtnRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setMenuAnchor({ top: rect.bottom, left: rect.left, width: rect.width });
+    setMenuOpen(true);
+  }, []);
+
+  const handleSwitchScenario = async (scenarioId: string) => {
+    if (!characterId || !chatMeta || scenarioId === chatMeta.scenarioId) {
+      setMenuOpen(false);
+      return;
+    }
+    setSwitchingScenario(true);
+    try {
+      const chat = await chatService.create(characterId, scenarioId);
+      await loadChats();
+      setMenuOpen(false);
+      queryClient.removeQueries({ queryKey: QUERY_KEYS.messages(chatId ?? "") });
+      openChat(chat.id);
+    } catch {
+      toast("Не удалось переключить сценарий", "error");
+    } finally {
+      setSwitchingScenario(false);
+    }
+  };
+
+  if (!chatId || (!chatMeta && chatLoading)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-text-muted">Загрузка чата…</p>
+      </div>
+    );
+  }
+
+  if (!chatMeta) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-text-muted">Чат не найден</p>
@@ -87,8 +178,9 @@ export function ChatDialogView() {
     );
   }
 
-  const characterName = listChat.displayName;
-  const avatarUrl = listChat.avatarUrl;
+  const characterName = chatMeta.characterName;
+  const scenarioTitle = chatMeta.scenarioTitle;
+  const avatarUrl = chatMeta.avatarUrl;
   const messageList: ChatMessage[] = Array.isArray(messages) ? messages : [];
 
   const handleSend = () => {
@@ -110,16 +202,24 @@ export function ChatDialogView() {
     <div className="relative mx-auto flex h-[100dvh] max-w-lg flex-col overflow-hidden bg-transparent">
       <header className="relative z-10 flex shrink-0 items-center gap-2 px-3 py-2.5 pt-[max(0.5rem,env(safe-area-inset-top))]">
         <BackButton onClick={goBack} />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={avatarUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+        <ChatAvatar
+          src={avatarUrl}
+          name={characterName}
+          className="h-9 w-9 rounded-full object-cover"
+        />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-semibold">{characterName}</p>
-          <p className="text-xs text-emerald-400">онлайн</p>
+          <p className="truncate text-xs text-accent-light/90">
+            {scenarioTitle ?? "онлайн"}
+          </p>
         </div>
         <button
+          ref={menuBtnRef}
           type="button"
-          aria-label="Меню"
-          className="flex h-9 w-9 shrink-0 items-center justify-center text-text-muted"
+          aria-label="Сменить сценарий"
+          aria-expanded={menuOpen}
+          onClick={openScenarioMenu}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg-elevated/80 hover:text-text-primary"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="5" cy="12" r="1.5" />
@@ -128,6 +228,17 @@ export function ChatDialogView() {
           </svg>
         </button>
       </header>
+
+      <ChatScenarioMenu
+        open={menuOpen}
+        anchor={menuAnchor}
+        scenarios={scenarios}
+        currentScenarioId={chatMeta.scenarioId}
+        loading={scenariosLoading}
+        switching={switchingScenario}
+        onClose={() => setMenuOpen(false)}
+        onSelect={handleSwitchScenario}
+      />
 
       <div
         className="relative z-10 flex-1 space-y-3 overflow-y-auto px-4 py-4"
@@ -235,12 +346,10 @@ export function ChatDialogView() {
               boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)",
             }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <ChatAvatar
               src={avatarUrl}
-              alt=""
+              name={characterName}
               className="h-11 w-11 shrink-0 rounded-xl object-cover"
-              style={{ border: `1px solid ${CHAT_BORDER}` }}
             />
             <div className="min-w-0 flex-1">
               <p className="text-[14px] font-bold uppercase tracking-wide text-white">

@@ -30,11 +30,11 @@ export function ScenarioSelectView() {
 
   const { character } = useCharacter(characterId);
 
-  const startChat = async () => {
+  const startChat = async (scenario: CharacterScenario) => {
     if (!characterId || starting) return;
     setStarting(true);
     try {
-      const chat = await chatService.create(characterId);
+      const chat = await chatService.create(characterId, scenario.id);
       await loadChats();
       openChat(chat.id);
     } catch {
@@ -81,7 +81,7 @@ export function ScenarioSelectView() {
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04 }}
-              onClick={startChat}
+              onClick={() => startChat(scenario)}
               disabled={starting}
               className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-bg-elevated active:bg-bg-elevated/80"
               style={i < scenarios.length - 1 ? chatSeparatorStyle : undefined}

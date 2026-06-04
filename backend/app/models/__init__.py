@@ -134,6 +134,9 @@ class Chat(Base, TimestampMixin):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
     character_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("characters.id"), index=True)
+    scenario_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("character_scenarios.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     status: Mapped[ChatStatus] = mapped_column(_pg_enum(ChatStatus), default=ChatStatus.ACTIVE)
     custom_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
@@ -144,6 +147,7 @@ class Chat(Base, TimestampMixin):
 
     user: Mapped["User"] = relationship(back_populates="chats")
     character: Mapped["Character"] = relationship(back_populates="chats")
+    scenario: Mapped["CharacterScenario | None"] = relationship()
     messages: Mapped[list["Message"]] = relationship(back_populates="chat", order_by="Message.created_at")
 
 
