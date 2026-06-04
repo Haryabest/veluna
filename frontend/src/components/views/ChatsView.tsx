@@ -20,7 +20,8 @@ export function ChatsView() {
   const openChat = useNavStore((s) => s.openChat);
   const { toast } = useToast();
   const { openModal, closeModal } = useModal();
-  const init = useChatsListStore((s) => s.init);
+  const load = useChatsListStore((s) => s.load);
+  const loading = useChatsListStore((s) => s.loading);
   const chats = useChatsListStore((s) => s.chats);
   const pinChat = useChatsListStore((s) => s.pinChat);
   const renameChat = useChatsListStore((s) => s.renameChat);
@@ -30,8 +31,8 @@ export function ChatsView() {
   const [menuAnchor, setMenuAnchor] = useState<ChatMenuAnchor | null>(null);
 
   useEffect(() => {
-    init();
-  }, [init]);
+    load();
+  }, [load]);
 
   const menuChat = chats.find((c) => c.id === menuChatId);
 
@@ -115,7 +116,9 @@ export function ChatsView() {
         <h1 className="text-2xl font-bold">Чаты</h1>
       </header>
 
-      {chats.length === 0 ? (
+      {loading ? (
+        <p className="py-12 text-center text-sm text-text-muted">Загрузка…</p>
+      ) : chats.length === 0 ? (
         <p className="py-12 text-center text-sm text-text-muted">Нет чатов</p>
       ) : (
         <ListPanel>

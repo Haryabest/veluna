@@ -28,13 +28,48 @@ class ChatRepository:
         return result.scalar_one_or_none()
 
     async def list_user_chats(self, user_id: UUID, page: int = 1, page_size: int = 20) -> tuple[list[Chat], int]:
-        query = select(Chat).where(Chat.user_id == user_id, Chat.status == ChatStatus.ACTIVE)
+        query = (
+            select(Chat)
+            .options(selectinload(Chat.character))
+            .where(Chat.user_id == user_id, Chat.status == ChatStatus.ACTIVE)
+        )
         total = (await self._session.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
         offset = (page - 1) * page_size
         result = await self._session.execute(
-            query.order_by(Chat.last_message_at.desc().nullslast()).offset(offset).limit(page_size)
+            query.order_by(Chat.is_pinned.desc(), Chat.last_message_at.desc().nullslast())
+            .offset(offset)
+            .limit(page_size)
         )
         return list(result.scalars().all()), total
+
+    async def get_last_message_preview(self, chat_id: UUID) -> str | None:
+        result = await self._session.execute(
+            select(Message.content)
+            .where(Message.chat_id == chat_id)
+            .order_by(Message.created_at.desc())
+            .limit(1)
+        )
+        row = result.scalar_one_or_none()
+        if not row:
+            return None
+        text = row.strip()
+        return text[:120] if len(text) > 120 else text
+
+    async def update_title(self, chat: Chat, title: str) -> Chat:
+        chat.custom_title = title.strip()
+        await self._session.flush()
+        return chat
+
+    async def set_pinned(self, chat: Chat, pinned: bool) -> Chat:
+        chat.is_pinned = pinned
+        await self._session.flush()
+        return chat
+
+    async def archive(self, chat: Chat) -> Chat:
+        chat.status = ChatStatus.ARCHIVED
+        chat.is_pinned = False
+        await self._session.flush()
+        return chat
 
     async def create(self, user_id: UUID, character_id: UUID) -> Chat:
         chat = Chat(user_id=user_id, character_id=character_id)

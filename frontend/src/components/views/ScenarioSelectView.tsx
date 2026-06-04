@@ -1,15 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useNavStore } from "@/store/nav-store";
+import { useChatsListStore } from "@/store/chats-list-store";
 import { useCharacter } from "@/hooks/use-character";
+import { useToast } from "@/hooks/use-toast";
 import { BackButton } from "@/components/shared/BackButton";
 import { QUERY_KEYS } from "@/lib/constants";
 import { chatSeparatorStyle } from "@/lib/theme";
 import { truncate } from "@/lib/utils";
-import { characterService } from "@/services/api";
+import { characterService, chatService } from "@/services/api";
 import type { CharacterScenario } from "@/store/character-store";
 
 function scenarioDescription(scenario: CharacterScenario): string {
@@ -20,9 +23,26 @@ function scenarioDescription(scenario: CharacterScenario): string {
 export function ScenarioSelectView() {
   const characterId = useNavStore((s) => s.characterId);
   const goBack = useNavStore((s) => s.goBack);
-  const openChatForCharacter = useNavStore((s) => s.openChatForCharacter);
+  const openChat = useNavStore((s) => s.openChat);
+  const loadChats = useChatsListStore((s) => s.load);
+  const { toast } = useToast();
+  const [starting, setStarting] = useState(false);
 
   const { character } = useCharacter(characterId);
+
+  const startChat = async () => {
+    if (!characterId || starting) return;
+    setStarting(true);
+    try {
+      const chat = await chatService.create(characterId);
+      await loadChats();
+      openChat(chat.id);
+    } catch {
+      toast("Не удалось открыть чат", "error");
+    } finally {
+      setStarting(false);
+    }
+  };
 
   const { data: scenarios = [], isLoading } = useQuery<CharacterScenario[]>({
     queryKey: QUERY_KEYS.characterScenarios(characterId ?? ""),
@@ -61,7 +81,8 @@ export function ScenarioSelectView() {
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04 }}
-              onClick={() => characterId && openChatForCharacter(characterId)}
+              onClick={startChat}
+              disabled={starting}
               className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-bg-elevated active:bg-bg-elevated/80"
               style={i < scenarios.length - 1 ? chatSeparatorStyle : undefined}
             >

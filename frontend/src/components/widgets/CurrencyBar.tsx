@@ -7,13 +7,15 @@ import { AnimeGemIcon, AnimeHeartIcon } from "@/components/icons/CurrencyIcons";
 import { formatGems } from "@/lib/utils";
 
 interface CurrencyBarProps {
+  gems?: number;
   hearts?: number;
 }
 
-export function CurrencyBar({ hearts = 25 }: CurrencyBarProps) {
+export function CurrencyBar({ gems: gemsProp, hearts: heartsProp }: CurrencyBarProps) {
   const { user } = useUserStore();
   const openShop = useNavStore((s) => s.openShop);
-  const gems = user?.gems ?? 120;
+  const gems = gemsProp ?? user?.gems ?? 0;
+  const hearts = heartsProp ?? 0;
 
   return (
     <motion.header

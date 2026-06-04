@@ -1,22 +1,34 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavStore } from "@/store/nav-store";
 import { useChatsListStore } from "@/store/chats-list-store";
-import { getMockChat, getMockMessages, type MockMessage } from "@/lib/mock-data";
+import { chatService } from "@/services/api";
+import { QUERY_KEYS } from "@/lib/constants";
 import { EmojiPicker } from "@/components/widgets/EmojiPicker";
 import { AnimeGemIcon } from "@/components/icons/CurrencyIcons";
 import { BackButton } from "@/components/shared/BackButton";
 import { cn } from "@/lib/utils";
+import { CHAT_BORDER } from "@/lib/theme";
 
 const PHOTO_GRADIENT_BORDER =
   "linear-gradient(135deg, #e9d5ff 0%, #d8b4fe 18%, #c084fc 38%, #a855f7 58%, #9333ea 78%, #7c3aed 100%)";
 const PHOTO_GRADIENT_BG =
   "linear-gradient(135deg, #7c3aed 0%, #6d28d9 20%, #5b21b6 40%, #4c1d95 60%, #3b0764 80%, #312e81 100%)";
-import { CHAT_BORDER } from "@/lib/theme";
 
-function formatTime() {
-  return new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+type ChatMessage = {
+  id: string;
+  role: string;
+  content: string;
+  created_at?: string;
+};
+
+function formatTime(iso?: string) {
+  if (!iso) {
+    return new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  }
+  return new Date(iso).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
 }
 
 function EmojiSmileIcon({ className }: { className?: string }) {
@@ -42,26 +54,32 @@ export function ChatDialogView() {
   const chatId = useNavStore((s) => s.chatId);
   const goBack = useNavStore((s) => s.goBack);
   const listChat = useChatsListStore((s) => (chatId ? s.getChat(chatId) : undefined));
+  const queryClient = useQueryClient();
 
-  const chat = chatId ? getMockChat(chatId) : null;
-  const characterName = listChat?.displayName ?? chat?.characterName ?? "";
-  const [messages, setMessages] = useState<MockMessage[]>(() =>
-    chatId ? getMockMessages(chatId) : []
-  );
   const [input, setInput] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (chatId) setMessages(getMockMessages(chatId));
-  }, [chatId]);
+  const { data: messages, isLoading } = useQuery({
+    queryKey: QUERY_KEYS.messages(chatId ?? ""),
+    queryFn: () => chatService.getMessages(chatId!),
+    enabled: !!chatId,
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: (content: string) => chatService.sendMessage(chatId!, content),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.messages(chatId ?? "") });
+      useChatsListStore.getState().load();
+    },
+  });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, sendMutation.isPending]);
 
-  if (!chat || !chatId) {
+  if (!chatId || !listChat) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-text-muted">Чат не найден</p>
@@ -69,30 +87,16 @@ export function ChatDialogView() {
     );
   }
 
+  const characterName = listChat.displayName;
+  const avatarUrl = listChat.avatarUrl;
+  const messageList: ChatMessage[] = Array.isArray(messages) ? messages : [];
+
   const handleSend = () => {
     const text = input.trim();
-    if (!text) return;
-    const userMsg: MockMessage = {
-      id: `u-${Date.now()}`,
-      role: "user",
-      content: text,
-      time: formatTime(),
-    };
-    setMessages((prev) => [...prev, userMsg]);
+    if (!text || sendMutation.isPending) return;
+    sendMutation.mutate(text);
     setInput("");
     setEmojiOpen(false);
-
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `a-${Date.now()}`,
-          role: "assistant",
-          content: "Мм... интересно! Расскажи ещё 💜",
-          time: formatTime(),
-        },
-      ]);
-    }, 1200);
   };
 
   const insertEmoji = (emoji: string) => {
@@ -107,7 +111,7 @@ export function ChatDialogView() {
       <header className="relative z-10 flex shrink-0 items-center gap-2 px-3 py-2.5 pt-[max(0.5rem,env(safe-area-inset-top))]">
         <BackButton onClick={goBack} />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={chat.avatarUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+        <img src={avatarUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-semibold">{characterName}</p>
           <p className="text-xs text-emerald-400">онлайн</p>
@@ -132,35 +136,42 @@ export function ChatDialogView() {
             "calc(11.5rem + 20px + max(0.75rem, env(safe-area-inset-bottom, 0px)))",
         }}
       >
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={cn("flex flex-col", msg.role === "user" ? "items-end" : "items-start")}
-          >
+        {isLoading ? (
+          <p className="text-center text-sm text-text-muted">Загрузка сообщений…</p>
+        ) : (
+          messageList.map((msg) => (
             <div
-              className={cn(
-                "max-w-[82%] px-3.5 py-2.5 text-[15px] leading-snug",
-                msg.role === "user"
-                  ? "rounded-[18px] rounded-br-[4px] text-text-primary"
-                  : "rounded-[18px] rounded-bl-[4px] text-text-primary backdrop-blur-md"
-              )}
-              style={
-                msg.role === "user"
-                  ? {
-                      background: "linear-gradient(135deg, #b45cf0 0%, #7c3aed 50%, #6d28d9 100%)",
-                      border: "none",
-                    }
-                  : {
-                      border: `1px solid ${CHAT_BORDER}`,
-                      background: "rgba(26, 18, 40, 0.72)",
-                    }
-              }
+              key={msg.id}
+              className={cn("flex flex-col", msg.role === "user" ? "items-end" : "items-start")}
             >
-              {msg.content}
+              <div
+                className={cn(
+                  "max-w-[82%] px-3.5 py-2.5 text-[15px] leading-snug",
+                  msg.role === "user"
+                    ? "rounded-[18px] rounded-br-[4px] text-text-primary"
+                    : "rounded-[18px] rounded-bl-[4px] text-text-primary backdrop-blur-md"
+                )}
+                style={
+                  msg.role === "user"
+                    ? {
+                        background: "linear-gradient(135deg, #b45cf0 0%, #7c3aed 50%, #6d28d9 100%)",
+                        border: "none",
+                      }
+                    : {
+                        border: `1px solid ${CHAT_BORDER}`,
+                        background: "rgba(26, 18, 40, 0.72)",
+                      }
+                }
+              >
+                {msg.content}
+              </div>
+              <span className="mt-1 px-1 text-[11px] text-text-muted">{formatTime(msg.created_at)}</span>
             </div>
-            <span className="mt-1 px-1 text-[11px] text-text-muted">{msg.time}</span>
-          </div>
-        ))}
+          ))
+        )}
+        {sendMutation.isPending && (
+          <p className="text-xs text-text-muted">печатает…</p>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -200,7 +211,7 @@ export function ChatDialogView() {
           <button
             type="button"
             onClick={handleSend}
-            disabled={!hasText}
+            disabled={!hasText || sendMutation.isPending}
             aria-label="Отправить"
             className={cn(
               "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all active:scale-90",
@@ -226,7 +237,7 @@ export function ChatDialogView() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={chat.avatarUrl}
+              src={avatarUrl}
               alt=""
               className="h-11 w-11 shrink-0 rounded-xl object-cover"
               style={{ border: `1px solid ${CHAT_BORDER}` }}

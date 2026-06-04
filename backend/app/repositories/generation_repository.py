@@ -124,8 +124,18 @@ class PaymentRepository:
         await self._session.flush()
         return balance
 
-    async def list_transactions(self, user_id: UUID, page: int = 1, page_size: int = 20) -> tuple[list[Transaction], int]:
+    async def list_transactions(
+        self,
+        user_id: UUID,
+        page: int = 1,
+        page_size: int = 20,
+        kind: str | None = None,
+    ) -> tuple[list[Transaction], int]:
         query = select(Transaction).where(Transaction.user_id == user_id)
+        if kind == "expense":
+            query = query.where(Transaction.amount < 0)
+        elif kind == "deposit":
+            query = query.where(Transaction.amount > 0)
         total = (await self._session.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
         offset = (page - 1) * page_size
         result = await self._session.execute(

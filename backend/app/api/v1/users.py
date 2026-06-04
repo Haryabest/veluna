@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_current_user_flexible
 from app.database.session import get_db
 from app.repositories.admin_repository import AdminRepository
+from app.repositories.generation_repository import PaymentRepository
 from app.schemas import UserResponse
 from app.schemas.admin import AdminUserStatsDetailResponse
 
@@ -16,6 +17,40 @@ async def get_me(
     session: AsyncSession = Depends(get_db),
 ):
     return user
+
+
+@router.get("/balance")
+async def get_balance(
+    user: UserResponse = Depends(get_current_user_flexible),
+    session: AsyncSession = Depends(get_db),
+):
+    balance = await PaymentRepository(session).get_balance(user.id)
+    return {
+        "gems": balance.gems if balance else 0,
+        "credits": balance.credits if balance else 0,
+    }
+
+
+@router.get("/transactions")
+async def list_user_transactions(
+    page: int = Query(1, ge=1),
+    history_type: str | None = Query(None, alias="type", pattern="^(expense|deposit)$"),
+    user: UserResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    from app.schemas import PaginatedResponse, TransactionResponse
+
+    repo = PaymentRepository(session)
+    transactions, total = await repo.list_transactions(user.id, page=page, kind=history_type)
+    page_size = 20
+    items = [TransactionResponse.model_validate(t) for t in transactions]
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=(total + page_size - 1) // page_size,
+    )
 
 
 @router.get("/profile", response_model=UserResponse)

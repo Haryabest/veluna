@@ -16,12 +16,7 @@ import { useNavStore } from "@/store/nav-store";
 import { usePaymentStore } from "@/store/payment-store";
 import { useUserStore } from "@/store/user-store";
 import { shopService, authService, balanceService } from "@/services/api";
-import {
-  MOCK_SHOP_PRODUCTS,
-  SHOP_TAB_LABELS,
-  type ShopProduct,
-  type ShopTab,
-} from "@/lib/shop";
+import { SHOP_TAB_LABELS, type ShopProduct, type ShopTab } from "@/lib/shop";
 import { BackButton } from "@/components/shared/BackButton";
 import { useMounted } from "@/hooks/use-mounted";
 import { chatBorderStyle } from "@/lib/theme";
@@ -62,7 +57,7 @@ export function ShopView() {
   });
 
   const products: ShopProduct[] = useMemo(() => {
-    const list = (apiProducts?.length ? apiProducts : MOCK_SHOP_PRODUCTS) as ShopProduct[];
+    const list = (Array.isArray(apiProducts) ? apiProducts : []) as ShopProduct[];
     return list.filter((p) => p.is_active !== false);
   }, [apiProducts]);
 

@@ -54,8 +54,7 @@ export const useNavStore = create<NavState>((set, get) => ({
   openChat: (chatId) => set({ screen: "chat", chatId, tab: "chats", returnTo: "chats" }),
 
   openChatForCharacter: (characterId) => {
-    const chatId = characterId === "0" ? "chat-4" : `chat-${characterId}`;
-    set({ screen: "chat", chatId, tab: "chats", characterId: null, returnTo: "chats" });
+    set({ screen: "scenarios", characterId, tab: "home", returnTo: "character" });
   },
 
   openShop: () => {
