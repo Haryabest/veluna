@@ -13,6 +13,9 @@ import { ShopView } from "@/components/views/ShopView";
 import { HistoryView } from "@/components/views/HistoryView";
 import { TopUpBalanceView } from "@/components/views/TopUpBalanceView";
 import { StudioCreateView } from "@/components/views/StudioCreateView";
+import { StudioGeneratingView } from "@/components/views/StudioGeneratingView";
+import { StudioResultView } from "@/components/views/StudioResultView";
+import { StudioAllModelsView } from "@/components/views/StudioAllModelsView";
 import { cn } from "@/lib/utils";
 
 function ScreenContent({ screen }: { screen: AppScreen }) {
@@ -39,6 +42,12 @@ function ScreenContent({ screen }: { screen: AppScreen }) {
       return <TopUpBalanceView />;
     case "studio-create":
       return <StudioCreateView />;
+    case "studio-generating":
+      return <StudioGeneratingView />;
+    case "studio-result":
+      return <StudioResultView />;
+    case "studio-all-models":
+      return <StudioAllModelsView />;
     default:
       return null;
   }

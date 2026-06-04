@@ -51,11 +51,14 @@ def process_image_generation(self, generation_id: str):
                 image_provider = get_image_provider()
                 storage = get_storage_provider()
 
+                meta = generation.metadata_ or {}
                 result = await image_provider.generate(
                     ImageGenerationRequest(
                         prompt=generation.prompt,
                         negative_prompt=generation.negative_prompt or "",
                         model=generation.model_id,
+                        width=int(meta.get("width") or 1024),
+                        height=int(meta.get("height") or 1024),
                     )
                 )
 

@@ -16,7 +16,6 @@ import {
 } from "@/components/chats/ChatScenarioMenu";
 import { ChatThinkingBubble } from "@/components/chats/ChatThinkingBubble";
 import { useToast } from "@/hooks/use-toast";
-import { getApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { CHAT_BORDER } from "@/lib/theme";
 import type { CharacterScenario } from "@/store/character-store";

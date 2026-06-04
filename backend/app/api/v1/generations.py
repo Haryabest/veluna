@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database.session import get_db
+from app.providers.ai.base import ChatCompletionRequest, ChatMessage
 from app.providers.factory import get_chat_provider
 from app.schemas import GenerationCreate, GenerationResponse, PaginatedResponse, UserResponse
 from app.services.generation_service import GenerationService
@@ -28,11 +29,13 @@ async def translate_prompt(
 ):
     provider = get_chat_provider()
     system = "You are a translator. Translate the following Russian text to English. Output ONLY the translation, nothing else."
-    result = await provider.chat([
-        {"role": "system", "content": system},
-        {"role": "user", "content": data.text},
-    ])
-    return TranslateResponse(translated=result.strip())
+    result = await provider.complete(ChatCompletionRequest(
+        messages=[ChatMessage(role="user", content=data.text)],
+        system_prompt=system,
+        temperature=0.3,
+        max_tokens=1024,
+    ))
+    return TranslateResponse(translated=result.content.strip())
 
 
 @router.post("", response_model=GenerationResponse, status_code=202)

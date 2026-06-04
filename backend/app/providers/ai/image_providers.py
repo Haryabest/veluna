@@ -1,6 +1,7 @@
 import httpx
 
 from app.core.config import get_settings
+from app.utils.civitai_air import ecosystem_from_air, resolve_civitai_model_air
 from app.providers.ai.image_base import (
     ImageGenerationProvider,
     ImageGenerationRequest,
@@ -94,7 +95,7 @@ class ReplicateProvider(ImageGenerationProvider):
 
 
 class CivitaiProvider(ImageGenerationProvider):
-    BASE_URL = "https://orchestration.civitai.com/api/v1"
+    BASE_URL = "https://orchestration.civitai.com/v2"
 
     def __init__(self):
         settings = get_settings()
@@ -105,55 +106,84 @@ class CivitaiProvider(ImageGenerationProvider):
         return "civitai"
 
     async def generate(self, request: ImageGenerationRequest) -> ImageGenerationResponse:
-        async with httpx.AsyncClient() as client:
-            create_resp = await client.post(
-                f"{self.BASE_URL}/image/create",
-                headers={
-                    "Authorization": f"Bearer {self._api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
+        import asyncio
+
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+        }
+
+        model_urn = await resolve_civitai_model_air(request.model)
+        ecosystem = ecosystem_from_air(model_urn)
+        body: dict = {
+            "steps": [{
+                "$type": "imageGen",
+                "input": {
+                    "engine": "sdcpp",
+                    "ecosystem": ecosystem,
+                    "operation": "createImage",
                     "prompt": request.prompt,
                     "negativePrompt": request.negative_prompt or "",
-                    "model": request.model or "urn:air:sd1:checkpoint:civitai:101055@762648",
-                    "width": request.width,
-                    "height": request.height,
-                    "steps": request.num_inference_steps,
+                    "width": request.width or 1024,
+                    "height": request.height or 1024,
+                    "cfgScale": 7,
+                    "steps": request.num_inference_steps or 25,
                     "quantity": 1,
                 },
-                timeout=30.0,
-            )
-            create_resp.raise_for_status()
-            job = create_resp.json()
-            job_id = job.get("jobId") or job.get("id")
-            if not job_id:
-                raise RuntimeError(f"CivitAI did not return a job ID: {job}")
+            }],
+        }
 
-            import asyncio
-            for _ in range(60):
+        if model_urn:
+            body["steps"][0]["input"]["model"] = model_urn
+
+        async with httpx.AsyncClient() as client:
+            submit_resp = await client.post(
+                f"{self.BASE_URL}/consumer/workflows?wait=90",
+                headers=headers,
+                json=body,
+                timeout=120.0,
+            )
+            submit_resp.raise_for_status()
+            wf = submit_resp.json()
+
+            wf_id = wf.get("id", "")
+            status = wf.get("status", "")
+
+            if status == "succeeded":
+                return self._extract_image(wf, wf_id)
+
+            for _ in range(45):
                 await asyncio.sleep(2)
-                status_resp = await client.get(
-                    f"{self.BASE_URL}/image/status/{job_id}",
-                    headers={"Authorization": f"Bearer {self._api_key}"},
+                poll_resp = await client.get(
+                    f"{self.BASE_URL}/consumer/workflows/{wf_id}",
+                    headers=headers,
                     timeout=30.0,
                 )
-                status_resp.raise_for_status()
-                status_data = status_resp.json()
-                state = status_data.get("status") or status_data.get("state", "")
-                if state in ("succeeded", "completed", "done"):
-                    images = status_data.get("images") or status_data.get("results") or []
-                    image_url = images[0].get("url") if images else ""
-                    if not image_url and isinstance(images, list) and images:
-                        image_url = images[0] if isinstance(images[0], str) else ""
-                    return ImageGenerationResponse(
-                        image_url=image_url,
-                        provider=self.provider_name,
-                        metadata={"job_id": job_id},
-                    )
-                if state in ("failed", "error", "cancelled"):
-                    raise RuntimeError(f"CivitAI job {job_id} {state}: {status_data}")
+                poll_resp.raise_for_status()
+                wf = poll_resp.json()
+                status = wf.get("status", "")
+                if status == "succeeded":
+                    return self._extract_image(wf, wf_id)
+                if status in ("failed", "canceled"):
+                    err = wf.get("error", str(wf))
+                    raise RuntimeError(f"CivitAI workflow {wf_id} {status}: {err}")
 
-            raise TimeoutError(f"CivitAI job {job_id} timed out after 120s")
+            raise TimeoutError(f"CivitAI workflow {wf_id} timed out")
+
+    def _extract_image(self, wf: dict, wf_id: str) -> ImageGenerationResponse:
+        steps = wf.get("steps", [])
+        for step in steps:
+            output = step.get("output", {})
+            blobs = output.get("blobs", [])
+            for blob in blobs:
+                url = blob.get("url", "")
+                if url:
+                    return ImageGenerationResponse(
+                        image_url=url,
+                        provider=self.provider_name,
+                        metadata={"workflow_id": wf_id},
+                    )
+        raise RuntimeError(f"CivitAI workflow {wf_id} succeeded but no image URL found")
 
     async def health_check(self) -> bool:
         return bool(self._api_key)
