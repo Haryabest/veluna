@@ -230,12 +230,18 @@ function ChatRow({
         />
       )}
       <div className="relative z-[1] shrink-0">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={chat.avatarUrl}
-          alt={chat.displayName}
-          className="h-12 w-12 rounded-full object-cover"
-        />
+        {chat.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={chat.avatarUrl}
+            alt={chat.displayName}
+            className="h-12 w-12 rounded-full object-cover"
+          />
+        ) : (
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-bg-elevated text-lg text-text-muted">
+            👤
+          </div>
+        )}
         {chat.isSystem && (
           <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-accent" />
         )}

@@ -10,7 +10,7 @@ import { useCharacter } from "@/hooks/use-character";
 import { useToast } from "@/hooks/use-toast";
 import { BackButton } from "@/components/shared/BackButton";
 import { QUERY_KEYS } from "@/lib/constants";
-import { chatSeparatorStyle } from "@/lib/theme";
+import { chatBorderStyle, chatSeparatorStyle } from "@/lib/theme";
 import { truncate } from "@/lib/utils";
 import { characterService, chatService } from "@/services/api";
 import type { CharacterScenario } from "@/store/character-store";
@@ -66,14 +66,14 @@ export function ScenarioSelectView() {
       {isLoading ? (
         <p className="px-2 text-sm text-text-muted">Загрузка сценариев…</p>
       ) : scenarios.length === 0 ? (
-        <div className="rounded-2xl border border-accent/15 bg-bg-elevated px-4 py-8 text-center">
+        <div className="rounded-2xl bg-bg-elevated px-4 py-8 text-center" style={chatBorderStyle}>
           <p className="text-sm font-semibold text-text-primary">Сценариев пока нет</p>
           <p className="mt-2 text-xs leading-relaxed text-text-muted">
             Добавьте сценарий при создании персонажа в боте или в меню «Сценарии».
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-accent/15 bg-bg-elevated/60">
+        <div className="overflow-hidden rounded-2xl bg-bg-elevated/60" style={chatBorderStyle}>
           {scenarios.map((scenario, i) => (
             <motion.button
               key={scenario.id}

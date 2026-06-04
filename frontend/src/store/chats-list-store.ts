@@ -45,12 +45,11 @@ function mapApiChat(raw: {
   last_message_at?: string | null;
   unread?: number;
 }): ChatListItem {
-  const fallbackAvatar = "https://picsum.photos/seed/veluna-chat/200/200";
   return {
     id: raw.id,
     characterId: raw.character_id,
     characterName: raw.character_name,
-    avatarUrl: raw.character_avatar_url || fallbackAvatar,
+    avatarUrl: raw.character_avatar_url || "",
     preview: raw.last_message_preview || "Начни диалог…",
     time: formatChatTime(raw.last_message_at),
     unread: raw.unread ?? 0,

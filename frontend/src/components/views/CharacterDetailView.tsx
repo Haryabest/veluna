@@ -36,9 +36,7 @@ export function CharacterDetailView() {
   }
 
   const imageUrl = character.preview_url || character.avatar_url;
-  const tags = character.tags ?? [];
-  const params = (character.behavior_params ?? []).filter(Boolean);
-  const displayTags = tags.length > 0 ? tags : params;
+  const displayTags = (character.tags ?? []).filter(Boolean);
 
   return (
     <div className="relative mx-auto flex min-h-screen max-w-lg flex-col bg-bg-primary">
@@ -100,7 +98,7 @@ export function CharacterDetailView() {
             {displayTags.map((tag) => (
               <span
                 key={tag}
-                className="rounded-full border border-accent/35 bg-[#2a1548]/80 px-3.5 py-1.5 text-[13px] font-medium text-text-primary"
+                className="rounded-full bg-[#2a1548]/90 px-3.5 py-1.5 text-[13px] font-medium text-text-primary"
               >
                 {tag}
               </span>

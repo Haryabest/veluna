@@ -71,11 +71,6 @@ export function ShopView() {
       return;
     }
 
-    if (selected.id.startsWith("mock-")) {
-      toast("Запустите backend и миграции для реальной оплаты", "info");
-      return;
-    }
-
     setPaying(true);
     try {
       if (!getTelegramInitData()) {

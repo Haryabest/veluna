@@ -87,9 +87,15 @@ export function StudioCreateView() {
                       : { border: `1px solid ${CHAT_BORDER}` }
                   }
                 >
-                  <div className="h-full w-full overflow-hidden rounded-[14px]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={model.imageUrl} alt="" className="h-full w-full object-cover" />
+                  <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[14px] bg-gradient-to-br from-accent-deep/80 to-accent/40">
+                    {model.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={model.imageUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-lg font-bold text-white/90">
+                        {model.name.charAt(0)}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <span
