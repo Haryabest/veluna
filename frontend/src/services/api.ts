@@ -52,20 +52,29 @@ export const characterService = {
   },
 };
 
+export type ChatListApiItem = {
+  id: string;
+  character_id: string;
+  character_name: string;
+  scenario_id?: string | null;
+  scenario_title?: string | null;
+  character_avatar_url?: string | null;
+  display_title: string;
+  is_pinned?: boolean;
+  is_system?: boolean;
+  last_message_preview?: string | null;
+  last_message_at?: string | null;
+  unread?: number;
+};
+
 export const chatListService = {
   async pin(chatId: string, pinned: boolean) {
-    const { data } = await apiClient.patch<{ id: string; pinned: boolean; ok: boolean }>(
-      `/chats/${chatId}/pin`,
-      { pinned }
-    );
+    const { data } = await apiClient.patch<ChatListApiItem>(`/chats/${chatId}/pin`, { pinned });
     return data;
   },
 
   async rename(chatId: string, title: string) {
-    const { data } = await apiClient.patch<{ id: string; title: string; ok: boolean }>(
-      `/chats/${chatId}`,
-      { title }
-    );
+    const { data } = await apiClient.patch<ChatListApiItem>(`/chats/${chatId}`, { title });
     return data;
   },
 

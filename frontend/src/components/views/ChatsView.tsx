@@ -9,6 +9,7 @@ import { useChatsListStore } from "@/store/chats-list-store";
 import { useLongPress } from "@/hooks/use-long-press";
 import { useModal } from "@/hooks/use-modal";
 import { useToast } from "@/hooks/use-toast";
+import { getApiError } from "@/lib/api-client";
 import {
   ChatContextMenu,
   type ChatMenuAnchor,
@@ -54,8 +55,8 @@ export function ChatsView() {
     try {
       await pinChat(menuChatId);
       toast(wasPinned ? "Чат откреплён" : "Чат закреплён", "success");
-    } catch {
-      toast("Не удалось изменить закрепление", "error");
+    } catch (err) {
+      toast(getApiError(err).message || "Не удалось изменить закрепление", "error");
     }
   };
 
@@ -76,8 +77,9 @@ export function ChatsView() {
               await renameChat(chatId, title);
               closeModal();
               toast("Чат переименован", "success");
-            } catch {
-              toast("Не удалось переименовать", "error");
+            } catch (err) {
+              toast(getApiError(err).message || "Не удалось переименовать", "error");
+              throw err;
             }
           }}
         />
@@ -103,8 +105,9 @@ export function ChatsView() {
         try {
           await removeChat(chatId);
           toast("Чат удалён", "success");
-        } catch {
-          toast("Не удалось удалить чат", "error");
+        } catch (err) {
+          toast(getApiError(err).message || "Не удалось удалить чат", "error");
+          throw err;
         }
       },
     });

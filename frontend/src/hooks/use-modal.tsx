@@ -9,7 +9,7 @@ interface ModalState {
   type: ModalType;
   title: string;
   content: ReactNode;
-  onConfirm?: () => void;
+  onConfirm?: () => void | Promise<void>;
 }
 
 interface ModalContextValue {

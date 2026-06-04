@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavStore } from "@/store/nav-store";
 import { useChatsListStore, mapApiChatDetail } from "@/store/chats-list-store";
 import { characterService, chatService } from "@/services/api";
+import { getApiError } from "@/lib/api-client";
 import { QUERY_KEYS } from "@/lib/constants";
 import { EmojiPicker } from "@/components/widgets/EmojiPicker";
 import { AnimeGemIcon } from "@/components/icons/CurrencyIcons";
@@ -13,7 +14,9 @@ import {
   ChatScenarioMenu,
   type ChatMenuAnchor,
 } from "@/components/chats/ChatScenarioMenu";
+import { ChatThinkingBubble } from "@/components/chats/ChatThinkingBubble";
 import { useToast } from "@/hooks/use-toast";
+import { getApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { CHAT_BORDER } from "@/lib/theme";
 import type { CharacterScenario } from "@/store/character-store";
@@ -90,6 +93,7 @@ export function ChatDialogView() {
   const openChat = useNavStore((s) => s.openChat);
   const listChat = useChatsListStore((s) => (chatId ? s.getChat(chatId) : undefined));
   const loadChats = useChatsListStore((s) => s.load);
+  const upsertChat = useChatsListStore((s) => s.upsertFromDetail);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -98,6 +102,7 @@ export function ChatDialogView() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<ChatMenuAnchor | null>(null);
   const [switchingScenario, setSwitchingScenario] = useState(false);
+  const [optimisticUserText, setOptimisticUserText] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const menuBtnRef = useRef<HTMLButtonElement>(null);
@@ -125,15 +130,24 @@ export function ChatDialogView() {
 
   const sendMutation = useMutation({
     mutationFn: (content: string) => chatService.sendMessage(chatId!, content),
+    onMutate: (content) => {
+      setOptimisticUserText(content);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.messages(chatId ?? "") });
       useChatsListStore.getState().load();
+    },
+    onError: (err) => {
+      toast(getApiError(err).message || "Не удалось отправить сообщение", "error");
+    },
+    onSettled: () => {
+      setOptimisticUserText(null);
     },
   });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, sendMutation.isPending]);
+  }, [messages, sendMutation.isPending, optimisticUserText]);
 
   const openScenarioMenu = useCallback(() => {
     const el = menuBtnRef.current;
@@ -151,12 +165,13 @@ export function ChatDialogView() {
     setSwitchingScenario(true);
     try {
       const chat = await chatService.create(characterId, scenarioId);
+      upsertChat(chat);
       await loadChats();
       setMenuOpen(false);
       queryClient.removeQueries({ queryKey: QUERY_KEYS.messages(chatId ?? "") });
       openChat(chat.id);
-    } catch {
-      toast("Не удалось переключить сценарий", "error");
+    } catch (err) {
+      toast(getApiError(err).message || "Не удалось переключить сценарий", "error");
     } finally {
       setSwitchingScenario(false);
     }
@@ -182,10 +197,20 @@ export function ChatDialogView() {
   const scenarioTitle = chatMeta.scenarioTitle;
   const avatarUrl = chatMeta.avatarUrl;
   const messageList: ChatMessage[] = Array.isArray(messages) ? messages : [];
+  const displayMessages: ChatMessage[] = optimisticUserText
+    ? [
+        ...messageList,
+        {
+          id: "optimistic-user",
+          role: "user",
+          content: optimisticUserText,
+        },
+      ]
+    : messageList;
 
   const handleSend = () => {
     const text = input.trim();
-    if (!text || sendMutation.isPending) return;
+    if (!text || sendMutation.isPending || !chatId) return;
     sendMutation.mutate(text);
     setInput("");
     setEmojiOpen(false);
@@ -250,7 +275,7 @@ export function ChatDialogView() {
         {isLoading ? (
           <p className="text-center text-sm text-text-muted">Загрузка сообщений…</p>
         ) : (
-          messageList.map((msg) => (
+          displayMessages.map((msg) => (
             <div
               key={msg.id}
               className={cn("flex flex-col", msg.role === "user" ? "items-end" : "items-start")}
@@ -280,9 +305,7 @@ export function ChatDialogView() {
             </div>
           ))
         )}
-        {sendMutation.isPending && (
-          <p className="text-xs text-text-muted">печатает…</p>
-        )}
+        {sendMutation.isPending && <ChatThinkingBubble />}
         <div ref={messagesEndRef} />
       </div>
 

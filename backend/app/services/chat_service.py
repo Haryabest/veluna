@@ -66,12 +66,16 @@ class ChatService:
         if chat.scenario_id:
             scenario = chat.scenario or await self._scenarios.get_by_id(chat.scenario_id)
 
-        await self._payments.deduct_gems(
-            user_id,
-            character.message_price,
-            f"Message to {character.name}",
-            reference_id=str(chat_id),
-        )
+        message_price = character.message_price
+        if self._ai.provider_name == "stub":
+            message_price = 0
+        if message_price > 0:
+            await self._payments.deduct_gems(
+                user_id,
+                message_price,
+                f"Message to {character.name}",
+                reference_id=str(chat_id),
+            )
 
         await self._chats.add_message(chat_id, "user", content)
 
@@ -91,9 +95,12 @@ class ChatService:
             chat_id, "assistant", response.content, tokens_used=response.tokens_used
         )
 
-        from app.tasks.chat_tasks import process_chat_analytics
+        try:
+            from app.tasks.chat_tasks import process_chat_analytics
 
-        process_chat_analytics.delay(str(user_id), str(chat_id), response.tokens_used)
+            process_chat_analytics.delay(str(user_id), str(chat_id), response.tokens_used)
+        except Exception:
+            pass
 
         return MessageResponse.model_validate(assistant_msg)
 

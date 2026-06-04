@@ -1,11 +1,24 @@
 "use client";
 
+import { useState } from "react";
 import { useModal } from "@/hooks/use-modal";
 import { Button } from "@/components/shared/Button";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function GlobalModal() {
   const { modal, closeModal } = useModal();
+  const [confirming, setConfirming] = useState(false);
+
+  const handleConfirm = async () => {
+    if (!modal.onConfirm || confirming) return;
+    setConfirming(true);
+    try {
+      await modal.onConfirm();
+      closeModal();
+    } finally {
+      setConfirming(false);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -16,7 +29,7 @@ export function GlobalModal() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[90] bg-black/60"
-            onClick={closeModal}
+            onClick={confirming ? undefined : closeModal}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -27,16 +40,11 @@ export function GlobalModal() {
             <h2 className="mb-3 text-lg font-semibold text-text-primary">{modal.title}</h2>
             <div className="mb-6 text-sm text-text-secondary">{modal.content}</div>
             <div className="flex justify-end gap-3">
-              <Button variant="ghost" onClick={closeModal}>
+              <Button variant="ghost" onClick={closeModal} disabled={confirming}>
                 Отмена
               </Button>
               {modal.onConfirm && (
-                <Button
-                  onClick={() => {
-                    modal.onConfirm?.();
-                    closeModal();
-                  }}
-                >
+                <Button onClick={handleConfirm} loading={confirming} disabled={confirming}>
                   Подтвердить
                 </Button>
               )}
