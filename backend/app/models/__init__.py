@@ -146,6 +146,12 @@ class ChatStatus(str, enum.Enum):
     ARCHIVED = "archived"
 
 
+class AiReplyStatus(str, enum.Enum):
+    IDLE = "idle"
+    PROCESSING = "processing"
+    FAILED = "failed"
+
+
 class Chat(Base, TimestampMixin):
     __tablename__ = "chats"
 
@@ -165,6 +171,8 @@ class Chat(Base, TimestampMixin):
     total_tokens: Mapped[int] = mapped_column(Integer, default=0)
     message_count: Mapped[int] = mapped_column(Integer, default=0)
     last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ai_reply_status: Mapped[str] = mapped_column(String(20), default=AiReplyStatus.IDLE.value)
+    ai_reply_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="chats")
     character: Mapped["Character"] = relationship(back_populates="chats")
@@ -188,9 +196,15 @@ class Message(Base, TimestampMixin):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     tokens_used: Mapped[int] = mapped_column(Integer, default=0)
     is_regenerated: Mapped[bool] = mapped_column(Boolean, default=False)
+    reply_to_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("messages.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    deleted_for_all: Mapped[bool] = mapped_column(Boolean, default=False)
+    hidden_for_users: Mapped[list] = mapped_column(JSONB, default=list)
     metadata_: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
 
     chat: Mapped["Chat"] = relationship(back_populates="messages")
+    reply_to: Mapped["Message | None"] = relationship(remote_side="Message.id")
 
 
 class GenerationStatus(str, enum.Enum):

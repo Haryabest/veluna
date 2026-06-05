@@ -141,6 +141,8 @@ class ChatResponse(BaseSchema):
     status: str
     message_count: int
     last_message_at: datetime | None
+    ai_reply_status: str = "idle"
+    ai_reply_error: str | None = None
     created_at: datetime
 
     @field_validator("character_avatar_url", mode="before")
@@ -182,6 +184,13 @@ class ChatPinUpdate(BaseSchema):
 
 class MessageCreate(BaseSchema):
     content: str = Field(min_length=1, max_length=4000)
+    reply_to_id: UUID | None = None
+
+
+class MessageReplyPreview(BaseSchema):
+    id: UUID
+    role: str
+    content: str
 
 
 class MessageResponse(BaseSchema):
@@ -191,7 +200,20 @@ class MessageResponse(BaseSchema):
     content: str
     tokens_used: int
     is_regenerated: bool
+    reply_to_id: UUID | None = None
+    reply_preview: MessageReplyPreview | None = None
     created_at: datetime
+
+
+class SendMessageResponse(BaseSchema):
+    user_message: MessageResponse
+    ai_reply_status: str = "processing"
+
+
+class MessageDeleteResponse(BaseSchema):
+    id: UUID
+    deleted: bool = True
+    scope: str
 
 
 class GenerationCreate(BaseSchema):

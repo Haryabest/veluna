@@ -1,17 +1,29 @@
+import logging
+import threading
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError
-from app.models import CharacterNarrator, CharacterScenario, Chat, ChatStatus, MessageRole
-from app.providers.ai.base import ChatMessage
+from app.core.config import get_settings
+from app.core.exceptions import NotFoundError, ServiceUnavailableError, ValidationError
+from app.models import AiReplyStatus, CharacterNarrator, CharacterScenario, Chat, ChatStatus, Message, MessageRole
 from app.providers.factory import get_chat_provider
 from app.repositories.character_narrator_repository import CharacterNarratorRepository
 from app.repositories.character_repository import CharacterRepository
 from app.repositories.character_scenario_repository import CharacterScenarioRepository
 from app.repositories.chat_repository import ChatRepository
 from app.repositories.generation_repository import PaymentRepository
-from app.schemas import ChatListResponse, ChatResponse, MessageResponse
+from app.schemas import (
+    ChatListResponse,
+    ChatResponse,
+    MessageDeleteResponse,
+    MessageReplyPreview,
+    MessageResponse,
+    SendMessageResponse,
+)
+from app.services.chat_prompt import build_character_system_prompt
+
+logger = logging.getLogger(__name__)
 
 
 class ChatService:
@@ -121,22 +133,28 @@ class ChatService:
             scenario = await self._scenarios.get_by_id(chat.scenario_id)
         return self._to_chat_response(chat, character, scenario, narrator)
 
-    async def send_message(self, user_id: UUID, chat_id: UUID, content: str) -> MessageResponse:
+    async def send_message(
+        self,
+        user_id: UUID,
+        chat_id: UUID,
+        content: str,
+        reply_to_id: UUID | None = None,
+    ) -> SendMessageResponse:
         chat = await self._chats.get_by_id(chat_id)
         if not chat or chat.user_id != user_id:
             raise NotFoundError("Chat", str(chat_id))
+
+        if chat.ai_reply_status == AiReplyStatus.PROCESSING.value:
+            raise ValidationError("Дождитесь ответа персонажа")
 
         character = await self._characters.get_by_id(chat.character_id)
         if not character:
             raise NotFoundError("Character", str(chat.character_id))
 
-        scenario = None
-        if chat.scenario_id:
-            scenario = chat.scenario or await self._scenarios.get_by_id(chat.scenario_id)
-
-        narrator = None
-        if chat.narrator_id:
-            narrator = chat.narrator or await self._narrators.get_by_id(chat.narrator_id)
+        if reply_to_id:
+            parent = await self._chats.get_message(reply_to_id, chat_id)
+            if not parent or parent.deleted_for_all:
+                raise NotFoundError("Message", str(reply_to_id))
 
         message_price = character.message_price
         if self._ai.provider_name == "stub":
@@ -149,44 +167,104 @@ class ChatService:
                 reference_id=str(chat_id),
             )
 
-        await self._chats.add_message(chat_id, MessageRole.USER, content)
+        await self._chats.add_message(
+            chat_id,
+            MessageRole.USER,
+            content,
+            reply_to_id=reply_to_id,
+        )
+        await self._chats.set_ai_reply_status(chat, AiReplyStatus.PROCESSING, error=None)
 
-        history = await self._chats.get_messages(chat_id, limit=self.MAX_CONTEXT_MESSAGES)
-        ai_messages = [
-            ChatMessage(role=m.role.value, content=m.content)
-            for m in history
-            if m.role != MessageRole.SYSTEM
-        ]
+        user_msg = await self._chats.get_latest_message(chat_id)
+        if not user_msg:
+            raise NotFoundError("Message", "last")
 
-        from app.providers.ai.base import ChatCompletionRequest
+        self._enqueue_ai_response(chat_id, user_msg.id, user_id)
 
-        response = await self._ai.complete(
-            ChatCompletionRequest(
-                messages=ai_messages,
-                system_prompt=self._build_system_prompt(character, scenario, narrator),
-            )
+        return SendMessageResponse(
+            user_message=self._to_message_response(user_msg),
+            ai_reply_status=AiReplyStatus.PROCESSING.value,
         )
 
-        assistant_msg = await self._chats.add_message(
-            chat_id, MessageRole.ASSISTANT, response.content, tokens_used=response.tokens_used
-        )
+    def _enqueue_ai_response(self, chat_id: UUID, user_message_id: UUID, user_id: UUID) -> None:
+        from app.tasks.chat_tasks import process_ai_response
 
+        cid, mid, uid = str(chat_id), str(user_message_id), str(user_id)
         try:
-            from app.tasks.chat_tasks import process_chat_analytics
+            process_ai_response.delay(cid, mid, uid)
+        except Exception as exc:
+            settings = get_settings()
+            if settings.app_env != "development":
+                logger.exception("Failed to enqueue AI response for chat %s", cid)
+                raise ServiceUnavailableError(
+                    "Очередь чата недоступна. Запустите Redis и worker: "
+                    "celery -A app.workers.celery_app worker -Q chat_queue"
+                ) from exc
 
-            process_chat_analytics.delay(str(user_id), str(chat_id), response.tokens_used)
-        except Exception:
-            pass
+            logger.warning("Celery unavailable for chat %s — running AI inline (dev)", cid)
 
-        return MessageResponse.model_validate(assistant_msg)
+            def _run_inline() -> None:
+                try:
+                    process_ai_response.apply(args=[cid, mid, uid])
+                except Exception:
+                    logger.exception("Inline AI response failed for chat %s", cid)
+
+            threading.Thread(target=_run_inline, daemon=True).start()
+
+    async def delete_message(
+        self,
+        user_id: UUID,
+        chat_id: UUID,
+        message_id: UUID,
+        scope: str,
+    ) -> MessageDeleteResponse:
+        chat = await self._chats.get_by_id(chat_id)
+        if not chat or chat.user_id != user_id:
+            raise NotFoundError("Chat", str(chat_id))
+
+        message = await self._chats.get_message(message_id, chat_id)
+        if not message or message.deleted_for_all:
+            raise NotFoundError("Message", str(message_id))
+
+        if message.role == MessageRole.SYSTEM:
+            raise ValidationError("Системные сообщения нельзя удалить")
+
+        if scope == "self":
+            await self._chats.hide_message_for_user(message, user_id)
+        elif scope == "all":
+            await self._chats.delete_message_for_all(message)
+        else:
+            raise ValidationError("scope должен быть self или all")
+
+        return MessageDeleteResponse(id=message_id, scope=scope)
 
     async def get_messages(self, user_id: UUID, chat_id: UUID, limit: int = 50) -> list[MessageResponse]:
         chat = await self._chats.get_by_id(chat_id)
         if not chat or chat.user_id != user_id:
             raise NotFoundError("Chat", str(chat_id))
 
-        messages = await self._chats.get_messages(chat_id, limit=limit)
-        return [MessageResponse.model_validate(m) for m in messages]
+        messages = await self._chats.get_messages(chat_id, user_id, limit=limit)
+        return [self._to_message_response(m) for m in messages]
+
+    def _to_message_response(self, message: Message) -> MessageResponse:
+        preview = None
+        if message.reply_to and not message.reply_to.deleted_for_all:
+            preview = MessageReplyPreview(
+                id=message.reply_to.id,
+                role=message.reply_to.role.value,
+                content=message.reply_to.content[:200],
+            )
+        return MessageResponse(
+            id=message.id,
+            chat_id=message.chat_id,
+            role=message.role.value,
+            content=message.content,
+            tokens_used=message.tokens_used,
+            is_regenerated=message.is_regenerated,
+            reply_to_id=message.reply_to_id,
+            reply_preview=preview,
+            created_at=message.created_at,
+        )
 
     async def list_user_chats(self, user_id: UUID, page: int = 1) -> tuple[list[ChatListResponse], int]:
         chats, total = await self._chats.list_user_chats(user_id, page=page)
@@ -219,17 +297,7 @@ class ChatService:
         scenario: CharacterScenario | None,
         narrator: CharacterNarrator | None,
     ) -> str:
-        parts: list[str] = []
-        if character.personality_prompt:
-            parts.append(character.personality_prompt.strip())
-        if narrator and narrator.description.strip():
-            parts.append(f"Рассказчик «{narrator.name}»:\n{narrator.description.strip()}")
-        if scenario:
-            if scenario.story:
-                parts.append(f"Сценарий «{scenario.title}»:\n{scenario.story.strip()}")
-            if scenario.communication_style:
-                parts.append(f"Стиль общения: {scenario.communication_style.strip()}")
-        return "\n\n".join(parts) if parts else "You are a helpful assistant."
+        return build_character_system_prompt(character, scenario, narrator)
 
     def _display_title(
         self, chat: Chat, character_name: str, scenario_title: str | None, narrator_name: str | None
@@ -264,6 +332,8 @@ class ChatService:
             status=chat.status.value if hasattr(chat.status, "value") else str(chat.status),
             message_count=chat.message_count,
             last_message_at=chat.last_message_at,
+            ai_reply_status=chat.ai_reply_status or AiReplyStatus.IDLE.value,
+            ai_reply_error=chat.ai_reply_error,
             created_at=chat.created_at,
         )
 
@@ -278,7 +348,7 @@ class ChatService:
         name = character.name if character else "Персонаж"
         scenario_title = scenario.title if scenario else None
         narrator_name = narrator.name if narrator else None
-        preview = await self._chats.get_last_message_preview(chat.id)
+        preview = await self._chats.get_last_message_preview(chat.id, chat.user_id)
         return ChatListResponse(
             id=chat.id,
             character_id=chat.character_id,

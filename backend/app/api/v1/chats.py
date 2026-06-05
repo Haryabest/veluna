@@ -14,8 +14,10 @@ from app.schemas import (
     ChatScenarioUpdate,
     ChatUpdate,
     MessageCreate,
+    MessageDeleteResponse,
     MessageResponse,
     PaginatedResponse,
+    SendMessageResponse,
     UserResponse,
 )
 from app.services.chat_service import ChatService
@@ -130,7 +132,7 @@ async def get_messages(
     return await service.get_messages(user.id, chat_id, limit=limit)
 
 
-@router.post("/{chat_id}/messages", response_model=MessageResponse)
+@router.post("/{chat_id}/messages", response_model=SendMessageResponse, status_code=202)
 async def send_message(
     chat_id: UUID,
     data: MessageCreate,
@@ -138,4 +140,16 @@ async def send_message(
     session: AsyncSession = Depends(get_db),
 ):
     service = ChatService(session)
-    return await service.send_message(user.id, chat_id, data.content)
+    return await service.send_message(user.id, chat_id, data.content, data.reply_to_id)
+
+
+@router.delete("/{chat_id}/messages/{message_id}", response_model=MessageDeleteResponse)
+async def delete_message(
+    chat_id: UUID,
+    message_id: UUID,
+    scope: str = Query("self", pattern="^(self|all)$"),
+    user: UserResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    service = ChatService(session)
+    return await service.delete_message(user.id, chat_id, message_id, scope)

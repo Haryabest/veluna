@@ -17,10 +17,17 @@ import {
 import { MessageSkeleton } from "@/components/shared/Skeleton";
 import type { CharacterNarrator } from "@/components/views/NarratorSelectView";
 import { ChatThinkingBubble } from "@/components/chats/ChatThinkingBubble";
+import {
+  MessageContextMenu,
+  type MessageMenuAnchor,
+} from "@/components/chats/MessageContextMenu";
+import { useMessageLongPress } from "@/hooks/use-message-long-press";
 import { useToast } from "@/hooks/use-toast";
+import { renderMarkdownLite } from "@/lib/markdown-lite";
 import { cn } from "@/lib/utils";
 import { CHAT_BORDER } from "@/lib/theme";
 import type { CharacterScenario } from "@/store/character-store";
+import { X } from "lucide-react";
 
 const PHOTO_GRADIENT_BORDER =
   "linear-gradient(135deg, #e9d5ff 0%, #d8b4fe 18%, #c084fc 38%, #a855f7 58%, #9333ea 78%, #7c3aed 100%)";
@@ -32,7 +39,27 @@ type ChatMessage = {
   role: string;
   content: string;
   created_at?: string;
+  reply_to_id?: string | null;
+  reply_preview?: { id: string; role: string; content: string } | null;
 };
+
+function mapApiMessage(raw: {
+  id: string;
+  role: string;
+  content: string;
+  created_at?: string;
+  reply_to_id?: string | null;
+  reply_preview?: { id: string; role: string; content: string } | null;
+}): ChatMessage {
+  return {
+    id: String(raw.id),
+    role: raw.role,
+    content: raw.content,
+    created_at: raw.created_at,
+    reply_to_id: raw.reply_to_id ?? null,
+    reply_preview: raw.reply_preview ?? null,
+  };
+}
 
 function formatTime(iso?: string) {
   if (!iso) {
@@ -102,16 +129,25 @@ export function ChatDialogView() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<ChatMenuAnchor | null>(null);
   const [switching, setSwitching] = useState(false);
-  const [optimisticUserText, setOptimisticUserText] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  const [msgMenuOpen, setMsgMenuOpen] = useState(false);
+  const [msgMenuAnchor, setMsgMenuAnchor] = useState<MessageMenuAnchor | null>(null);
+  const [selectedMessage, setSelectedMessage] = useState<ChatMessage | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const menuBtnRef = useRef<HTMLButtonElement>(null);
+  const prevAiStatusRef = useRef("idle");
 
   const { data: chatDetail, isLoading: chatLoading } = useQuery({
     queryKey: QUERY_KEYS.chat(chatId ?? ""),
     queryFn: () => chatService.get(chatId!),
-    enabled: !!chatId && !listChat,
+    enabled: !!chatId,
+    refetchInterval: (query) =>
+      query.state.data?.ai_reply_status === "processing" ? 2000 : false,
   });
+
+  const aiReplyStatus = chatDetail?.ai_reply_status ?? "idle";
+  const isAiThinking = aiReplyStatus === "processing";
 
   const chatMeta = listChat ?? (chatDetail ? mapApiChatDetail(chatDetail) : undefined);
   const characterId = chatMeta?.characterId;
@@ -133,28 +169,57 @@ export function ChatDialogView() {
     queryKey: QUERY_KEYS.messages(chatId ?? ""),
     queryFn: () => chatService.getMessages(chatId!),
     enabled: !!chatId,
+    refetchInterval: isAiThinking ? 2000 : false,
   });
 
   const sendMutation = useMutation({
-    mutationFn: (content: string) => chatService.sendMessage(chatId!, content),
-    onMutate: (content) => {
-      setOptimisticUserText(content);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.messages(chatId ?? "") });
+    mutationFn: ({ content, replyToId }: { content: string; replyToId?: string }) =>
+      chatService.sendMessage(chatId!, content, replyToId),
+    onSuccess: (data) => {
+      if (!chatId) return;
+      const key = QUERY_KEYS.messages(chatId);
+      const userMsg = mapApiMessage(data.user_message);
+      queryClient.setQueryData<ChatMessage[]>(key, (old) => {
+        const list = Array.isArray(old) ? old : [];
+        if (list.some((m) => m.id === userMsg.id)) return list;
+        return [...list, userMsg];
+      });
+      queryClient.setQueryData(QUERY_KEYS.chat(chatId), (old: Record<string, unknown> | undefined) => ({
+        ...(old ?? {}),
+        ai_reply_status: "processing",
+        ai_reply_error: null,
+      }));
+      setReplyTo(null);
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.chat(chatId) });
       useChatsListStore.getState().load();
     },
     onError: (err) => {
       toast(getApiError(err).message || "Не удалось отправить сообщение", "error");
     },
-    onSettled: () => {
-      setOptimisticUserText(null);
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: ({ messageId, scope }: { messageId: string; scope: "self" | "all" }) =>
+      chatService.deleteMessage(chatId!, messageId, scope),
+    onSuccess: () => {
+      if (!chatId) return;
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.messages(chatId) });
+    },
+    onError: (err) => {
+      toast(getApiError(err).message || "Не удалось удалить сообщение", "error");
     },
   });
 
   useEffect(() => {
+    if (prevAiStatusRef.current === "processing" && aiReplyStatus === "failed") {
+      toast(chatDetail?.ai_reply_error || "Не удалось получить ответ персонажа", "error");
+    }
+    prevAiStatusRef.current = aiReplyStatus;
+  }, [aiReplyStatus, chatDetail?.ai_reply_error, toast]);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, sendMutation.isPending, optimisticUserText]);
+  }, [messages, isAiThinking, sendMutation.isPending]);
 
   const openScenarioMenu = useCallback(() => {
     const el = menuBtnRef.current;
@@ -224,22 +289,44 @@ export function ChatDialogView() {
   const scenarioTitle = chatMeta.scenarioTitle;
   const narratorName = chatMeta.narratorName;
   const avatarUrl = chatMeta.avatarUrl;
-  const messageList: ChatMessage[] = Array.isArray(messages) ? messages : [];
-  const displayMessages: ChatMessage[] = optimisticUserText
-    ? [
-        ...messageList,
-        {
-          id: "optimistic-user",
-          role: "user",
-          content: optimisticUserText,
-        },
-      ]
-    : messageList;
+  const displayMessages: ChatMessage[] = Array.isArray(messages) ? messages : [];
+
+  const openMessageMenu = useCallback((msg: ChatMessage, clientX: number, clientY: number) => {
+    if (msg.role === "system") return;
+    setSelectedMessage(msg);
+    setMsgMenuAnchor({ top: clientY, left: clientX });
+    setMsgMenuOpen(true);
+  }, []);
+
+  const handleCopyMessage = async () => {
+    if (!selectedMessage) return;
+    try {
+      await navigator.clipboard.writeText(selectedMessage.content);
+      toast("Скопировано", "success");
+    } catch {
+      toast("Не удалось скопировать", "error");
+    }
+    setMsgMenuOpen(false);
+  };
+
+  const handleReplyMessage = () => {
+    if (!selectedMessage) return;
+    setReplyTo(selectedMessage);
+    setMsgMenuOpen(false);
+    inputRef.current?.focus();
+  };
+
+  const handleDeleteMessage = (scope: "self" | "all") => {
+    if (!selectedMessage || !chatId) return;
+    deleteMutation.mutate({ messageId: selectedMessage.id, scope });
+    setMsgMenuOpen(false);
+    setSelectedMessage(null);
+  };
 
   const handleSend = () => {
     const text = input.trim();
-    if (!text || sendMutation.isPending || !chatId) return;
-    sendMutation.mutate(text);
+    if (!text || sendMutation.isPending || isAiThinking || !chatId) return;
+    sendMutation.mutate({ content: text, replyToId: replyTo?.id });
     setInput("");
     setEmojiOpen(false);
   };
@@ -297,6 +384,17 @@ export function ChatDialogView() {
         onSelectNarrator={handleSwitchNarrator}
       />
 
+      <MessageContextMenu
+        open={msgMenuOpen}
+        anchor={msgMenuAnchor}
+        canDelete={selectedMessage?.role !== "system"}
+        onClose={() => setMsgMenuOpen(false)}
+        onCopy={handleCopyMessage}
+        onReply={handleReplyMessage}
+        onDeleteSelf={() => handleDeleteMessage("self")}
+        onDeleteAll={() => handleDeleteMessage("all")}
+      />
+
       <div
         className="relative z-10 flex-1 space-y-3 overflow-y-auto px-4 py-4"
         style={{
@@ -311,49 +409,11 @@ export function ChatDialogView() {
             ))}
           </div>
         ) : (
-          displayMessages.map((msg) => {
-            if (msg.role === "system") {
-              return (
-                <div key={msg.id} className="flex justify-center px-2 py-1">
-                  <p className="max-w-[90%] text-center text-xs leading-relaxed text-text-muted">
-                    {msg.content}
-                  </p>
-                </div>
-              );
-            }
-
-            return (
-            <div
-              key={msg.id}
-              className={cn("flex flex-col", msg.role === "user" ? "items-end" : "items-start")}
-            >
-              <div
-                className={cn(
-                  "max-w-[82%] px-3.5 py-2.5 text-[15px] leading-snug",
-                  msg.role === "user"
-                    ? "rounded-[18px] rounded-br-[4px] text-text-primary"
-                    : "rounded-[18px] rounded-bl-[4px] text-text-primary backdrop-blur-md"
-                )}
-                style={
-                  msg.role === "user"
-                    ? {
-                        background: "linear-gradient(135deg, #b45cf0 0%, #7c3aed 50%, #6d28d9 100%)",
-                        border: "none",
-                      }
-                    : {
-                        border: `1px solid ${CHAT_BORDER}`,
-                        background: "rgba(26, 18, 40, 0.72)",
-                      }
-                }
-              >
-                {msg.content}
-              </div>
-              <span className="mt-1 px-1 text-[11px] text-text-muted">{formatTime(msg.created_at)}</span>
-            </div>
-            );
-          })
+          displayMessages.map((msg) => (
+            <ChatMessageBubble key={msg.id} msg={msg} onLongPress={openMessageMenu} />
+          ))
         )}
-        {sendMutation.isPending && <ChatThinkingBubble />}
+        {isAiThinking && <ChatThinkingBubble />}
         <div ref={messagesEndRef} />
       </div>
 
@@ -363,6 +423,26 @@ export function ChatDialogView() {
           bottom: "calc(20px + max(0.75rem, env(safe-area-inset-bottom, 0px)))",
         }}
       >
+        {replyTo ? (
+          <div
+            className="flex items-center gap-2 rounded-2xl bg-bg-elevated/90 px-3 py-2"
+            style={{ border: `1px solid ${CHAT_BORDER}` }}
+          >
+            <div className="min-w-0 flex-1 border-l-2 border-accent-light pl-2">
+              <p className="text-[11px] font-semibold text-accent-light">Ответ</p>
+              <p className="truncate text-xs text-text-muted">{replyTo.content}</p>
+            </div>
+            <button
+              type="button"
+              aria-label="Отменить ответ"
+              onClick={() => setReplyTo(null)}
+              className="shrink-0 rounded-full p-1 text-text-muted hover:bg-bg-elevated"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : null}
+
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -393,7 +473,7 @@ export function ChatDialogView() {
           <button
             type="button"
             onClick={handleSend}
-            disabled={!hasText || sendMutation.isPending}
+            disabled={!hasText || sendMutation.isPending || isAiThinking}
             aria-label="Отправить"
             className={cn(
               "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all active:scale-90",
@@ -444,6 +524,67 @@ export function ChatDialogView() {
       </div>
 
       <EmojiPicker open={emojiOpen} onClose={() => setEmojiOpen(false)} onSelect={insertEmoji} />
+    </div>
+  );
+}
+
+function ChatMessageBubble({
+  msg,
+  onLongPress,
+}: {
+  msg: ChatMessage;
+  onLongPress: (msg: ChatMessage, x: number, y: number) => void;
+}) {
+  const longPress = useMessageLongPress(
+    (x, y) => onLongPress(msg, x, y),
+    { disabled: msg.role === "system" }
+  );
+
+  if (msg.role === "system") {
+    return (
+      <div className="flex justify-center px-2 py-1">
+        <p className="max-w-[90%] text-center text-xs leading-relaxed text-text-muted">
+          {msg.content}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={cn("flex flex-col select-none", msg.role === "user" ? "items-end" : "items-start")}
+      {...longPress.bind()}
+    >
+      <div
+        className={cn(
+          "max-w-[82%] px-3.5 py-2.5 text-[15px] leading-snug",
+          msg.role === "user"
+            ? "rounded-[18px] rounded-br-[4px] text-text-primary"
+            : "rounded-[18px] rounded-bl-[4px] text-text-primary backdrop-blur-md"
+        )}
+        style={
+          msg.role === "user"
+            ? {
+                background: "linear-gradient(135deg, #b45cf0 0%, #7c3aed 50%, #6d28d9 100%)",
+                border: "none",
+              }
+            : {
+                border: `1px solid ${CHAT_BORDER}`,
+                background: "rgba(26, 18, 40, 0.72)",
+              }
+        }
+      >
+        {msg.reply_preview ? (
+          <div
+            className="mb-2 rounded-lg border-l-2 border-white/40 bg-black/15 px-2 py-1 text-xs opacity-90"
+            style={{ borderColor: msg.role === "user" ? "rgba(255,255,255,0.5)" : undefined }}
+          >
+            <p className="line-clamp-2">{msg.reply_preview.content}</p>
+          </div>
+        ) : null}
+        <span className="whitespace-pre-wrap">{renderMarkdownLite(msg.content)}</span>
+      </div>
+      <span className="mt-1 px-1 text-[11px] text-text-muted">{formatTime(msg.created_at)}</span>
     </div>
   );
 }

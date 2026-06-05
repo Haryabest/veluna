@@ -36,7 +36,10 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_webapp_url: str = ""
 
-    ai_chat_provider: Literal["openai", "openrouter", "groq"] = "openai"
+    ai_chat_provider: Literal["genapi", "openai", "openrouter", "groq"] = "genapi"
+    gen_api_key: str = ""
+    gen_api_model: str = "gpt-4o-mini"
+    gen_api_base_url: str = "https://proxy.gen-api.ru/v1"
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     openrouter_api_key: str = ""
