@@ -136,8 +136,29 @@ export const chatService = {
     return data;
   },
 
-  async sendMessage(chatId: string, content: string) {
-    const { data } = await apiClient.post(`/chats/${chatId}/messages`, { content });
+  async sendMessage(chatId: string, content: string, replyToId?: string) {
+    const { data } = await apiClient.post(`/chats/${chatId}/messages`, {
+      content,
+      reply_to_id: replyToId ?? null,
+    });
+    return data as {
+      user_message: {
+        id: string;
+        chat_id: string;
+        role: string;
+        content: string;
+        reply_to_id?: string | null;
+        reply_preview?: { id: string; role: string; content: string } | null;
+        created_at: string;
+      };
+      ai_reply_status: string;
+    };
+  },
+
+  async deleteMessage(chatId: string, messageId: string, scope: "self" | "all") {
+    const { data } = await apiClient.delete(`/chats/${chatId}/messages/${messageId}`, {
+      params: { scope },
+    });
     return data;
   },
 };

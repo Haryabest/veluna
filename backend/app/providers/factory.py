@@ -3,6 +3,7 @@ from functools import lru_cache
 from app.core.config import get_settings
 from app.providers.ai.base import AIChatProvider
 from app.providers.ai.chat_providers import GroqProvider, OpenAIProvider, OpenRouterProvider
+from app.providers.ai.genapi_provider import GenApiProvider
 from app.providers.ai.stub_provider import StubChatProvider
 from app.providers.ai.image_base import ImageGenerationProvider
 from app.providers.ai.image_providers import CivitaiProvider, FalProvider, ReplicateProvider
@@ -11,6 +12,8 @@ from app.providers.storage.providers import MinioStorageProvider, S3StorageProvi
 
 
 def _provider_has_key(settings, name: str) -> bool:
+    if name == "genapi":
+        return bool(settings.gen_api_key.strip())
     if name == "openai":
         return bool(settings.openai_api_key.strip())
     if name == "openrouter":
@@ -24,6 +27,7 @@ def _provider_has_key(settings, name: str) -> bool:
 def get_chat_provider() -> AIChatProvider:
     settings = get_settings()
     providers = {
+        "genapi": GenApiProvider,
         "openai": OpenAIProvider,
         "openrouter": OpenRouterProvider,
         "groq": GroqProvider,
@@ -31,7 +35,7 @@ def get_chat_provider() -> AIChatProvider:
     preferred = settings.ai_chat_provider
     if _provider_has_key(settings, preferred):
         return providers[preferred]()
-    for name in ("groq", "openrouter", "openai"):
+    for name in ("genapi", "groq", "openrouter", "openai"):
         if name != preferred and _provider_has_key(settings, name):
             return providers[name]()
     return StubChatProvider()

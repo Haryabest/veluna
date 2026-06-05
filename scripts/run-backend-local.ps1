@@ -14,4 +14,5 @@ if (-not (Test-Path $py)) {
 
 Write-Host "Backend: http://127.0.0.1:8000 (API http://127.0.0.1:8000/api/v1)" -ForegroundColor Cyan
 Write-Host "Need Postgres :5433 and Redis :6379 (docker compose up -d postgres redis minio)" -ForegroundColor Yellow
+Write-Host "Celery (other terminals): run-celery-generation.ps1 (studio), run-celery-chat.ps1 (chat AI)" -ForegroundColor Yellow
 & $py -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
