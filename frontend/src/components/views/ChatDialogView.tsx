@@ -11,9 +11,11 @@ import { EmojiPicker } from "@/components/widgets/EmojiPicker";
 import { AnimeGemIcon } from "@/components/icons/CurrencyIcons";
 import { BackButton } from "@/components/shared/BackButton";
 import {
-  ChatScenarioMenu,
+  ChatSettingsMenu,
   type ChatMenuAnchor,
-} from "@/components/chats/ChatScenarioMenu";
+} from "@/components/chats/ChatSettingsMenu";
+import { MessageSkeleton } from "@/components/shared/Skeleton";
+import type { CharacterNarrator } from "@/components/views/NarratorSelectView";
 import { ChatThinkingBubble } from "@/components/chats/ChatThinkingBubble";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -89,7 +91,6 @@ function ChatAvatar({
 export function ChatDialogView() {
   const chatId = useNavStore((s) => s.chatId);
   const goBack = useNavStore((s) => s.goBack);
-  const openChat = useNavStore((s) => s.openChat);
   const listChat = useChatsListStore((s) => (chatId ? s.getChat(chatId) : undefined));
   const loadChats = useChatsListStore((s) => s.load);
   const upsertChat = useChatsListStore((s) => s.upsertFromDetail);
@@ -100,7 +101,7 @@ export function ChatDialogView() {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<ChatMenuAnchor | null>(null);
-  const [switchingScenario, setSwitchingScenario] = useState(false);
+  const [switching, setSwitching] = useState(false);
   const [optimisticUserText, setOptimisticUserText] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -118,6 +119,13 @@ export function ChatDialogView() {
   const { data: scenarios = [], isLoading: scenariosLoading } = useQuery<CharacterScenario[]>({
     queryKey: QUERY_KEYS.characterScenarios(characterId ?? ""),
     queryFn: () => characterService.listScenarios(characterId!) as Promise<CharacterScenario[]>,
+    enabled: !!characterId && menuOpen,
+  });
+
+  const { data: narrators = [], isLoading: narratorsLoading } = useQuery<CharacterNarrator[]>({
+    queryKey: QUERY_KEYS.characterNarrators(characterId ?? ""),
+    queryFn: () =>
+      characterService.listNarrators(characterId!) as Promise<CharacterNarrator[]>,
     enabled: !!characterId && menuOpen,
   });
 
@@ -157,22 +165,42 @@ export function ChatDialogView() {
   }, []);
 
   const handleSwitchScenario = async (scenarioId: string) => {
-    if (!characterId || !chatMeta || scenarioId === chatMeta.scenarioId) {
+    if (!chatId || !chatMeta || scenarioId === chatMeta.scenarioId) {
       setMenuOpen(false);
       return;
     }
-    setSwitchingScenario(true);
+    setSwitching(true);
     try {
-      const chat = await chatService.create(characterId, scenarioId);
+      const chat = await chatService.switchScenario(chatId, scenarioId);
       upsertChat(chat);
       await loadChats();
       setMenuOpen(false);
-      queryClient.removeQueries({ queryKey: QUERY_KEYS.messages(chatId ?? "") });
-      openChat(chat.id);
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.messages(chatId) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.chat(chatId) });
     } catch (err) {
       toast(getApiError(err).message || "Не удалось переключить сценарий", "error");
     } finally {
-      setSwitchingScenario(false);
+      setSwitching(false);
+    }
+  };
+
+  const handleSwitchNarrator = async (narratorId: string) => {
+    if (!chatId || !chatMeta || narratorId === chatMeta.narratorId) {
+      setMenuOpen(false);
+      return;
+    }
+    setSwitching(true);
+    try {
+      const chat = await chatService.switchNarrator(chatId, narratorId);
+      upsertChat(chat);
+      await loadChats();
+      setMenuOpen(false);
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.messages(chatId) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.chat(chatId) });
+    } catch (err) {
+      toast(getApiError(err).message || "Не удалось переключить рассказчика", "error");
+    } finally {
+      setSwitching(false);
     }
   };
 
@@ -194,6 +222,7 @@ export function ChatDialogView() {
 
   const characterName = chatMeta.characterName;
   const scenarioTitle = chatMeta.scenarioTitle;
+  const narratorName = chatMeta.narratorName;
   const avatarUrl = chatMeta.avatarUrl;
   const messageList: ChatMessage[] = Array.isArray(messages) ? messages : [];
   const displayMessages: ChatMessage[] = optimisticUserText
@@ -234,13 +263,13 @@ export function ChatDialogView() {
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-semibold">{characterName}</p>
           <p className="truncate text-xs text-accent-light/90">
-            {scenarioTitle ?? "онлайн"}
+            {[scenarioTitle, narratorName].filter(Boolean).join(" · ") || "онлайн"}
           </p>
         </div>
         <button
           ref={menuBtnRef}
           type="button"
-          aria-label="Сменить сценарий"
+          aria-label="Настройки чата"
           aria-expanded={menuOpen}
           onClick={openScenarioMenu}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg-elevated/80 hover:text-text-primary"
@@ -253,15 +282,19 @@ export function ChatDialogView() {
         </button>
       </header>
 
-      <ChatScenarioMenu
+      <ChatSettingsMenu
         open={menuOpen}
         anchor={menuAnchor}
         scenarios={scenarios}
+        narrators={narrators}
         currentScenarioId={chatMeta.scenarioId}
-        loading={scenariosLoading}
-        switching={switchingScenario}
+        currentNarratorId={chatMeta.narratorId}
+        loadingScenarios={scenariosLoading}
+        loadingNarrators={narratorsLoading}
+        switching={switching}
         onClose={() => setMenuOpen(false)}
-        onSelect={handleSwitchScenario}
+        onSelectScenario={handleSwitchScenario}
+        onSelectNarrator={handleSwitchNarrator}
       />
 
       <div
@@ -272,9 +305,24 @@ export function ChatDialogView() {
         }}
       >
         {isLoading ? (
-          <p className="text-center text-sm text-text-muted">Загрузка сообщений…</p>
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <MessageSkeleton key={i} />
+            ))}
+          </div>
         ) : (
-          displayMessages.map((msg) => (
+          displayMessages.map((msg) => {
+            if (msg.role === "system") {
+              return (
+                <div key={msg.id} className="flex justify-center px-2 py-1">
+                  <p className="max-w-[90%] text-center text-xs leading-relaxed text-text-muted">
+                    {msg.content}
+                  </p>
+                </div>
+              );
+            }
+
+            return (
             <div
               key={msg.id}
               className={cn("flex flex-col", msg.role === "user" ? "items-end" : "items-start")}
@@ -302,7 +350,8 @@ export function ChatDialogView() {
               </div>
               <span className="mt-1 px-1 text-[11px] text-text-muted">{formatTime(msg.created_at)}</span>
             </div>
-          ))
+            );
+          })
         )}
         {sendMutation.isPending && <ChatThinkingBubble />}
         <div ref={messagesEndRef} />

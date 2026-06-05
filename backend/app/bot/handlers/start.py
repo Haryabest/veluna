@@ -3,7 +3,7 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
 
 from app.bot.filters import is_bot_admin
-from app.bot.keyboards import start_keyboard, webapp_open_inline_kb
+from app.bot.keyboards import start_keyboard
 from app.core.config import reload_settings
 
 router = Router(name="start")
@@ -14,7 +14,7 @@ def _start_text(is_admin: bool, webapp_url: str) -> str:
         "Добро пожаловать в Veluna — AI-компаньоны в аниме-стиле.",
         "",
         "⚠️ Старые ссылки <b>xijlo-…pinggy-free.link</b> больше не работают.",
-        "Открывайте Mini App только кнопкой ниже или «Открыть Veluna» внизу после /start.",
+        "Открывайте Mini App через синюю кнопку меню Telegram «Открыть Veluna».",
         "",
         f"Актуальный адрес: <code>{webapp_url.rstrip('/')}</code>",
     ]
@@ -96,10 +96,6 @@ async def cmd_start(message: Message) -> None:
         _start_text(is_admin, url),
         reply_markup=start_keyboard(url, include_admin=is_admin),
     )
-    await message.answer(
-        "Нажмите кнопку с актуальной ссылкой:",
-        reply_markup=webapp_open_inline_kb(url),
-    )
 
 
 @router.message(Command("open"))
@@ -111,6 +107,6 @@ async def cmd_open(message: Message) -> None:
         await message.answer("Mini App URL не настроен. Запустите туннель: dev-miniapp-up.ps1")
         return
     await message.answer(
-        f"Актуальная ссылка:\n<code>{webapp_url}</code>",
-        reply_markup=webapp_open_inline_kb(webapp_url),
+        "Mini App открывается через синюю кнопку меню Telegram «Открыть Veluna».\n\n"
+        f"Актуальный адрес:\n<code>{webapp_url}</code>",
     )

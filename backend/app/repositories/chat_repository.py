@@ -18,21 +18,27 @@ class ChatRepository:
                 selectinload(Chat.messages),
                 selectinload(Chat.character),
                 selectinload(Chat.scenario),
+                selectinload(Chat.narrator),
             )
             .where(Chat.id == chat_id)
         )
         return result.scalar_one_or_none()
 
     async def get_user_chat(
-        self, user_id: UUID, character_id: UUID, scenario_id: UUID
+        self,
+        user_id: UUID,
+        character_id: UUID,
+        scenario_id: UUID,
+        narrator_id: UUID,
     ) -> Chat | None:
         result = await self._session.execute(
             select(Chat)
-            .options(selectinload(Chat.character), selectinload(Chat.scenario))
+            .options(selectinload(Chat.character), selectinload(Chat.scenario), selectinload(Chat.narrator))
             .where(
                 Chat.user_id == user_id,
                 Chat.character_id == character_id,
                 Chat.scenario_id == scenario_id,
+                Chat.narrator_id == narrator_id,
                 Chat.status == ChatStatus.ACTIVE,
             )
         )
@@ -41,7 +47,7 @@ class ChatRepository:
     async def list_user_chats(self, user_id: UUID, page: int = 1, page_size: int = 20) -> tuple[list[Chat], int]:
         query = (
             select(Chat)
-            .options(selectinload(Chat.character), selectinload(Chat.scenario))
+            .options(selectinload(Chat.character), selectinload(Chat.scenario), selectinload(Chat.narrator))
             .where(Chat.user_id == user_id, Chat.status == ChatStatus.ACTIVE)
         )
         total = (await self._session.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
@@ -82,8 +88,15 @@ class ChatRepository:
         await self._session.flush()
         return chat
 
-    async def create(self, user_id: UUID, character_id: UUID, scenario_id: UUID) -> Chat:
-        chat = Chat(user_id=user_id, character_id=character_id, scenario_id=scenario_id)
+    async def create(
+        self, user_id: UUID, character_id: UUID, scenario_id: UUID, narrator_id: UUID
+    ) -> Chat:
+        chat = Chat(
+            user_id=user_id,
+            character_id=character_id,
+            scenario_id=scenario_id,
+            narrator_id=narrator_id,
+        )
         self._session.add(chat)
         await self._session.flush()
         return chat

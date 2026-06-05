@@ -106,17 +106,37 @@ class CharacterScenarioResponse(BaseSchema):
     sort_order: int
 
 
+class CharacterNarratorResponse(BaseSchema):
+    id: UUID
+    character_id: UUID
+    name: str
+    description: str
+    price: int
+    sort_order: int
+
+
 class ChatCreate(BaseSchema):
     character_id: UUID
     scenario_id: UUID
+    narrator_id: UUID
+
+
+class ChatScenarioUpdate(BaseSchema):
+    scenario_id: UUID
+
+
+class ChatNarratorUpdate(BaseSchema):
+    narrator_id: UUID
 
 
 class ChatResponse(BaseSchema):
     id: UUID
     character_id: UUID
     scenario_id: UUID | None = None
+    narrator_id: UUID | None = None
     character_name: str = ""
     scenario_title: str | None = None
+    narrator_name: str | None = None
     character_avatar_url: str | None = None
     status: str
     message_count: int
@@ -134,6 +154,8 @@ class ChatListResponse(BaseSchema):
     character_id: UUID
     scenario_id: UUID | None = None
     scenario_title: str | None = None
+    narrator_id: UUID | None = None
+    narrator_name: str | None = None
     character_name: str
     character_avatar_url: str | None = None
     display_title: str
@@ -208,7 +230,10 @@ class TransactionResponse(BaseSchema):
     amount: int
     balance_after: int
     description: str
+    metadata: dict = Field(default_factory=dict, validation_alias="metadata_")
     created_at: datetime
+
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class AdminStatsResponse(BaseSchema):

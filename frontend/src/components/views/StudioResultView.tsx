@@ -1,19 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Download, Share2, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { BackButton } from "@/components/shared/BackButton";
 import { useNavStore } from "@/store/nav-store";
-import { useToast } from "@/hooks/use-toast";
 import { generationService } from "@/services/api";
 import { getApiError } from "@/lib/api-client";
 import { QUERY_KEYS } from "@/lib/constants";
 import { chatBorderStyle } from "@/lib/theme";
 import { translateGenerationStatus } from "@/lib/i18n";
 import { logGeneration } from "@/lib/generation-log";
-import { cn } from "@/lib/utils";
 
 const POLL_STATUSES = new Set(["pending", "processing"]);
 
@@ -24,7 +22,7 @@ function isInProgress(status: string | undefined) {
 export function StudioResultView() {
   const generationId = useNavStore((s) => s.generationId);
   const goBack = useNavStore((s) => s.goBack);
-  const { toast } = useToast();
+  const setTab = useNavStore((s) => s.setTab);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [...QUERY_KEYS.generations, generationId] as const,
@@ -54,56 +52,6 @@ export function StudioResultView() {
       logGeneration("error", { id: generationId, status });
     }
   }, [generationId, status]);
-
-  const handleDownload = useCallback(async () => {
-    if (!imageUrl) {
-      toast("Изображение ещё не готово", "info");
-      return;
-    }
-    logGeneration("download", { id: generationId, url: imageUrl });
-    try {
-      const res = await fetch(imageUrl);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `veluna-art-${generationId ?? "art"}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast("Скачивание началось", "success");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logGeneration("error", { action: "download", error: msg });
-      toast("Не удалось скачать", "error");
-    }
-  }, [generationId, imageUrl, toast]);
-
-  const handleShare = useCallback(async () => {
-    if (!imageUrl) {
-      toast("Изображение ещё не готово", "info");
-      return;
-    }
-    logGeneration("share", { id: generationId, url: imageUrl });
-    const shareText = "Мой арт из Veluna";
-    try {
-      if (typeof navigator !== "undefined" && navigator.share) {
-        await navigator.share({ title: shareText, text: shareText, url: imageUrl });
-        return;
-      }
-      await navigator.clipboard.writeText(imageUrl);
-      toast("Ссылка скопирована", "success");
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      try {
-        await navigator.clipboard.writeText(imageUrl);
-        toast("Ссылка скопирована", "success");
-      } catch {
-        logGeneration("error", { action: "share", error: String(err) });
-        toast("Не удалось поделиться", "error");
-      }
-    }
-  }, [generationId, imageUrl, toast]);
 
   if (!generationId) {
     return (
@@ -171,32 +119,19 @@ export function StudioResultView() {
           <p className="mt-4 line-clamp-3 text-center text-xs text-text-muted">{data.prompt}</p>
         ) : null}
 
-        <div className="mt-6 flex gap-3">
-          <button
-            type="button"
-            onClick={handleDownload}
-            className={cn(
-              "flex flex-1 items-center justify-center gap-2 rounded-2xl bg-bg-elevated/80 py-3.5 text-sm font-semibold text-text-primary transition-colors hover:bg-bg-elevated"
-            )}
-            style={chatBorderStyle}
-          >
-            <Download className="h-4 w-4" />
-            Скачать
-          </button>
-          <button
-            type="button"
-            onClick={handleShare}
-            className={cn(
-              "flex flex-1 items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold text-white"
-            )}
-            style={{
-              background: "linear-gradient(135deg, #f9a8d4 0%, #ec4899 100%)",
-            }}
-          >
-            <Share2 className="h-4 w-4" />
-            Поделиться
-          </button>
-        </div>
+        <motion.button
+          type="button"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => setTab("studio")}
+          className="mt-6 w-full rounded-2xl py-3.5 text-sm font-bold uppercase tracking-wider text-white"
+          style={{
+            background: "linear-gradient(135deg, #f9a8d4 0%, #ec4899 50%, #c084fc 100%)",
+          }}
+        >
+          Вернуться в студию
+        </motion.button>
       </div>
     );
   }

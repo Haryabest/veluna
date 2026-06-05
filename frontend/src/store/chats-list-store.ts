@@ -7,6 +7,8 @@ export type ChatListItem = {
   characterName: string;
   scenarioId: string | null;
   scenarioTitle: string | null;
+  narratorId: string | null;
+  narratorName: string | null;
   avatarUrl: string;
   preview: string;
   time: string;
@@ -41,6 +43,8 @@ function mapApiChat(raw: {
   character_name: string;
   scenario_id?: string | null;
   scenario_title?: string | null;
+  narrator_id?: string | null;
+  narrator_name?: string | null;
   character_avatar_url?: string | null;
   display_title: string;
   is_pinned?: boolean;
@@ -51,12 +55,15 @@ function mapApiChat(raw: {
 }): ChatListItem {
   const characterName = raw.character_name;
   const scenarioTitle = raw.scenario_title ?? null;
+  const narratorName = raw.narrator_name ?? null;
   return {
     id: raw.id,
     characterId: raw.character_id,
     characterName,
     scenarioId: raw.scenario_id ?? null,
     scenarioTitle,
+    narratorId: raw.narrator_id ?? null,
+    narratorName,
     avatarUrl: raw.character_avatar_url || "",
     preview: raw.last_message_preview || "Начни диалог…",
     time: formatChatTime(raw.last_message_at),
@@ -73,17 +80,23 @@ export function mapApiChatDetail(raw: {
   character_name: string;
   scenario_id?: string | null;
   scenario_title?: string | null;
+  narrator_id?: string | null;
+  narrator_name?: string | null;
   character_avatar_url?: string | null;
 }): ChatListItem {
   const characterName = raw.character_name;
   const scenarioTitle = raw.scenario_title ?? null;
-  const displayName = scenarioTitle ? `${characterName} · ${scenarioTitle}` : characterName;
+  const narratorName = raw.narrator_name ?? null;
+  const parts = [characterName, scenarioTitle, narratorName].filter(Boolean);
+  const displayName = parts.length > 1 ? parts.join(" · ") : characterName;
   return {
     id: raw.id,
     characterId: raw.character_id,
     characterName,
     scenarioId: raw.scenario_id ?? null,
     scenarioTitle,
+    narratorId: raw.narrator_id ?? null,
+    narratorName,
     avatarUrl: raw.character_avatar_url || "",
     preview: "",
     time: "",

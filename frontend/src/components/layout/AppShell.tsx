@@ -8,6 +8,7 @@ import { StudioView } from "@/components/views/StudioView";
 import { ProfileView } from "@/components/views/ProfileView";
 import { CharacterDetailView } from "@/components/views/CharacterDetailView";
 import { ScenarioSelectView } from "@/components/views/ScenarioSelectView";
+import { NarratorSelectView } from "@/components/views/NarratorSelectView";
 import { ChatDialogView } from "@/components/views/ChatDialogView";
 import { ShopView } from "@/components/views/ShopView";
 import { HistoryView } from "@/components/views/HistoryView";
@@ -32,6 +33,8 @@ function ScreenContent({ screen }: { screen: AppScreen }) {
       return <CharacterDetailView />;
     case "scenarios":
       return <ScenarioSelectView />;
+    case "narrators":
+      return <NarratorSelectView />;
     case "chat":
       return <ChatDialogView />;
     case "shop":

@@ -8,8 +8,10 @@ from app.database.session import get_db
 from app.schemas import (
     ChatCreate,
     ChatListResponse,
+    ChatNarratorUpdate,
     ChatPinUpdate,
     ChatResponse,
+    ChatScenarioUpdate,
     ChatUpdate,
     MessageCreate,
     MessageResponse,
@@ -46,7 +48,9 @@ async def create_chat(
     session: AsyncSession = Depends(get_db),
 ):
     service = ChatService(session)
-    return await service.get_or_create_chat(user.id, data.character_id, data.scenario_id)
+    return await service.get_or_create_chat(
+        user.id, data.character_id, data.scenario_id, data.narrator_id
+    )
 
 
 @router.get("/{chat_id}", response_model=ChatResponse)
@@ -57,6 +61,28 @@ async def get_chat(
 ):
     service = ChatService(session)
     return await service.get_chat(user.id, chat_id)
+
+
+@router.patch("/{chat_id}/scenario", response_model=ChatResponse)
+async def switch_chat_scenario(
+    chat_id: UUID,
+    data: ChatScenarioUpdate,
+    user: UserResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    service = ChatService(session)
+    return await service.switch_scenario(user.id, chat_id, data.scenario_id)
+
+
+@router.patch("/{chat_id}/narrator", response_model=ChatResponse)
+async def switch_chat_narrator(
+    chat_id: UUID,
+    data: ChatNarratorUpdate,
+    user: UserResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    service = ChatService(session)
+    return await service.switch_narrator(user.id, chat_id, data.narrator_id)
 
 
 @router.patch("/{chat_id}", response_model=ChatListResponse)

@@ -14,6 +14,7 @@ from app.bot.keyboards import (
     ADMIN_MENU_TEXT_CHAR_ORDER,
     cancel_kb,
     char_create_scenario_kb,
+    char_create_narrator_kb,
     character_delete_confirm_menu,
     character_delete_list_menu,
     character_item_menu,
@@ -23,8 +24,10 @@ from app.bot.keyboards import (
     characters_submenu_keyboard,
     scenario_item_menu,
     scenarios_menu,
+    narrators_menu,
+    narrator_item_menu,
 )
-from app.bot.states import AdminCharacterStates, AdminScenarioStates
+from app.bot.states import AdminCharacterStates, AdminNarratorStates, AdminScenarioStates
 from app.bot.utils import upload_telegram_photo
 from app.core.exceptions import NotFoundError, ValidationError
 from app.repositories.user_repository import UserRepository
@@ -349,7 +352,7 @@ async def _save_new_character(message: Message, state: FSMContext, avatar_url: s
     sub = f"\nПодпись: <b>{ch.subtitle}</b>" if ch.subtitle else ""
     await message.answer(
         f"Персонаж <b>{ch.name}</b> на <b>1-м месте</b> в каталоге.{sub}\n\n"
-        "Теперь добавьте хотя бы один сценарий для кнопки «Играть».",
+        "Теперь добавьте хотя бы один сценарий и рассказчика для кнопки «Играть».",
     )
     await _start_scenario_wizard(message, state, ch.id, scenario_num=1)
 
@@ -426,9 +429,94 @@ async def _finish_scenario_during_create(
 
     await state.set_state()
     await message.answer(
-        f"Сценарий <b>{sc.title}</b> добавлен ({count} всего).",
+        f"Сценарий <b>{sc.title}</b> добавлен ({count} всего).\n\n"
+        "Добавьте хотя бы один сценарий, затем перейдите к рассказчикам.",
         reply_markup=char_create_scenario_kb(str(char_id), can_finish=True),
     )
+
+
+async def _start_narrator_wizard(message: Message, state: FSMContext, char_id: UUID, *, narrator_num: int) -> None:
+    await state.update_data(created_character_id=str(char_id), narrator_num=narrator_num)
+    await state.set_state(AdminCharacterStates.narrator_name)
+    await message.answer(
+        f"<b>Рассказчик {narrator_num}</b>\n\n"
+        "1/2 <b>Название</b> (например: «Классический», «Мистический»):",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.callback_query(F.data.startswith("adm:char:create:narr:start:"))
+async def admin_char_create_to_narrators(callback: CallbackQuery, state: FSMContext) -> None:
+    char_id = UUID(callback.data.split(":")[-1])
+    async with bot_session() as session:
+        scenarios = await BotCharacterService(session).list_scenarios(char_id)
+    if not scenarios:
+        await callback.answer("Сначала добавьте хотя бы один сценарий", show_alert=True)
+        return
+    await callback.message.edit_text(
+        f"Сценариев: <b>{len(scenarios)}</b>. Теперь добавьте рассказчиков для Mini App.",
+    )
+    await _start_narrator_wizard(callback.message, state, char_id, narrator_num=1)
+    await callback.answer()
+
+
+@router.message(AdminCharacterStates.narrator_name)
+async def admin_char_create_narrator_name(message: Message, state: FSMContext) -> None:
+    name = (message.text or "").strip()
+    if not name:
+        await message.answer("Название рассказчика обязательно.")
+        return
+    await state.update_data(narrator_name=name)
+    await state.set_state(AdminCharacterStates.narrator_description)
+    await message.answer(
+        "2/2 <b>Описание</b> рассказчика:",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.narrator_description)
+async def admin_char_create_narrator_description(message: Message, state: FSMContext) -> None:
+    await _finish_narrator_during_create(message, state, description=(message.text or "").strip())
+
+
+async def _finish_narrator_during_create(message: Message, state: FSMContext, description: str) -> None:
+    data = await state.get_data()
+    admin_id = await _admin_id(message.from_user.id)
+    char_id = UUID(data["created_character_id"])
+    if not admin_id:
+        return
+    try:
+        async with bot_session() as session:
+            narrator = await BotCharacterService(session).create_narrator(
+                admin_id,
+                char_id,
+                name=data["narrator_name"],
+                description=description,
+                price=0,
+            )
+            count = len(await BotCharacterService(session).list_narrators(char_id))
+    except ValidationError as exc:
+        await message.answer(str(exc.message))
+        return
+    except Exception as exc:
+        await message.answer(f"Ошибка: {exc}")
+        return
+
+    await state.set_state()
+    await message.answer(
+        f"Рассказчик <b>{narrator.name}</b> добавлен ({count} всего).",
+        reply_markup=char_create_narrator_kb(str(char_id), can_finish=True),
+    )
+
+
+@router.callback_query(F.data.startswith("adm:char:create:narr:more:"))
+async def admin_char_create_narrator_more(callback: CallbackQuery, state: FSMContext) -> None:
+    char_id = UUID(callback.data.split(":")[-1])
+    data = await state.get_data()
+    next_num = int(data.get("narrator_num", 1)) + 1
+    await state.update_data(narrator_num=next_num)
+    await _start_narrator_wizard(callback.message, state, char_id, narrator_num=next_num)
+    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("adm:char:create:scen:more:"))
@@ -447,10 +535,18 @@ async def admin_char_create_done(callback: CallbackQuery, state: FSMContext) -> 
     async with bot_session() as session:
         ch = await BotCharacterService(session).get_character(char_id)
         scenarios = await BotCharacterService(session).list_scenarios(char_id)
+        narrators = await BotCharacterService(session).list_narrators(char_id)
+    if not scenarios:
+        await callback.answer("Нужен хотя бы один сценарий", show_alert=True)
+        return
+    if not narrators:
+        await callback.answer("Нужен хотя бы один рассказчик", show_alert=True)
+        return
     await state.clear()
     await callback.message.edit_text(
         f"<b>{ch.name}</b> полностью создан.\n"
-        f"Сценариев: <b>{len(scenarios)}</b>. Карточка и «Играть» готовы в Mini App.",
+        f"Сценариев: <b>{len(scenarios)}</b>, рассказчиков: <b>{len(narrators)}</b>.\n"
+        "Карточка и «Играть» готовы в Mini App.",
         reply_markup=character_item_menu(str(char_id)),
     )
     await callback.answer("Готово")
@@ -707,4 +803,143 @@ async def admin_scenario_delete(callback: CallbackQuery, state: FSMContext) -> N
         await callback.message.edit_text(
             f"<b>Сценарии</b> — {ch.name}",
             reply_markup=scenarios_menu(str(char_id), scenarios),
+        )
+
+
+def _format_narrator(narrator) -> str:
+    return (
+        f"<b>{narrator.name}</b>\n"
+        f"Цена: <b>{narrator.price}</b> ❤️\n\n"
+        f"{(narrator.description or '—').strip()}"
+    )
+
+
+@router.callback_query(F.data.startswith("adm:char:narrators:"))
+async def admin_char_narrators_list(callback: CallbackQuery) -> None:
+    char_id = UUID(callback.data.split(":")[-1])
+    async with bot_session() as session:
+        svc = BotCharacterService(session)
+        ch = await svc.get_character(char_id)
+        narrators = await svc.list_narrators(char_id)
+    text = f"<b>Рассказчики</b> — {ch.name}\n\nВыберите или создайте нового."
+    if not narrators:
+        text += "\n\n<i>Рассказчиков пока нет.</i>"
+    await callback.message.edit_text(text, reply_markup=narrators_menu(str(char_id), narrators))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("adm:narr:add:"))
+async def admin_narrator_add_start(callback: CallbackQuery, state: FSMContext) -> None:
+    char_id = callback.data.split(":")[-1]
+    await state.set_state(AdminNarratorStates.name)
+    await state.update_data(narrator_character_id=char_id)
+    await callback.message.edit_text(
+        "<b>Новый рассказчик</b>\n\n1/3 <b>Название</b>:",
+        reply_markup=cancel_kb(f"adm:char:narrators:{char_id}"),
+    )
+    await callback.answer()
+
+
+@router.message(AdminNarratorStates.name)
+async def admin_narrator_name(message: Message, state: FSMContext) -> None:
+    name = (message.text or "").strip()
+    if not name:
+        await message.answer("Название обязательно.")
+        return
+    await state.update_data(narrator_name=name)
+    await state.set_state(AdminNarratorStates.description)
+    data = await state.get_data()
+    await message.answer(
+        "2/3 <b>Описание</b> рассказчика:",
+        reply_markup=cancel_kb(f"adm:char:narrators:{data['narrator_character_id']}"),
+    )
+
+
+@router.message(AdminNarratorStates.description)
+async def admin_narrator_description(message: Message, state: FSMContext) -> None:
+    await state.update_data(narrator_description=(message.text or "").strip())
+    await state.set_state(AdminNarratorStates.price)
+    data = await state.get_data()
+    await message.answer(
+        "3/3 <b>Цена в сердцах</b> (число, 0 = бесплатно):",
+        reply_markup=cancel_kb(f"adm:char:narrators:{data['narrator_character_id']}"),
+    )
+
+
+@router.message(AdminNarratorStates.price)
+async def admin_narrator_price(message: Message, state: FSMContext) -> None:
+    raw = (message.text or "").strip()
+    if not raw.isdigit():
+        await message.answer("Введите число (0 или больше).")
+        return
+    price = int(raw)
+    data = await state.get_data()
+    admin_id = await _admin_id(message.from_user.id)
+    char_id = UUID(data["narrator_character_id"])
+    if not admin_id:
+        return
+    try:
+        async with bot_session() as session:
+            narrator = await BotCharacterService(session).create_narrator(
+                admin_id,
+                char_id,
+                name=data["narrator_name"],
+                description=data.get("narrator_description", ""),
+                price=price,
+            )
+    except ValidationError as exc:
+        await message.answer(str(exc.message))
+        return
+    except Exception as exc:
+        await message.answer(f"Ошибка: {exc}")
+        return
+
+    await state.clear()
+    await message.answer(
+        f"Рассказчик <b>{narrator.name}</b> создан.",
+        reply_markup=narrator_item_menu(str(narrator.id), str(char_id)),
+    )
+
+
+@router.callback_query(F.data.startswith("adm:narr:view:"))
+async def admin_narrator_view(callback: CallbackQuery) -> None:
+    narrator_id = UUID(callback.data.split(":")[-1])
+    async with bot_session() as session:
+        from app.repositories.character_narrator_repository import CharacterNarratorRepository
+
+        narrator = await CharacterNarratorRepository(session).get_by_id(narrator_id)
+        if not narrator:
+            await callback.answer("Не найден", show_alert=True)
+            return
+    await callback.message.edit_text(
+        _format_narrator(narrator),
+        reply_markup=narrator_item_menu(str(narrator.id), str(narrator.character_id)),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("adm:narr:del:"))
+async def admin_narrator_delete(callback: CallbackQuery, state: FSMContext) -> None:
+    narrator_id = UUID(callback.data.split(":")[-1])
+    admin_id = await _admin_id(callback.from_user.id)
+    char_id = None
+    if admin_id:
+        async with bot_session() as session:
+            from app.repositories.character_narrator_repository import CharacterNarratorRepository
+
+            repo = CharacterNarratorRepository(session)
+            narrator = await repo.get_by_id(narrator_id)
+            if narrator:
+                char_id = narrator.character_id
+                await BotCharacterService(session).deactivate_narrator(admin_id, narrator_id)
+    await callback.answer("Рассказчик удалён")
+    await state.clear()
+    if char_id:
+        async with bot_session() as session:
+            svc = BotCharacterService(session)
+            ch = await svc.get_character(char_id)
+            narrators = await svc.list_narrators(char_id)
+        await callback.message.edit_text(
+            f"<b>Рассказчики</b> — {ch.name}",
+            reply_markup=narrators_menu(str(char_id), narrators),
         )

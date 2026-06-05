@@ -6,9 +6,11 @@ import { motion } from "framer-motion";
 import { useNavStore } from "@/store/nav-store";
 import { useMounted } from "@/hooks/use-mounted";
 import { balanceService } from "@/services/api";
+import { ensureTelegramSession } from "@/lib/api-client";
 import { QUERY_KEYS } from "@/lib/constants";
 import { BackButton } from "@/components/shared/BackButton";
 import { ListPanel } from "@/components/shared/ListPanel";
+import { HistoryRowSkeleton } from "@/components/shared/Skeleton";
 import { AnimeGemIcon, AnimeHeartIcon } from "@/components/icons/CurrencyIcons";
 import { formatGems, cn } from "@/lib/utils";
 import { chatBorderStyle, chatSeparatorStyle } from "@/lib/theme";
@@ -25,9 +27,12 @@ export function HistoryView() {
   const goBack = useNavStore((s) => s.goBack);
   const [tab, setTab] = useState<HistoryTab>("expense");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: QUERY_KEYS.balanceHistory(tab),
-    queryFn: () => balanceService.getHistory(tab),
+    queryFn: async () => {
+      await ensureTelegramSession();
+      return balanceService.getHistory(tab);
+    },
   });
 
   const items = data?.items ?? [];
@@ -71,14 +76,12 @@ export function HistoryView() {
 
       {isLoading ? (
         <ListPanel>
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="h-14 animate-pulse bg-bg-elevated/50"
-              style={i < 3 ? chatSeparatorStyle : undefined}
-            />
+          {Array.from({ length: 5 }).map((_, i) => (
+            <HistoryRowSkeleton key={i} />
           ))}
         </ListPanel>
+      ) : isError ? (
+        <p className="py-12 text-center text-sm text-amber-400/90">Не удалось загрузить историю</p>
       ) : items.length === 0 ? (
         <p className="py-12 text-center text-sm text-text-muted">Пока нет записей</p>
       ) : (
@@ -112,11 +115,11 @@ export function HistoryView() {
               </div>
               <span
                 className={cn(
-                  "shrink-0 text-sm font-semibold tabular-nums",
-                  item.amount > 0 ? "text-emerald-400" : "text-text-primary"
+                  "flex shrink-0 items-center gap-1 text-sm font-semibold tabular-nums",
+                  tab === "expense" ? "text-rose-400" : "text-emerald-400"
                 )}
               >
-                {item.amount > 0 ? "+" : ""}
+                {tab === "expense" ? "−" : "+"}
                 {formatGems(Math.abs(item.amount))}
               </span>
             </motion.div>

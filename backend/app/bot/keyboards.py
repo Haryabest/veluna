@@ -3,7 +3,7 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     KeyboardButton,
     ReplyKeyboardMarkup,
-    WebAppInfo,
+    ReplyKeyboardRemove,
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -11,6 +11,8 @@ from app.schemas.catalog import PromoCodeResponse, ShopProductResponse
 
 ADMIN_MENU_TEXT_STATS = "Статистика"
 ADMIN_MENU_TEXT_USERS = "Пользователи"
+ADMIN_MENU_TEXT_TOPUP_HISTORY = "История пополнений"
+ADMIN_MENU_TEXT_EXPENSE_HISTORY = "История расходов"
 ADMIN_MENU_TEXT_BACK_STATS = "← К статистике"
 ADMIN_MENU_TEXT_BACK_USERS = "← К списку"
 ADMIN_MENU_TEXT_BACK_USER = "← К пользователю"
@@ -19,6 +21,12 @@ ADMIN_USERS_PAGE_PREV = "◀ Страница"
 ADMIN_USERS_PAGE_NEXT = "Страница ▶"
 ADMIN_USERS_SEARCH = "🔍 Поиск пользователей"
 ADMIN_USERS_CLEAR_SEARCH = "✕ Сбросить поиск"
+ADMIN_TOPUPS_PAGE_PREV = "◀ Назад"
+ADMIN_TOPUPS_PAGE_NEXT = "Вперёд ▶"
+ADMIN_TOPUPS_SEARCH = "🔍 Поиск пополнений"
+ADMIN_TOPUPS_CLEAR_SEARCH = "✕ Сбросить поиск пополнений"
+ADMIN_EXPENSES_SEARCH = "🔍 Поиск расходов"
+ADMIN_EXPENSES_CLEAR_SEARCH = "✕ Сбросить поиск расходов"
 ADMIN_USER_BLOCK = "🔒 Заблокировать"
 ADMIN_USER_UNBLOCK = "✅ Разблокировать"
 ADMIN_USER_EDIT_MENU = "✏️ Редактировать"
@@ -43,6 +51,9 @@ ADMIN_MENU_TEXT_PRODUCTS = "Товары магазина"
 ADMIN_MENU_TEXTS = frozenset(
     {
         ADMIN_MENU_TEXT_STATS,
+        ADMIN_MENU_TEXT_USERS,
+        ADMIN_MENU_TEXT_TOPUP_HISTORY,
+        ADMIN_MENU_TEXT_EXPENSE_HISTORY,
         ADMIN_MENU_TEXT_BROADCAST,
         ADMIN_MENU_TEXT_CHARACTERS,
         ADMIN_MENU_TEXT_PROMOS,
@@ -51,39 +62,28 @@ ADMIN_MENU_TEXTS = frozenset(
 )
 
 
-def webapp_open_inline_kb(webapp_url: str) -> InlineKeyboardMarkup:
-    """Fresh Web App button in chat (old reply keyboards keep outdated URLs)."""
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="Открыть Veluna (актуальная ссылка)",
-                    web_app=WebAppInfo(url=webapp_url.rstrip("/")),
-                )
-            ]
-        ]
-    )
-
-
-def main_reply_keyboard(webapp_url: str, *, include_admin: bool = False) -> ReplyKeyboardMarkup:
+def main_reply_keyboard(webapp_url: str, *, include_admin: bool = False) -> ReplyKeyboardMarkup | ReplyKeyboardRemove:
     """Persistent bottom keyboard (not tied to a single message)."""
-    rows: list[list[KeyboardButton]] = [
-        [KeyboardButton(text="Открыть Veluna", web_app=WebAppInfo(url=webapp_url))],
-    ]
+    rows: list[list[KeyboardButton]] = []
     if include_admin:
         rows.extend(
             [
                 [
                     KeyboardButton(text=ADMIN_MENU_TEXT_STATS),
-                    KeyboardButton(text=ADMIN_MENU_TEXT_BROADCAST),
+                    KeyboardButton(text=ADMIN_MENU_TEXT_USERS),
                 ],
                 [
+                    KeyboardButton(text=ADMIN_MENU_TEXT_BROADCAST),
                     KeyboardButton(text=ADMIN_MENU_TEXT_CHARACTERS),
-                    KeyboardButton(text=ADMIN_MENU_TEXT_PROMOS),
                 ],
-                [KeyboardButton(text=ADMIN_MENU_TEXT_PRODUCTS)],
+                [
+                    KeyboardButton(text=ADMIN_MENU_TEXT_PROMOS),
+                    KeyboardButton(text=ADMIN_MENU_TEXT_PRODUCTS),
+                ],
             ]
         )
+    if not rows:
+        return ReplyKeyboardRemove(remove_keyboard=True)
     return ReplyKeyboardMarkup(
         keyboard=rows,
         resize_keyboard=True,
@@ -106,19 +106,94 @@ def back_to_admin() -> InlineKeyboardMarkup:
     )
 
 
+def stats_inline_keyboard(webapp_url: str) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(text="История пополнений", callback_data="adm:topups:1"),
+            InlineKeyboardButton(text="История расходов", callback_data="adm:expenses:1"),
+        ]
+    ]
+    rows.append([InlineKeyboardButton(text="« В админ-меню", callback_data="adm:menu")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 def stats_submenu_keyboard(webapp_url: str) -> ReplyKeyboardMarkup:
     """Bottom keys after admin pressed «Статистика»."""
-    rows: list[list[KeyboardButton]] = [[KeyboardButton(text=ADMIN_MENU_TEXT_USERS)]]
-    base = (webapp_url or "").rstrip("/")
-    if base.startswith("https://"):
-        rows.append(
-            [
-                KeyboardButton(
-                    text="Открыть Veluna",
-                    web_app=WebAppInfo(url=base),
-                )
-            ]
-        )
+    rows: list[list[KeyboardButton]] = [
+        [
+            KeyboardButton(text=ADMIN_MENU_TEXT_TOPUP_HISTORY),
+            KeyboardButton(text=ADMIN_MENU_TEXT_EXPENSE_HISTORY),
+        ],
+        [KeyboardButton(text=ADMIN_MENU_TEXT_USERS)],
+    ]
+    rows.append([KeyboardButton(text=ADMIN_MENU_TEXT_BACK_ADMIN)])
+    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, is_persistent=True)
+
+
+def topup_history_inline_keyboard(
+    *,
+    page: int,
+    pages: int,
+    search_active: bool = False,
+    mode: str = "topups",
+) -> InlineKeyboardMarkup:
+    base = "adm:expenses" if mode == "expenses" else "adm:topups"
+    search_text = "✕ Сбросить поиск" if search_active else "🔍 Поиск"
+    rows: list[list[InlineKeyboardButton]] = []
+    prev_page = max(1, page - 1)
+    next_page = min(pages, page + 1)
+    rows.append(
+        [
+            InlineKeyboardButton(text="◀ Назад", callback_data=f"{base}:{prev_page}"),
+            InlineKeyboardButton(text=f"{page}/{pages}", callback_data="adm:noop"),
+            InlineKeyboardButton(text="Вперёд ▶", callback_data=f"{base}:{next_page}"),
+        ]
+    )
+    if search_active:
+        rows.append([InlineKeyboardButton(text=search_text, callback_data=f"{base}:clear")])
+    else:
+        rows.append([InlineKeyboardButton(text=search_text, callback_data=f"{base}:search")])
+    rows.append(
+        [
+            InlineKeyboardButton(text="← К статистике", callback_data="adm:stats"),
+        ]
+    )
+    rows.append([InlineKeyboardButton(text="« В админ-меню", callback_data="adm:menu")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def topup_history_keyboard(
+    *,
+    page: int,
+    pages: int,
+    search_active: bool = False,
+    mode: str = "topups",
+) -> ReplyKeyboardMarkup:
+    search_button = ADMIN_EXPENSES_SEARCH if mode == "expenses" else ADMIN_TOPUPS_SEARCH
+    clear_button = ADMIN_EXPENSES_CLEAR_SEARCH if mode == "expenses" else ADMIN_TOPUPS_CLEAR_SEARCH
+    other_history = ADMIN_MENU_TEXT_TOPUP_HISTORY if mode == "expenses" else ADMIN_MENU_TEXT_EXPENSE_HISTORY
+    rows: list[list[KeyboardButton]] = []
+    rows.append(
+        [
+            KeyboardButton(text=ADMIN_TOPUPS_PAGE_PREV),
+            KeyboardButton(text=ADMIN_TOPUPS_PAGE_NEXT),
+        ]
+    )
+    if search_active:
+        rows.append([KeyboardButton(text=clear_button)])
+    else:
+        rows.append([KeyboardButton(text=search_button)])
+    rows.append(
+        [
+            KeyboardButton(text=other_history),
+            KeyboardButton(text=ADMIN_MENU_TEXT_USERS),
+        ]
+    )
+    rows.append(
+        [
+            KeyboardButton(text=ADMIN_MENU_TEXT_BACK_STATS),
+        ]
+    )
     rows.append([KeyboardButton(text=ADMIN_MENU_TEXT_BACK_ADMIN)])
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, is_persistent=True)
 
@@ -142,7 +217,7 @@ def users_list_keyboard(
         rows.append([KeyboardButton(text=ADMIN_USERS_CLEAR_SEARCH)])
     else:
         rows.append([KeyboardButton(text=ADMIN_USERS_SEARCH)])
-    rows.append([KeyboardButton(text=ADMIN_MENU_TEXT_BACK_STATS)])
+    rows.append([KeyboardButton(text=ADMIN_MENU_TEXT_BACK_ADMIN)])
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, is_persistent=True)
 
 
@@ -256,6 +331,12 @@ def character_item_menu(character_id: str) -> InlineKeyboardMarkup:
     )
     builder.row(
         InlineKeyboardButton(
+            text="Рассказчики",
+            callback_data=f"adm:char:narrators:{character_id}",
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
             text="+ Добавить сценарий",
             callback_data=f"adm:scen:add:{character_id}",
         )
@@ -352,6 +433,25 @@ def char_create_scenario_kb(character_id: str, *, can_finish: bool) -> InlineKey
     if can_finish:
         builder.row(
             InlineKeyboardButton(
+                text="➡️ К рассказчикам",
+                callback_data=f"adm:char:create:narr:start:{character_id}",
+            )
+        )
+    builder.row(InlineKeyboardButton(text="« К персонажу", callback_data=f"adm:char:view:{character_id}"))
+    return builder.as_markup()
+
+
+def char_create_narrator_kb(character_id: str, *, can_finish: bool) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(
+            text="➕ Ещё рассказчик",
+            callback_data=f"adm:char:create:narr:more:{character_id}",
+        )
+    )
+    if can_finish:
+        builder.row(
+            InlineKeyboardButton(
                 text="✅ Завершить создание",
                 callback_data=f"adm:char:create:done:{character_id}",
             )
@@ -372,6 +472,50 @@ def scenario_item_menu(scenario_id: str, character_id: str) -> InlineKeyboardMar
         InlineKeyboardButton(
             text="« К сценариям",
             callback_data=f"adm:char:scenarios:{character_id}",
+        )
+    )
+    return builder.as_markup()
+
+
+def narrators_menu(character_id: str, narrators: list) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    for narrator in narrators[:15]:
+        label = narrator.name[:40]
+        if narrator.price:
+            label = f"{label} · {narrator.price}❤️"
+        builder.row(
+            InlineKeyboardButton(
+                text=label[:48],
+                callback_data=f"adm:narr:view:{narrator.id}",
+            )
+        )
+    builder.row(
+        InlineKeyboardButton(
+            text="+ Новый рассказчик",
+            callback_data=f"adm:narr:add:{character_id}",
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="« К персонажу",
+            callback_data=f"adm:char:view:{character_id}",
+        )
+    )
+    return builder.as_markup()
+
+
+def narrator_item_menu(narrator_id: str, character_id: str) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(
+            text="Удалить рассказчика",
+            callback_data=f"adm:narr:del:{narrator_id}",
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="« К рассказчикам",
+            callback_data=f"adm:char:narrators:{character_id}",
         )
     )
     return builder.as_markup()

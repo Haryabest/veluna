@@ -25,6 +25,7 @@ export const QUERY_KEYS = {
   characters: (page?: number) => ["characters", page ?? 1] as const,
   character: (id: string) => ["character", id] as const,
   characterScenarios: (id: string) => ["character-scenarios", id] as const,
+  characterNarrators: (id: string) => ["character-narrators", id] as const,
   chats: ["chats"] as const,
   chat: (id: string) => ["chat", id] as const,
   messages: (chatId: string) => ["messages", chatId] as const,

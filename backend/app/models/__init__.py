@@ -106,6 +106,10 @@ class Character(Base, TimestampMixin):
         back_populates="character",
         order_by="CharacterScenario.sort_order",
     )
+    narrators: Mapped[list["CharacterNarrator"]] = relationship(
+        back_populates="character",
+        order_by="CharacterNarrator.sort_order",
+    )
 
 
 class CharacterScenario(Base, TimestampMixin):
@@ -123,6 +127,20 @@ class CharacterScenario(Base, TimestampMixin):
     character: Mapped["Character"] = relationship(back_populates="scenarios")
 
 
+class CharacterNarrator(Base, TimestampMixin):
+    __tablename__ = "character_narrators"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    character_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("characters.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="")
+    price: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    character: Mapped["Character"] = relationship(back_populates="narrators")
+
+
 class ChatStatus(str, enum.Enum):
     ACTIVE = "active"
     ARCHIVED = "archived"
@@ -137,6 +155,9 @@ class Chat(Base, TimestampMixin):
     scenario_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("character_scenarios.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    narrator_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("character_narrators.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     status: Mapped[ChatStatus] = mapped_column(_pg_enum(ChatStatus), default=ChatStatus.ACTIVE)
     custom_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
@@ -148,6 +169,7 @@ class Chat(Base, TimestampMixin):
     user: Mapped["User"] = relationship(back_populates="chats")
     character: Mapped["Character"] = relationship(back_populates="chats")
     scenario: Mapped["CharacterScenario | None"] = relationship()
+    narrator: Mapped["CharacterNarrator | None"] = relationship()
     messages: Mapped[list["Message"]] = relationship(back_populates="chat", order_by="Message.created_at")
 
 

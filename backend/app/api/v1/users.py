@@ -35,7 +35,7 @@ async def get_balance(
 async def list_user_transactions(
     page: int = Query(1, ge=1),
     history_type: str | None = Query(None, alias="type", pattern="^(expense|deposit)$"),
-    user: UserResponse = Depends(get_current_user),
+    user: UserResponse = Depends(get_current_user_flexible),
     session: AsyncSession = Depends(get_db),
 ):
     from app.schemas import PaginatedResponse, TransactionResponse
