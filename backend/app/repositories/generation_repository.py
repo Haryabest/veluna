@@ -105,6 +105,31 @@ class PaymentRepository:
         await self._session.flush()
         return balance
 
+    async def deduct_credits(
+        self, user_id: UUID, amount: int, description: str, reference_id: str | None = None
+    ) -> UserBalance:
+        balance = await self.get_balance(user_id)
+        if not balance or balance.credits < amount:
+            from app.core.exceptions import InsufficientBalanceError
+
+            raise InsufficientBalanceError(required=amount, available=balance.credits if balance else 0)
+
+        balance.credits -= amount
+        balance.total_spent += amount
+
+        transaction = Transaction(
+            user_id=user_id,
+            type=TransactionType.SPEND,
+            amount=-amount,
+            balance_after=balance.gems,
+            description=description,
+            reference_id=reference_id,
+            metadata_={"currency": "credits", "credits_after": balance.credits},
+        )
+        self._session.add(transaction)
+        await self._session.flush()
+        return balance
+
     async def set_balance(
         self,
         user_id: UUID,

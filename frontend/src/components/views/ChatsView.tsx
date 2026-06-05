@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ListPanel } from "@/components/shared/ListPanel";
+import { ChatRowSkeleton } from "@/components/shared/Skeleton";
 import { chatSeparatorStyle } from "@/lib/theme";
 import { useNavStore } from "@/store/nav-store";
 import { useChatsListStore } from "@/store/chats-list-store";
@@ -120,7 +121,11 @@ export function ChatsView() {
       </header>
 
       {loading ? (
-        <p className="py-12 text-center text-sm text-text-muted">Загрузка…</p>
+        <ListPanel>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <ChatRowSkeleton key={i} />
+          ))}
+        </ListPanel>
       ) : chats.length === 0 ? (
         <p className="py-12 text-center text-sm text-text-muted">Нет чатов</p>
       ) : (

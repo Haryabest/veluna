@@ -11,6 +11,8 @@ class AdminCharacterStates(StatesGroup):
     scenario_story = State()
     scenario_communication = State()
     scenario_opening = State()
+    narrator_name = State()
+    narrator_description = State()
 
 
 class AdminScenarioStates(StatesGroup):
@@ -18,6 +20,12 @@ class AdminScenarioStates(StatesGroup):
     story = State()
     communication_style = State()
     opening_message = State()
+
+
+class AdminNarratorStates(StatesGroup):
+    name = State()
+    description = State()
+    price = State()
 
 
 class AdminPromoStates(StatesGroup):
@@ -38,6 +46,10 @@ class AdminUserStates(StatesGroup):
     edit_name = State()
     edit_gems = State()
     edit_credits = State()
+
+
+class AdminTopupStates(StatesGroup):
+    search = State()
 
 
 class AdminProductStates(StatesGroup):

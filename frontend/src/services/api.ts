@@ -58,6 +58,11 @@ export const characterService = {
     const { data } = await apiClient.get(`/characters/${characterId}/scenarios`);
     return data;
   },
+
+  async listNarrators(characterId: string) {
+    const { data } = await apiClient.get(`/characters/${characterId}/narrators`);
+    return data;
+  },
 };
 
 export type ChatListApiItem = {
@@ -66,6 +71,8 @@ export type ChatListApiItem = {
   character_name: string;
   scenario_id?: string | null;
   scenario_title?: string | null;
+  narrator_id?: string | null;
+  narrator_name?: string | null;
   character_avatar_url?: string | null;
   display_title: string;
   is_pinned?: boolean;
@@ -100,11 +107,22 @@ export const chatService = {
     return data;
   },
 
-  async create(characterId: string, scenarioId: string) {
+  async create(characterId: string, scenarioId: string, narratorId: string) {
     const { data } = await apiClient.post("/chats", {
       character_id: characterId,
       scenario_id: scenarioId,
+      narrator_id: narratorId,
     });
+    return data;
+  },
+
+  async switchScenario(chatId: string, scenarioId: string) {
+    const { data } = await apiClient.patch(`/chats/${chatId}/scenario`, { scenario_id: scenarioId });
+    return data;
+  },
+
+  async switchNarrator(chatId: string, narratorId: string) {
+    const { data } = await apiClient.patch(`/chats/${chatId}/narrator`, { narrator_id: narratorId });
     return data;
   },
 
@@ -226,13 +244,23 @@ export const balanceService = {
         description: string;
         created_at: string;
         type?: string;
+        metadata?: Record<string, unknown>;
       }>;
     }>("/users/transactions", { params: { type, page } });
+
+    const formatDescription = (raw: string) => {
+      if (raw === "Image generation") return "Генерация изображения";
+      if (raw.startsWith("Message to ")) return `Чат с ${raw.replace("Message to ", "")}`;
+      if (raw.startsWith("Narrator: ")) return raw.replace("Narrator: ", "Рассказчик: ");
+      if (raw === "Welcome bonus") return "Приветственный бонус";
+      return raw || "Операция";
+    };
+
     const items: BalanceHistoryItem[] = (data.items ?? []).map((t) => ({
       id: t.id,
       amount: t.amount,
-      currency: "gems",
-      description: t.description || "Операция",
+      currency: t.metadata?.currency === "credits" ? "credits" : "gems",
+      description: formatDescription(t.description),
       created_at: t.created_at,
     }));
     return { items, type };

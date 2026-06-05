@@ -3,10 +3,12 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
+from app.repositories.character_narrator_repository import CharacterNarratorRepository
 from app.repositories.character_repository import CharacterRepository
 from app.repositories.character_scenario_repository import CharacterScenarioRepository
 from app.schemas import (
     CharacterDetailResponse,
+    CharacterNarratorResponse,
     CharacterResponse,
     CharacterScenarioResponse,
     PaginatedResponse,
@@ -18,6 +20,7 @@ class CharacterService:
         self._session = session
         self._characters = CharacterRepository(session)
         self._scenarios = CharacterScenarioRepository(session)
+        self._narrators = CharacterNarratorRepository(session)
 
     async def list_characters(self, page: int = 1, category: str | None = None) -> PaginatedResponse:
         characters, total = await self._characters.list_active(page=page, category=category)
@@ -48,3 +51,10 @@ class CharacterService:
             raise NotFoundError("Character", str(character_id))
         scenarios = await self._scenarios.list_for_character(character_id)
         return [CharacterScenarioResponse.model_validate(s) for s in scenarios]
+
+    async def list_narrators(self, character_id: UUID) -> list[CharacterNarratorResponse]:
+        character = await self._characters.get_by_id(character_id)
+        if not character or not character.is_active:
+            raise NotFoundError("Character", str(character_id))
+        narrators = await self._narrators.list_for_character(character_id)
+        return [CharacterNarratorResponse.model_validate(n) for n in narrators]

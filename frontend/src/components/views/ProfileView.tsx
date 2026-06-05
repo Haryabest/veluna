@@ -18,7 +18,6 @@ import { chatSeparatorVerticalStyle } from "@/lib/theme";
 export function ProfileView() {
   const { user } = useUserStore();
   const openHistory = useNavStore((s) => s.openHistory);
-  const openTopUp = useNavStore((s) => s.openTopUp);
   const { gems, credits, setBalance } = usePaymentStore();
   const { displayName: tgName, username: tgUsername, photoUrl: tgPhoto } = useTelegramUser();
 
@@ -78,20 +77,6 @@ export function ProfileView() {
           </div>
         </div>
       </ListPanel>
-
-      <motion.button
-        type="button"
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={openTopUp}
-        className="w-full rounded-2xl py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-glow-sm transition-opacity hover:opacity-95 active:opacity-90"
-        style={{
-          background: "linear-gradient(90deg, #9b8cff 0%, #b45cf0 45%, #9333ea 100%)",
-        }}
-      >
-        ПОПОЛНИТЬ БАЛАНС
-      </motion.button>
 
       <ListPanel>
         <button

@@ -3,7 +3,7 @@ from uuid import UUID
 from aiogram import F, Router
 from aiogram.filters import BaseFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message
+from aiogram.types import CallbackQuery, Message
 
 from app.bot.db import bot_session
 from app.bot.filters import AdminFilter
@@ -40,6 +40,7 @@ from app.services.admin_service import AdminService
 
 router = Router(name="admin_users")
 router.message.filter(AdminFilter())
+router.callback_query.filter(AdminFilter())
 
 BOT_USERS_PAGE_SIZE = 8
 
@@ -210,6 +211,13 @@ async def _send_user_detail(message: Message, state: FSMContext, user_id: UUID) 
 async def admin_users_open(message: Message, state: FSMContext) -> None:
     await state.set_state(None)
     await _send_users_list(message, state, page=1, search_query=None)
+
+
+@router.callback_query(F.data == "adm:users")
+async def admin_users_open_cb(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(None)
+    await _send_users_list(callback.message, state, page=1, search_query=None)
+    await callback.answer()
 
 
 @router.message(F.text == ADMIN_USERS_SEARCH)

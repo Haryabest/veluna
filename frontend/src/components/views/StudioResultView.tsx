@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -37,7 +37,7 @@ export function StudioResultView() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [...QUERY_KEYS.generations, generationId] as const,
     queryFn: () => {
-      if (!generationId) throw new Error("Нет id генерации");
+      if (!generationId) throw new Error("╨Э╨╡╤В id ╨│╨╡╨╜╨╡╤А╨░╤Ж╨╕╨╕");
       logGeneration("poll", { id: generationId });
       return generationService.getById(generationId);
     },
@@ -65,11 +65,11 @@ export function StudioResultView() {
 
   const handleShare = useCallback(async () => {
     if (!imageUrl || !generationId) {
-      toast("Изображение ещё не готово", "info");
+      toast("╨Ш╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╨╡ ╨╡╤Й╤С ╨╜╨╡ ╨│╨╛╤В╨╛╨▓╨╛", "info");
       return;
     }
     if (!canShareViaTelegram()) {
-      toast("Поделиться можно только в Telegram Mini App", "info");
+      toast("╨Я╨╛╨┤╨╡╨╗╨╕╤В╤М╤Б╤П ╨╝╨╛╨╢╨╜╨╛ ╤В╨╛╨╗╤М╨║╨╛ ╨▓ Telegram Mini App", "info");
       return;
     }
 
@@ -89,7 +89,7 @@ export function StudioResultView() {
       try {
         openTelegramTextShare(getTelegramBotLink());
       } catch {
-        toast(msg || "Не удалось поделиться", "error");
+        toast(msg || "╨Э╨╡ ╤Г╨┤╨░╨╗╨╛╤Б╤М ╨┐╨╛╨┤╨╡╨╗╨╕╤В╤М╤Б╤П", "error");
       }
     } finally {
       setSharing(false);
@@ -101,9 +101,9 @@ export function StudioResultView() {
       <div className="mx-auto max-w-lg px-4 pb-8 pt-4">
         <header className="mb-6 flex items-center gap-2">
           <BackButton onClick={goBack} />
-          <h1 className="flex-1 text-center text-lg font-bold pr-9">Результат</h1>
+          <h1 className="flex-1 text-center text-lg font-bold pr-9">╨а╨╡╨╖╤Г╨╗╤М╤В╨░╤В</h1>
         </header>
-        <p className="text-center text-sm text-text-secondary">Генерация не найдена</p>
+        <p className="text-center text-sm text-text-secondary">╨У╨╡╨╜╨╡╤А╨░╤Ж╨╕╤П ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜╨░</p>
       </div>
     );
   }
@@ -113,7 +113,7 @@ export function StudioResultView() {
   }
 
   if (isError) {
-    const msg = getApiError(error).message || "Ошибка загрузки результата";
+    const msg = getApiError(error).message || "╨Ю╤И╨╕╨▒╨║╨░ ╨╖╨░╨│╤А╤Г╨╖╨║╨╕ ╤А╨╡╨╖╤Г╨╗╤М╤В╨░╤В╨░";
     logGeneration("error", { id: generationId, error: msg });
     return <ResultError message={msg} onBack={goBack} />;
   }
@@ -127,8 +127,8 @@ export function StudioResultView() {
       <ResultError
         message={
           status === "moderated"
-            ? "Изображение не прошло модерацию"
-            : data?.error_message || "Генерация не удалась. Попробуй снова"
+            ? "╨Ш╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╨╡ ╨╜╨╡ ╨┐╤А╨╛╤И╨╗╨╛ ╨╝╨╛╨┤╨╡╤А╨░╤Ж╨╕╤О"
+            : data?.error_message || "╨У╨╡╨╜╨╡╤А╨░╤Ж╨╕╤П ╨╜╨╡ ╤Г╨┤╨░╨╗╨░╤Б╤М. ╨Я╨╛╨┐╤А╨╛╨▒╤Г╨╣ ╤Б╨╜╨╛╨▓╨░"
         }
         onBack={goBack}
       />
@@ -140,7 +140,7 @@ export function StudioResultView() {
       <div className="mx-auto max-w-lg px-4 pb-8 pt-4">
         <header className="mb-6 flex items-center gap-2">
           <BackButton onClick={goBack} />
-          <h1 className="flex-1 text-center text-lg font-bold pr-9">Готово</h1>
+          <h1 className="flex-1 text-center text-lg font-bold pr-9">╨У╨╛╤В╨╛╨▓╨╛</h1>
         </header>
 
         <motion.div
@@ -171,7 +171,7 @@ export function StudioResultView() {
             }}
           >
             <Share2 className="h-4 w-4" />
-            {sharing ? "Открываю…" : "Поделиться"}
+            {sharing ? "╨Ю╤В╨║╤А╤Л╨▓╨░╤ОтАж" : "╨Я╨╛╨┤╨╡╨╗╨╕╤В╤М╤Б╤П"}
           </button>
           <button
             type="button"
@@ -179,7 +179,7 @@ export function StudioResultView() {
             className="w-full rounded-2xl bg-bg-elevated/80 py-3.5 text-sm font-semibold text-text-primary transition-colors hover:bg-bg-elevated"
             style={chatBorderStyle}
           >
-            Вернуться в студию
+            ╨Т╨╡╤А╨╜╤Г╤В╤М╤Б╤П ╨▓ ╤Б╤В╤Г╨┤╨╕╤О
           </button>
         </div>
       </div>
@@ -205,7 +205,7 @@ function ResultLoader({ subtitle }: { subtitle: string }) {
           <Sparkles className="h-12 w-12 text-white" strokeWidth={1.5} />
         </motion.div>
       </motion.div>
-      <p className="text-lg font-bold text-text-primary">Создаю арт</p>
+      <p className="text-lg font-bold text-text-primary">╨б╨╛╨╖╨┤╨░╤О ╨░╤А╤В</p>
       <p className="mt-2 text-sm text-text-secondary">{subtitle}</p>
       <div className="mt-8 flex gap-1.5">
         {[0, 1, 2].map((i) => (
@@ -226,7 +226,7 @@ function ResultError({ message, onBack }: { message: string; onBack: () => void 
     <div className="mx-auto max-w-lg px-4 pb-8 pt-4">
       <header className="mb-6 flex items-center gap-2">
         <BackButton onClick={onBack} />
-        <h1 className="flex-1 text-center text-lg font-bold pr-9">Ошибка</h1>
+        <h1 className="flex-1 text-center text-lg font-bold pr-9">╨Ю╤И╨╕╨▒╨║╨░</h1>
       </header>
       <div
         className="rounded-2xl bg-bg-elevated/80 px-4 py-8 text-center"

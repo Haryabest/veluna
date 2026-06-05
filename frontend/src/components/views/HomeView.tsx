@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CharacterCard } from "@/components/entities/CharacterCard";
+import { CharacterCardSkeleton } from "@/components/shared/Skeleton";
 import { CurrencyBar } from "@/components/widgets/CurrencyBar";
 import { QUERY_KEYS } from "@/lib/constants";
 import { characterService, balanceService } from "@/services/api";
@@ -62,6 +63,12 @@ export function HomeView() {
 
         {!isFetching && characters.length === 0 ? (
           <p className="py-12 text-center text-sm text-text-muted">Персонажи пока недоступны</p>
+        ) : isFetching && characters.length === 0 ? (
+          <div className="grid grid-cols-2 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <CharacterCardSkeleton key={i} />
+            ))}
+          </div>
         ) : (
         <div className="grid grid-cols-2 gap-3">
           {characters.map((character, i) => (
