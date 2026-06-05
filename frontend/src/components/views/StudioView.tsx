@@ -14,6 +14,7 @@ export function StudioView() {
   const screen = useNavStore((s) => s.screen);
   const tab = useNavStore((s) => s.tab);
   const openStudioCreate = useNavStore((s) => s.openStudioCreate);
+  const openStudioResult = useNavStore((s) => s.openStudioResult);
   const showFab = tab === "studio" && screen === "studio";
 
   const { data, isLoading } = useQuery({
@@ -27,10 +28,18 @@ export function StudioView() {
     if (!Array.isArray(items)) return [];
     return items
       .filter((g: { image_url?: string | null; status?: string }) => g.image_url && g.status === "completed")
-      .map((g: { id: string; image_url: string; thumbnail_url?: string | null }) => ({
-        id: g.id,
-        imageUrl: g.thumbnail_url || g.image_url,
-      }));
+      .map(
+        (g: {
+          id: string;
+          image_url: string;
+          thumbnail_url?: string | null;
+          prompt?: string;
+        }) => ({
+          id: g.id,
+          imageUrl: g.thumbnail_url || g.image_url,
+          prompt: g.prompt ?? "",
+        })
+      );
   }, [data]);
 
   return (
@@ -68,17 +77,20 @@ export function StudioView() {
           </p>
         ) : (
         gallery.map((art, i) => (
-          <motion.div
+          <motion.button
             key={art.id}
+            type="button"
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: i * 0.04 }}
-            className="aspect-square overflow-hidden rounded-2xl"
+            onClick={() => openStudioResult(art.id)}
+            className="aspect-square overflow-hidden rounded-2xl text-left active:scale-[0.98]"
             style={chatBorderStyle}
+            aria-label={art.prompt ? `Арт: ${art.prompt}` : "Открыть арт"}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={art.imageUrl} alt="" className="h-full w-full object-cover" />
-          </motion.div>
+          </motion.button>
         ))
         )}
       </motion.div>

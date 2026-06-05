@@ -22,7 +22,7 @@ function isInProgress(status: string | undefined) {
 export function StudioResultView() {
   const generationId = useNavStore((s) => s.generationId);
   const goBack = useNavStore((s) => s.goBack);
-  const setTab = useNavStore((s) => s.setTab);
+  const goToStudio = useNavStore((s) => s.goToStudio);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [...QUERY_KEYS.generations, generationId] as const,
@@ -72,12 +72,7 @@ export function StudioResultView() {
   if (isError) {
     const msg = getApiError(error).message || "Ошибка загрузки результата";
     logGeneration("error", { id: generationId, error: msg });
-    return (
-      <ResultError
-        message={msg}
-        onBack={goBack}
-      />
-    );
+    return <ResultError message={msg} onBack={goBack} />;
   }
 
   if (isInProgress(status)) {
@@ -116,7 +111,7 @@ export function StudioResultView() {
         </motion.div>
 
         {data?.prompt ? (
-          <p className="mt-4 line-clamp-3 text-center text-xs text-text-muted">{data.prompt}</p>
+          <p className="mt-4 text-center text-sm text-text-secondary">{data.prompt}</p>
         ) : null}
 
         <motion.button
@@ -124,7 +119,7 @@ export function StudioResultView() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           whileTap={{ scale: 0.98 }}
-          onClick={() => setTab("studio")}
+          onClick={goToStudio}
           className="mt-6 w-full rounded-2xl py-3.5 text-sm font-bold uppercase tracking-wider text-white"
           style={{
             background: "linear-gradient(135deg, #f9a8d4 0%, #ec4899 50%, #c084fc 100%)",
