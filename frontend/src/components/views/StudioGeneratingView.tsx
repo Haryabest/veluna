@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
+import { ArtSceneBackground } from "@/components/shared/ArtSceneBackground";
 
 const STEPS = [
   "Перевожу промпт на английский…",
@@ -30,12 +31,14 @@ export function StudioGeneratingView() {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-6">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6">
+      <ArtSceneBackground />
+
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="mb-8 flex h-28 w-28 items-center justify-center rounded-full"
+        className="relative z-10 mb-8 flex h-28 w-28 items-center justify-center rounded-full"
         style={{
           background: "linear-gradient(135deg, #f9a8d4 0%, #e879f9 50%, #c084fc 100%)",
           boxShadow: "0 0 60px rgba(232, 121, 249, 0.5)",
@@ -53,7 +56,7 @@ export function StudioGeneratingView() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="text-xl font-bold text-text-primary"
+        className="relative z-10 text-xl font-bold text-text-primary"
       >
         Создаю арт
       </motion.h2>
@@ -63,7 +66,7 @@ export function StudioGeneratingView() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.6 }}
-        className="mt-3 text-sm text-text-secondary"
+        className="relative z-10 mt-3 text-sm text-text-secondary"
       >
         {STEPS[0]}
       </motion.p>
@@ -72,7 +75,7 @@ export function StudioGeneratingView() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.8 }}
-        className="mt-10 flex gap-1.5"
+        className="relative z-10 mt-10 flex gap-1.5"
       >
         {[0, 1, 2].map((i) => (
           <motion.div

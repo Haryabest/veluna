@@ -166,21 +166,34 @@ async def _send_users_list(
     )
 
 
-def _format_user_detail(detail, stats) -> str:
+def _format_user_detail(detail, stats, finance: dict | None = None) -> str:
     name = " ".join(filter(None, [detail.first_name, detail.last_name])) or "Без имени"
     uname = f"@{detail.username}" if detail.username else f"tg:{detail.telegram_id}"
     ban = "да 🚫" if detail.is_banned else "нет"
     active = "да" if detail.is_active else "нет"
-    return (
+    text = (
         f"<b>{name}</b>\n"
         f"{uname} · роль <b>{detail.role}</b>\n"
-        f"Бан: <b>{ban}</b> · активен: <b>{active}</b>\n"
-        f"💎 {detail.gems} · кредиты {detail.credits} · потрачено {detail.total_spent}\n\n"
-        f"<b>Активность</b>\n"
+        f"Бан: <b>{ban}</b> · активен: <b>{active}</b>\n\n"
+        f"<b>Баланс</b>\n"
+        f"💎 <b>{detail.gems}</b> · ❤️ <b>{detail.credits}</b>\n"
+    )
+    if finance:
+        spent = finance.get("spent") or {}
+        deposited = finance.get("deposited") or {}
+        text += (
+            f"\n<b>Потрачено</b>\n"
+            f"💎 −<b>{spent.get('gems', 0)}</b> · ❤️ −<b>{spent.get('credits', 0)}</b>\n"
+            f"\n<b>Пополнено</b>\n"
+            f"💎 +<b>{deposited.get('gems', 0)}</b> · ❤️ +<b>{deposited.get('credits', 0)}</b>\n"
+        )
+    text += (
+        f"\n<b>Активность</b>\n"
         f"Чаты: <b>{stats.chats_count}</b> · сообщения: <b>{stats.messages_count}</b>\n"
         f"Генерации: <b>{stats.generations_total}</b> (готово {stats.generations_completed})\n"
         f"Покупок: <b>{stats.purchases_completed}</b> · Stars: <b>{stats.stars_spent_total}</b>"
     )
+    return text
 
 
 async def _send_user_detail(message: Message, state: FSMContext, user_id: UUID) -> None:
@@ -189,10 +202,13 @@ async def _send_user_detail(message: Message, state: FSMContext, user_id: UUID) 
         return
 
     async with bot_session() as session:
+        from app.repositories.generation_repository import PaymentRepository
+
         svc = AdminService(session)
         try:
             detail = await svc.get_user(admin_id, user_id)
             stats = await svc.get_user_stats(admin_id, user_id)
+            finance = await PaymentRepository(session).get_finance_stats(user_id)
         except NotFoundError:
             await message.answer("Пользователь не найден.")
             await _send_users_list(message, state, page=(await state.get_data()).get("users_page", 1))
@@ -200,7 +216,7 @@ async def _send_user_detail(message: Message, state: FSMContext, user_id: UUID) 
 
     await state.update_data(selected_user_id=str(user_id))
     await state.set_state(None)
-    text = _format_user_detail(detail, stats)
+    text = _format_user_detail(detail, stats, finance)
     await message.answer(
         text,
         reply_markup=user_detail_keyboard(is_banned=detail.is_banned),

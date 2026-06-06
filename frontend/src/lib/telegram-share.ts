@@ -10,29 +10,51 @@ interface TelegramWebAppShare {
     callback?: (success: boolean) => void
   ) => void;
   openTelegramLink?: (url: string) => void;
+  openLink?: (url: string) => void;
 }
 
 export function getTelegramBotLink(fallback?: string): string {
   return BOT_LINK || fallback?.trim() || "";
 }
 
-/** Opens native Telegram chat picker to share text + bot link (fallback). */
-export function openTelegramTextShare(botLink: string) {
+function openExternalUrl(url: string) {
   const tg = getTelegramWebApp() as TelegramWebAppShare | null;
-  const link = botLink || getTelegramBotLink();
-  const text = link ? `Смотри какой арт!\n\n${link}` : "Смотри какой арт!";
-  const shareUrl = `https://t.me/share/url?${new URLSearchParams({
-    ...(link ? { url: link } : {}),
-    text,
-  }).toString()}`;
-
   if (tg?.openTelegramLink) {
-    tg.openTelegramLink(shareUrl);
+    tg.openTelegramLink(url);
+    return;
+  }
+  if (tg?.openLink) {
+    tg.openLink(url);
     return;
   }
   if (typeof window !== "undefined") {
-    window.open(shareUrl, "_blank");
+    window.open(url, "_blank", "noopener,noreferrer");
   }
+}
+
+/** Opens native Telegram share with image URL. */
+export function openTelegramImageShare(imageUrl: string, botLink?: string) {
+  const link = botLink || getTelegramBotLink();
+  const text = link ? `Смотри какой арт!\n\n${link}` : "Смотри какой арт!";
+  const shareUrl = `https://t.me/share/url?${new URLSearchParams({
+    url: imageUrl,
+    text,
+  }).toString()}`;
+  openExternalUrl(shareUrl);
+}
+
+/** Opens native Telegram chat picker to share text + bot link (fallback). */
+export function openTelegramTextShare(botLink: string, imageUrl?: string) {
+  const link = botLink || getTelegramBotLink();
+  const parts = ["Смотри какой арт!"];
+  if (imageUrl) parts.push(imageUrl);
+  if (link) parts.push(link);
+  const text = parts.join("\n\n");
+  const shareUrl = `https://t.me/share/url?${new URLSearchParams({
+    ...(link ? { url: link } : imageUrl ? { url: imageUrl } : {}),
+    text,
+  }).toString()}`;
+  openExternalUrl(shareUrl);
 }
 
 /** Share prepared photo message via Telegram Mini App (opens chat picker). */

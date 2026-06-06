@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { useNavStore } from "@/store/nav-store";
 import { useMounted } from "@/hooks/use-mounted";
-import { balanceService } from "@/services/api";
+import { balanceService, userService } from "@/services/api";
 import { ensureTelegramSession, getApiError } from "@/lib/api-client";
 import { QUERY_KEYS } from "@/lib/constants";
 import { BackButton } from "@/components/shared/BackButton";
@@ -36,6 +36,15 @@ export function HistoryView() {
     retry: 2,
   });
 
+  const { data: finance } = useQuery({
+    queryKey: QUERY_KEYS.financeStats,
+    queryFn: async () => {
+      await ensureTelegramSession();
+      return userService.getFinanceStats();
+    },
+    staleTime: 60_000,
+  });
+
   const items = data?.items ?? [];
 
   return (
@@ -44,6 +53,58 @@ export function HistoryView() {
         <BackButton onClick={goBack} />
         <h1 className="text-xl font-bold">История</h1>
       </div>
+
+      {finance ? (
+        <div className="mb-4 space-y-2">
+          <div
+            className="rounded-2xl bg-bg-elevated/60 px-4 py-3"
+            style={chatBorderStyle}
+          >
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
+              Баланс
+            </p>
+            <div className="flex items-center gap-4 text-sm font-semibold text-text-primary">
+              <span className="inline-flex items-center gap-1.5">
+                {formatGems(finance.balance.gems)}
+                <AnimeGemIcon className="h-4 w-4" />
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                {formatGems(finance.balance.credits)}
+                <AnimeHeartIcon className="h-4 w-4" />
+              </span>
+            </div>
+          </div>
+
+          <div
+            className="grid grid-cols-2 gap-2 rounded-2xl bg-bg-elevated/60 p-3"
+            style={chatBorderStyle}
+          >
+            <FinanceStatCell
+              label="Потрачено"
+              gems={finance.spent.gems}
+              credits={finance.spent.credits}
+              negative
+            />
+            <FinanceStatCell
+              label="Пополнено"
+              gems={finance.deposited.gems}
+              credits={finance.deposited.credits}
+            />
+          </div>
+
+          {finance.purchases.completed_count > 0 ? (
+            <div
+              className="rounded-2xl bg-bg-elevated/60 px-4 py-3 text-xs text-text-muted"
+              style={chatBorderStyle}
+            >
+              Покупок: <span className="font-semibold text-text-secondary">{finance.purchases.completed_count}</span>
+              {finance.purchases.stars_total > 0 ? (
+                <span className="ml-2">· ⭐ {formatGems(finance.purchases.stars_total)}</span>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="mb-4 flex gap-1 rounded-2xl bg-bg-elevated/60 p-1" style={chatBorderStyle}>
         {TABS.map((t) => (
@@ -129,6 +190,39 @@ export function HistoryView() {
           ))}
         </ListPanel>
       )}
+    </div>
+  );
+}
+
+function FinanceStatCell({
+  label,
+  gems,
+  credits,
+  negative,
+}: {
+  label: string;
+  gems: number;
+  credits: number;
+  negative?: boolean;
+}) {
+  const prefix = negative ? "−" : "+";
+  return (
+    <div>
+      <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-text-muted">
+        {label}
+      </p>
+      <div className="flex flex-col gap-1 text-sm font-semibold">
+        <span className={cn("inline-flex items-center gap-1", negative ? "text-rose-400" : "text-emerald-400")}>
+          {prefix}
+          {formatGems(gems)}
+          <AnimeGemIcon className="h-3.5 w-3.5" />
+        </span>
+        <span className={cn("inline-flex items-center gap-1", negative ? "text-rose-400" : "text-emerald-400")}>
+          {prefix}
+          {formatGems(credits)}
+          <AnimeHeartIcon className="h-3.5 w-3.5" />
+        </span>
+      </div>
     </div>
   );
 }

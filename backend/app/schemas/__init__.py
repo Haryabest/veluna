@@ -103,7 +103,13 @@ class CharacterScenarioResponse(BaseSchema):
     story: str
     communication_style: str
     opening_message: str
+    image_url: str | None = None
     sort_order: int
+
+    @field_validator("image_url", mode="before")
+    @classmethod
+    def _normalize_scenario_image(cls, v: str | None) -> str | None:
+        return normalize_media_url(v)
 
 
 class CharacterNarratorResponse(BaseSchema):
@@ -112,7 +118,13 @@ class CharacterNarratorResponse(BaseSchema):
     name: str
     description: str
     price: int
+    image_url: str | None = None
     sort_order: int
+
+    @field_validator("image_url", mode="before")
+    @classmethod
+    def _normalize_narrator_image(cls, v: str | None) -> str | None:
+        return normalize_media_url(v)
 
 
 class ChatCreate(BaseSchema):
@@ -143,6 +155,7 @@ class ChatResponse(BaseSchema):
     last_message_at: datetime | None
     ai_reply_status: str = "idle"
     ai_reply_error: str | None = None
+    message_heart_cost: int = 1
     created_at: datetime
 
     @field_validator("character_avatar_url", mode="before")
@@ -185,6 +198,10 @@ class ChatPinUpdate(BaseSchema):
 class MessageCreate(BaseSchema):
     content: str = Field(min_length=1, max_length=4000)
     reply_to_id: UUID | None = None
+
+
+class ChatArtAttach(BaseSchema):
+    generation_id: UUID
 
 
 class MessageReplyPreview(BaseSchema):
@@ -246,6 +263,31 @@ class PurchaseCreate(BaseSchema):
     stars_amount: int = Field(gt=0)
 
 
+class FinanceAmounts(BaseSchema):
+    gems: int = 0
+    credits: int = 0
+
+
+class FinancePurchasesSummary(BaseSchema):
+    completed_count: int = 0
+    stars_total: int = 0
+    gems_total: int = 0
+    credits_total: int = 0
+
+
+class FinanceLifetimeSummary(BaseSchema):
+    total_earned: int = 0
+    total_spent: int = 0
+
+
+class UserFinanceStatsResponse(BaseSchema):
+    balance: FinanceAmounts
+    spent: FinanceAmounts
+    deposited: FinanceAmounts
+    purchases: FinancePurchasesSummary
+    lifetime: FinanceLifetimeSummary
+
+
 class TransactionResponse(BaseSchema):
     id: UUID
     type: str
@@ -253,9 +295,34 @@ class TransactionResponse(BaseSchema):
     balance_after: int
     description: str
     metadata: dict = Field(default_factory=dict, validation_alias="metadata_")
+    currency: str = "gems"
     created_at: datetime
 
     model_config = {"from_attributes": True, "populate_by_name": True}
+
+    @classmethod
+    def from_transaction(cls, tx) -> "TransactionResponse":
+        meta = tx.metadata_ or {}
+        currency = meta.get("currency")
+        if not currency:
+            desc = (tx.description or "").lower()
+            if "image generation" in desc or "генерац" in desc:
+                currency = "gems"
+            elif meta.get("credits_after") is not None:
+                currency = "credits"
+            else:
+                currency = "gems"
+        data = {
+            "id": tx.id,
+            "type": tx.type.value if hasattr(tx.type, "value") else str(tx.type),
+            "amount": tx.amount,
+            "balance_after": tx.balance_after,
+            "description": tx.description,
+            "metadata": meta,
+            "currency": currency,
+            "created_at": tx.created_at,
+        }
+        return cls.model_validate(data)
 
 
 class AdminStatsResponse(BaseSchema):

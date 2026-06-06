@@ -15,6 +15,30 @@ from app.schemas import GenerationCreate, GenerationResponse
 
 logger = logging.getLogger(__name__)
 
+def _has_cyrillic(text: str) -> bool:
+    return any("\u0400" <= ch <= "\u04FF" for ch in text)
+
+
+async def _translate_prompt_to_english(prompt: str) -> str:
+    from app.providers.ai.base import ChatCompletionRequest, ChatMessage
+    from app.providers.factory import get_chat_provider
+
+    provider = get_chat_provider()
+    system = (
+        "You are a translator. Translate the following Russian text to English. "
+        "Output ONLY the translation, nothing else."
+    )
+    result = await provider.complete(
+        ChatCompletionRequest(
+            messages=[ChatMessage(role="user", content=prompt)],
+            system_prompt=system,
+            temperature=0.3,
+            max_tokens=1024,
+        )
+    )
+    translated = result.content.strip()
+    return translated or prompt
+
 
 class GenerationService:
     def __init__(self, session: AsyncSession):
@@ -36,6 +60,13 @@ class GenerationService:
         if image_provider.provider_name == "replicate" and not settings.replicate_api_token.strip():
             raise ValidationError("Добавьте REPLICATE_API_TOKEN в .env")
 
+        prompt = data.prompt.strip()
+        if _has_cyrillic(prompt):
+            try:
+                prompt = await _translate_prompt_to_english(prompt)
+            except Exception:
+                logger.warning("Prompt translation failed, using original", exc_info=True)
+
         pricing = await self._platform.get_pricing()
         gems_cost = pricing.gem_cost_per_generation
 
@@ -45,16 +76,17 @@ class GenerationService:
                 raise NotFoundError("Character", str(data.character_id))
             gems_cost = character.generation_price
 
-        await self._payments.deduct_gems(
-            user_id,
-            gems_cost,
-            "Image generation",
-        )
+        balance = await self._payments.get_balance(user_id)
+        available = balance.gems if balance else 0
+        if available < gems_cost:
+            from app.core.exceptions import InsufficientBalanceError
+
+            raise InsufficientBalanceError(required=gems_cost, available=available)
 
         generation = await self._generations.create(
             user_id=user_id,
             character_id=data.character_id,
-            prompt=data.prompt,
+            prompt=prompt,
             negative_prompt=data.negative_prompt,
             model_id=data.model_id,
             gems_cost=gems_cost,

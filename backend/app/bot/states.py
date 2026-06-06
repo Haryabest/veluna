@@ -13,6 +13,7 @@ class AdminCharacterStates(StatesGroup):
     scenario_opening = State()
     narrator_name = State()
     narrator_description = State()
+    narrator_price = State()
 
 
 class AdminScenarioStates(StatesGroup):
@@ -20,12 +21,15 @@ class AdminScenarioStates(StatesGroup):
     story = State()
     communication_style = State()
     opening_message = State()
+    photo = State()
 
 
 class AdminNarratorStates(StatesGroup):
     name = State()
     description = State()
     price = State()
+    edit_price = State()
+    photo = State()
 
 
 class AdminPromoStates(StatesGroup):

@@ -51,7 +51,7 @@ def process_image_generation(self, generation_id: str):
         from app.providers.ai.image_base import ImageGenerationRequest
         from app.providers.factory import get_image_provider, get_storage_provider
         from app.providers.storage.base import StorageBucket
-        from app.repositories.generation_repository import GenerationRepository
+        from app.repositories.generation_repository import GenerationRepository, PaymentRepository
 
         settings = get_settings()
         engine = create_async_engine(settings.database_url)
@@ -95,13 +95,34 @@ def process_image_generation(self, generation_id: str):
                     StorageBucket.GENERATIONS, key, image_data, content_type
                 )
 
+                from app.services.api_cost_service import extract_civitai_buzz_cost
+
+                merged_meta = {**(generation.metadata_ or {}), **(result.metadata or {})}
+                buzz_cost = extract_civitai_buzz_cost(merged_meta)
+                if buzz_cost > 0:
+                    merged_meta["api_buzz_cost"] = buzz_cost
+
                 await repo.update_status(
                     generation,
                     GenerationStatus.COMPLETED,
                     image_url=upload.url,
                     provider=result.provider,
+                    metadata_=merged_meta,
                 )
                 generation.error_message = None
+
+                gems_cost = int(generation.gems_cost or 0)
+                if gems_cost > 0:
+                    payments = PaymentRepository(session)
+                    extra_meta = {"api_buzz_cost": buzz_cost} if buzz_cost > 0 else None
+                    await payments.deduct_gems(
+                        generation.user_id,
+                        gems_cost,
+                        "Image generation",
+                        reference_id=str(generation.id),
+                        extra_metadata=extra_meta,
+                    )
+
                 await session.commit()
                 logger.info(
                     "Generation %s completed model_name=%s model_id=%s provider=%s",

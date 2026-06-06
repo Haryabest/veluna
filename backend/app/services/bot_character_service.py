@@ -197,6 +197,53 @@ class BotCharacterService:
         )
         return narrator
 
+    async def update_narrator(
+        self,
+        admin_id: UUID,
+        narrator_id: UUID,
+        *,
+        price: int | None = None,
+        image_url: str | None = None,
+        clear_image: bool = False,
+    ) -> CharacterNarrator:
+        await self._admin.verify_admin(admin_id)
+        narrator = await self._narrators.get_by_id(narrator_id)
+        if not narrator:
+            raise NotFoundError("Narrator", str(narrator_id))
+        updates: dict = {}
+        if price is not None:
+            updates["price"] = max(0, price)
+        if clear_image:
+            updates["image_url"] = None
+        elif image_url is not None:
+            updates["image_url"] = image_url
+        if updates:
+            await self._narrators.update(narrator, **updates)
+            await self._admin._log(admin_id, "update", "character_narrator", str(narrator_id), updates)
+        return narrator
+
+    async def update_scenario(
+        self,
+        admin_id: UUID,
+        scenario_id: UUID,
+        *,
+        image_url: str | None = None,
+        clear_image: bool = False,
+    ) -> CharacterScenario:
+        await self._admin.verify_admin(admin_id)
+        scenario = await self._scenarios.get_by_id(scenario_id)
+        if not scenario:
+            raise NotFoundError("Scenario", str(scenario_id))
+        updates: dict = {}
+        if clear_image:
+            updates["image_url"] = None
+        elif image_url is not None:
+            updates["image_url"] = image_url
+        if updates:
+            await self._scenarios.update(scenario, **updates)
+            await self._admin._log(admin_id, "update", "character_scenario", str(scenario_id), updates)
+        return scenario
+
     async def deactivate_narrator(self, admin_id: UUID, narrator_id: UUID) -> None:
         await self._admin.verify_admin(admin_id)
         narrator = await self._narrators.get_by_id(narrator_id)

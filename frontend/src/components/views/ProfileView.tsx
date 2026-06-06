@@ -7,7 +7,7 @@ import { History } from "lucide-react";
 import { useNavStore } from "@/store/nav-store";
 import { useUserStore } from "@/store/user-store";
 import { usePaymentStore } from "@/store/payment-store";
-import { balanceService } from "@/services/api";
+import { balanceService, userService } from "@/services/api";
 import { AnimeGemIcon, AnimeHeartIcon } from "@/components/icons/CurrencyIcons";
 import { ListPanel } from "@/components/shared/ListPanel";
 import { formatGems } from "@/lib/utils";
@@ -33,6 +33,12 @@ export function ProfileView() {
   const { data: balance } = useQuery({
     queryKey: QUERY_KEYS.balance,
     queryFn: () => balanceService.get(),
+  });
+
+  const { data: finance } = useQuery({
+    queryKey: QUERY_KEYS.financeStats,
+    queryFn: () => userService.getFinanceStats(),
+    staleTime: 60_000,
   });
 
   useEffect(() => {
@@ -77,6 +83,39 @@ export function ProfileView() {
           </div>
         </div>
       </ListPanel>
+
+      {finance ? (
+        <ListPanel>
+          <div className="grid grid-cols-2 divide-x divide-white/5">
+            <div className="px-4 py-3">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-text-muted">Потрачено</p>
+              <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-rose-400">
+                <span className="inline-flex items-center gap-1">
+                  −{formatGems(finance.spent.gems)}
+                  <AnimeGemIcon className="h-3.5 w-3.5" />
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  −{formatGems(finance.spent.credits)}
+                  <AnimeHeartIcon className="h-3.5 w-3.5" />
+                </span>
+              </p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-text-muted">Пополнено</p>
+              <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-emerald-400">
+                <span className="inline-flex items-center gap-1">
+                  +{formatGems(finance.deposited.gems)}
+                  <AnimeGemIcon className="h-3.5 w-3.5" />
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  +{formatGems(finance.deposited.credits)}
+                  <AnimeHeartIcon className="h-3.5 w-3.5" />
+                </span>
+              </p>
+            </div>
+          </div>
+        </ListPanel>
+      ) : null}
 
       <ListPanel>
         <button

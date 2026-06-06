@@ -36,11 +36,18 @@ class GenApiProvider(AIChatProvider):
             temperature=request.temperature,
         )
         choice = response.choices[0]
+        usage = response.usage
+        prompt_tokens = int(usage.prompt_tokens or 0) if usage else 0
+        completion_tokens = int(usage.completion_tokens or 0) if usage else 0
         return ChatCompletionResponse(
             content=choice.message.content or "",
-            tokens_used=response.usage.total_tokens if response.usage else 0,
+            tokens_used=usage.total_tokens if usage else 0,
             model=response.model,
             finish_reason=choice.finish_reason or "stop",
+            metadata={
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+            },
         )
 
     async def health_check(self) -> bool:

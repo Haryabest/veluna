@@ -8,17 +8,13 @@ import { BackButton } from "@/components/shared/BackButton";
 import { useNavStore } from "@/store/nav-store";
 import { useToast } from "@/hooks/use-toast";
 import { generationService } from "@/services/api";
-import { ensureTelegramSession, getApiError } from "@/lib/api-client";
+import { getApiError } from "@/lib/api-client";
 import { QUERY_KEYS } from "@/lib/constants";
 import { chatBorderStyle } from "@/lib/theme";
 import { translateGenerationStatus } from "@/lib/i18n";
 import { logGeneration } from "@/lib/generation-log";
-import {
-  canShareViaTelegram,
-  getTelegramBotLink,
-  openTelegramTextShare,
-  sharePreparedTelegramMessage,
-} from "@/lib/telegram-share";
+import { shareArtImage } from "@/lib/share-art";
+import { ArtSceneBackground } from "@/components/shared/ArtSceneBackground";
 import { cn } from "@/lib/utils";
 
 const POLL_STATUSES = new Set(["pending", "processing"]);
@@ -37,7 +33,7 @@ export function StudioResultView() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [...QUERY_KEYS.generations, generationId] as const,
     queryFn: () => {
-      if (!generationId) throw new Error("╨Э╨╡╤В id ╨│╨╡╨╜╨╡╤А╨░╤Ж╨╕╨╕");
+      if (!generationId) throw new Error("Нет id генерации");
       logGeneration("poll", { id: generationId });
       return generationService.getById(generationId);
     },
@@ -65,32 +61,18 @@ export function StudioResultView() {
 
   const handleShare = useCallback(async () => {
     if (!imageUrl || !generationId) {
-      toast("╨Ш╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╨╡ ╨╡╤Й╤С ╨╜╨╡ ╨│╨╛╤В╨╛╨▓╨╛", "info");
-      return;
-    }
-    if (!canShareViaTelegram()) {
-      toast("╨Я╨╛╨┤╨╡╨╗╨╕╤В╤М╤Б╤П ╨╝╨╛╨╢╨╜╨╛ ╤В╨╛╨╗╤М╨║╨╛ ╨▓ Telegram Mini App", "info");
+      toast("Изображение ещё не готово", "info");
       return;
     }
 
     setSharing(true);
     logGeneration("share", { id: generationId, url: imageUrl });
     try {
-      await ensureTelegramSession();
-      const prepared = await generationService.prepareShare(generationId);
-      const botLink = getTelegramBotLink(prepared.bot_link);
-      const shared = await sharePreparedTelegramMessage(prepared.prepared_message_id);
-      if (!shared) {
-        openTelegramTextShare(botLink);
-      }
+      await shareArtImage(imageUrl, generationId);
     } catch (err: unknown) {
       const msg = getApiError(err).message;
       logGeneration("error", { action: "share", error: msg });
-      try {
-        openTelegramTextShare(getTelegramBotLink());
-      } catch {
-        toast(msg || "╨Э╨╡ ╤Г╨┤╨░╨╗╨╛╤Б╤М ╨┐╨╛╨┤╨╡╨╗╨╕╤В╤М╤Б╤П", "error");
-      }
+      toast(msg || "Не удалось поделиться", "error");
     } finally {
       setSharing(false);
     }
@@ -101,25 +83,25 @@ export function StudioResultView() {
       <div className="mx-auto max-w-lg px-4 pb-8 pt-4">
         <header className="mb-6 flex items-center gap-2">
           <BackButton onClick={goBack} />
-          <h1 className="flex-1 text-center text-lg font-bold pr-9">╨а╨╡╨╖╤Г╨╗╤М╤В╨░╤В</h1>
+          <h1 className="flex-1 text-center text-lg font-bold pr-9">Результат</h1>
         </header>
-        <p className="text-center text-sm text-text-secondary">╨У╨╡╨╜╨╡╤А╨░╤Ж╨╕╤П ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜╨░</p>
+        <p className="text-center text-sm text-text-secondary">Генерация не найдена</p>
       </div>
     );
   }
 
   if (isLoading && !data) {
-    return <ResultLoader subtitle={translateGenerationStatus("processing")} />;
+    return <ResultLoader subtitle="Загрузка…" generating={false} />;
   }
 
   if (isError) {
-    const msg = getApiError(error).message || "╨Ю╤И╨╕╨▒╨║╨░ ╨╖╨░╨│╤А╤Г╨╖╨║╨╕ ╤А╨╡╨╖╤Г╨╗╤М╤В╨░╤В╨░";
+    const msg = getApiError(error).message || "Ошибка загрузки результата";
     logGeneration("error", { id: generationId, error: msg });
     return <ResultError message={msg} onBack={goBack} />;
   }
 
   if (isInProgress(status)) {
-    return <ResultLoader subtitle={translateGenerationStatus(status ?? "processing")} />;
+    return <ResultLoader subtitle={translateGenerationStatus(status ?? "processing")} generating />;
   }
 
   if (status === "failed" || status === "moderated") {
@@ -127,8 +109,8 @@ export function StudioResultView() {
       <ResultError
         message={
           status === "moderated"
-            ? "╨Ш╨╖╨╛╨▒╤А╨░╨╢╨╡╨╜╨╕╨╡ ╨╜╨╡ ╨┐╤А╨╛╤И╨╗╨╛ ╨╝╨╛╨┤╨╡╤А╨░╤Ж╨╕╤О"
-            : data?.error_message || "╨У╨╡╨╜╨╡╤А╨░╤Ж╨╕╤П ╨╜╨╡ ╤Г╨┤╨░╨╗╨░╤Б╤М. ╨Я╨╛╨┐╤А╨╛╨▒╤Г╨╣ ╤Б╨╜╨╛╨▓╨░"
+            ? "Изображение не прошло модерацию"
+            : data?.error_message || "Генерация не удалась. Попробуй снова"
         }
         onBack={goBack}
       />
@@ -140,7 +122,7 @@ export function StudioResultView() {
       <div className="mx-auto max-w-lg px-4 pb-8 pt-4">
         <header className="mb-6 flex items-center gap-2">
           <BackButton onClick={goBack} />
-          <h1 className="flex-1 text-center text-lg font-bold pr-9">╨У╨╛╤В╨╛╨▓╨╛</h1>
+          <h1 className="flex-1 text-center text-lg font-bold pr-9">Готово</h1>
         </header>
 
         <motion.div
@@ -171,7 +153,7 @@ export function StudioResultView() {
             }}
           >
             <Share2 className="h-4 w-4" />
-            {sharing ? "╨Ю╤В╨║╤А╤Л╨▓╨░╤ОтАж" : "╨Я╨╛╨┤╨╡╨╗╨╕╤В╤М╤Б╤П"}
+            {sharing ? "Открываю…" : "Поделиться"}
           </button>
           <button
             type="button"
@@ -179,23 +161,24 @@ export function StudioResultView() {
             className="w-full rounded-2xl bg-bg-elevated/80 py-3.5 text-sm font-semibold text-text-primary transition-colors hover:bg-bg-elevated"
             style={chatBorderStyle}
           >
-            ╨Т╨╡╤А╨╜╤Г╤В╤М╤Б╤П ╨▓ ╤Б╤В╤Г╨┤╨╕╤О
+            Вернуться в студию
           </button>
         </div>
       </div>
     );
   }
 
-  return <ResultLoader subtitle={translateGenerationStatus(status ?? "pending")} />;
+  return <ResultLoader subtitle={translateGenerationStatus(status ?? "pending")} generating />;
 }
 
-function ResultLoader({ subtitle }: { subtitle: string }) {
+function ResultLoader({ subtitle, generating = false }: { subtitle: string; generating?: boolean }) {
   return (
-    <div className="flex min-h-[70vh] flex-col items-center justify-center px-6">
+    <div className="relative flex min-h-[70vh] flex-col items-center justify-center overflow-hidden px-6">
+      {generating ? <ArtSceneBackground /> : null}
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="mb-6 flex h-24 w-24 items-center justify-center rounded-full"
+        className="relative z-10 mb-6 flex h-24 w-24 items-center justify-center rounded-full"
         style={{
           background: "linear-gradient(135deg, #f9a8d4 0%, #e879f9 50%, #c084fc 100%)",
           boxShadow: "0 0 48px rgba(232, 121, 249, 0.45)",
@@ -205,9 +188,11 @@ function ResultLoader({ subtitle }: { subtitle: string }) {
           <Sparkles className="h-12 w-12 text-white" strokeWidth={1.5} />
         </motion.div>
       </motion.div>
-      <p className="text-lg font-bold text-text-primary">╨б╨╛╨╖╨┤╨░╤О ╨░╤А╤В</p>
-      <p className="mt-2 text-sm text-text-secondary">{subtitle}</p>
-      <div className="mt-8 flex gap-1.5">
+      <p className="relative z-10 text-lg font-bold text-text-primary">
+        {generating ? "Создаю арт" : "Загрузка"}
+      </p>
+      <p className="relative z-10 mt-2 text-sm text-text-secondary">{subtitle}</p>
+      <div className="relative z-10 mt-8 flex gap-1.5">
         {[0, 1, 2].map((i) => (
           <motion.div
             key={i}
@@ -226,7 +211,7 @@ function ResultError({ message, onBack }: { message: string; onBack: () => void 
     <div className="mx-auto max-w-lg px-4 pb-8 pt-4">
       <header className="mb-6 flex items-center gap-2">
         <BackButton onClick={onBack} />
-        <h1 className="flex-1 text-center text-lg font-bold pr-9">╨Ю╤И╨╕╨▒╨║╨░</h1>
+        <h1 className="flex-1 text-center text-lg font-bold pr-9">Ошибка</h1>
       </header>
       <div
         className="rounded-2xl bg-bg-elevated/80 px-4 py-8 text-center"

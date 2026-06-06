@@ -6,7 +6,7 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message, ReplyKeyboardMarkup
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 
 from app.bot.db import bot_session
 from app.bot.filters import AdminFilter, is_bot_admin
@@ -102,8 +102,17 @@ async def admin_menu(event: Message | CallbackQuery, state: FSMContext) -> None:
 
 
 async def _stats_text() -> str:
+    from app.bot.finance_display import format_platform_finance_for_stats
+    from app.repositories.generation_repository import PaymentRepository
+
     async with bot_session() as session:
+        repo = PaymentRepository(session)
         s = await CatalogService(session).user_stats()
+        finance = await repo.get_platform_finance_stats()
+        api_costs = await repo.get_platform_api_cost_stats()
+
+    finance_block = format_platform_finance_for_stats(finance, api_costs)
+
     return (
         "<b>Статистика Veluna</b>\n\n"
         "<b>Пользователи</b>\n"
@@ -112,13 +121,7 @@ async def _stats_text() -> str:
         f"• Активны сейчас (24 ч): <b>{s.active_users_24h}</b>\n"
         f"• Активны (7 дней): <b>{s.active_users_7d}</b>\n"
         f"• Заблокировано: <b>{s.banned_users}</b>\n\n"
-        "<b>Платежи</b>\n"
-        f"• Успешных оплат: <b>{s.payments_count}</b>\n"
-        f"• Куплено гемов: <b>{s.payments_gems_total}</b>\n"
-        f"• Telegram Stars: <b>{s.payments_stars_total}</b>\n"
-        f"• Доход (гемы, всего): <b>{s.revenue_gems_total}</b>\n\n"
-        "<b>Расходы</b>\n"
-        f"• Потрачено гемов: <b>{s.expenses_gems_total}</b>\n\n"
+        f"{finance_block}\n\n"
         "<b>Время пользования</b>\n"
         f"• Суммарно в чатах: <b>{_fmt_minutes(s.usage_time_minutes)}</b>\n"
         f"• В среднем на пользователя: <b>{_fmt_minutes(int(s.avg_usage_minutes_per_user))}</b>\n\n"
@@ -137,7 +140,8 @@ async def _send_stats(message: Message, user) -> None:
     try:
         text = await _stats_text()
         text += "\n\n<i>Кнопки управления — под этим сообщением.</i>"
-    except Exception:
+    except Exception as exc:
+        logger.exception("Admin stats failed: %s", exc)
         text = (
             "<b>Статистика</b>\n\n"
             "Не удалось загрузить данные. Локально:\n"
@@ -177,18 +181,33 @@ def _format_finance_event(index: int, event: dict) -> str:
 
     tx: Transaction = event["record"]
     amount_abs = abs(tx.amount)
+    from app.repositories.generation_repository import _transaction_currency
+
+    currency = _transaction_currency(tx)
+    cur_icon = "💎" if currency == "gems" else "❤️"
+
     if tx.type == TransactionType.SPEND:
         if tx.description == "Image generation":
             label = "Генерация изображения"
         elif tx.description.startswith("Message to "):
             label = tx.description.replace("Message to ", "Чат с ", 1)
+        elif tx.description.startswith("Сообщение в чате"):
+            label = tx.description
         else:
             label = tx.description or "Расход"
         ref = f"\n   ref: <code>{tx.reference_id}</code>" if tx.reference_id else ""
+        tx_meta = tx.metadata_ or {}
+        api_line = ""
+        if tx_meta.get("api_cost_rub") is not None:
+            from app.services.api_cost_service import format_rub
+
+            api_line = f"\n   API: <b>{format_rub(float(tx_meta['api_cost_rub']))}</b> ₽"
+        elif tx_meta.get("api_buzz_cost") is not None:
+            api_line = f"\n   API: <b>{tx_meta['api_buzz_cost']}</b> Buzz"
         return (
             f"{index}. 🔴 <b>Расход</b> · <b>{_user_label(user)}</b>\n"
-            f"   −<b>{amount_abs}</b>❤️ · {label} · баланс {tx.balance_after} · {created}"
-            f"{ref}"
+            f"   −<b>{amount_abs}</b>{cur_icon} · {label} · баланс {tx.balance_after} · {created}"
+            f"{api_line}{ref}"
         )
 
     if tx.type == TransactionType.BONUS:
@@ -197,11 +216,13 @@ def _format_finance_event(index: int, event: dict) -> str:
         label = "Админское начисление"
     elif tx.type == TransactionType.REFUND:
         label = "Возврат"
+    elif tx.type == TransactionType.PURCHASE:
+        label = tx.description or "Покупка"
     else:
         label = tx.description or tx.type.value
     return (
         f"{index}. 🟡 <b>{label}</b> · <b>{_user_label(user)}</b>\n"
-        f"   +<b>{amount_abs}</b>❤️ · баланс {tx.balance_after} · {created}"
+        f"   +<b>{amount_abs}</b>{cur_icon} · баланс {tx.balance_after} · {created}"
     )
 
 
@@ -240,12 +261,18 @@ async def _load_finance_history(
             purchase_base = None
         else:
             tx_base = tx_base.where(
-                Transaction.type.in_(
-                    [
-                        TransactionType.BONUS,
-                        TransactionType.ADMIN_ADJUST,
-                        TransactionType.REFUND,
-                    ]
+                or_(
+                    Transaction.type.in_(
+                        [
+                            TransactionType.BONUS,
+                            TransactionType.ADMIN_ADJUST,
+                            TransactionType.REFUND,
+                        ]
+                    ),
+                    and_(
+                        Transaction.amount > 0,
+                        Transaction.metadata_["currency"].as_string() == "credits",
+                    ),
                 )
             )
             purchase_base = (

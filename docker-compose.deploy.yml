@@ -1,3 +1,13 @@
+# Veluna — full stack for deployment on a new machine (Docker only).
+#
+# Usage:
+#   cp .env.example .env   # fill secrets and TELEGRAM_WEBAPP_URL
+#   docker compose -f docker-compose.deploy.yml up -d --build
+#   open http://localhost
+#
+# Bot on Windows: Telegram API often fails inside Docker — run on host:
+#   .\scripts\run-bot-local.ps1
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -9,8 +19,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-veluna}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-veluna}"]
       interval: 10s
@@ -26,8 +34,6 @@ services:
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -46,9 +52,6 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-veluna_minio_secret}
     volumes:
       - minio_data:/data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
@@ -81,6 +84,7 @@ services:
       dockerfile: Dockerfile
     container_name: veluna-backend
     restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     env_file:
       - .env
     environment:
@@ -89,11 +93,9 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/3
       CELERY_RESULT_BACKEND: redis://redis:6379/4
       MINIO_ENDPOINT: minio:9000
+      MINIO_PUBLIC_URL: /media
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://127.0.0.1}
       CIVITAI_API_TOKEN: ${CIVITAI_API_KEY:-}
-    volumes:
-      - ./backend:/app
-    ports:
-      - "8020:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -124,11 +126,11 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/4
       MINIO_ENDPOINT: minio:9000
       CIVITAI_API_TOKEN: ${CIVITAI_API_KEY:-}
-    volumes:
-      - ./backend:/app
     depends_on:
-      - backend
-      - redis
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - veluna-network
 
@@ -145,11 +147,11 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-veluna}:${POSTGRES_PASSWORD:-veluna_secret}@postgres:5432/${POSTGRES_DB:-veluna}
       CELERY_BROKER_URL: redis://redis:6379/3
       CELERY_RESULT_BACKEND: redis://redis:6379/4
-    volumes:
-      - ./backend:/app
     depends_on:
-      - backend
-      - redis
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - veluna-network
 
@@ -166,11 +168,11 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-veluna}:${POSTGRES_PASSWORD:-veluna_secret}@postgres:5432/${POSTGRES_DB:-veluna}
       CELERY_BROKER_URL: redis://redis:6379/3
       CELERY_RESULT_BACKEND: redis://redis:6379/4
-    volumes:
-      - ./backend:/app
     depends_on:
-      - backend
-      - redis
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - veluna-network
 
@@ -187,10 +189,9 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-veluna}:${POSTGRES_PASSWORD:-veluna_secret}@postgres:5432/${POSTGRES_DB:-veluna}
       CELERY_BROKER_URL: redis://redis:6379/3
       CELERY_RESULT_BACKEND: redis://redis:6379/4
-    volumes:
-      - ./backend:/app
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     networks:
       - veluna-network
 
@@ -199,7 +200,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api/v1}
+        NEXT_PUBLIC_API_URL: /api/v1
         NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-}
         BACKEND_HOST: backend
         BACKEND_PORT: "8000"
@@ -207,31 +208,6 @@ services:
         MINIO_PORT: "9000"
     container_name: veluna-frontend
     restart: unless-stopped
-    env_file:
-      - .env
-    ports:
-      - "3000:3000"
-    depends_on:
-      - backend
-    networks:
-      - veluna-network
-
-  telegram-bot:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: veluna-telegram-bot
-    restart: unless-stopped
-    command: python -m app.bot.main
-    env_file:
-      - .env
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-veluna}:${POSTGRES_PASSWORD:-veluna_secret}@postgres:5432/${POSTGRES_DB:-veluna}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      TELEGRAM_WEBAPP_URL: ${TELEGRAM_WEBAPP_URL:-}
-      ADMIN_TELEGRAM_USERNAMES: ${ADMIN_TELEGRAM_USERNAMES:-Iabobuss}
-    volumes:
-      - ./backend:/app
     depends_on:
       backend:
         condition: service_healthy
@@ -243,7 +219,7 @@ services:
     container_name: veluna-nginx
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "${VELUNA_HTTP_PORT:-80}:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:

@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     gen_api_key: str = ""
     gen_api_model: str = "gpt-4o-mini"
     gen_api_base_url: str = "https://proxy.gen-api.ru/v1"
+    gen_api_input_rub_per_1k_tokens: float = 0.05
+    gen_api_output_rub_per_1k_tokens: float = 0.15
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     openrouter_api_key: str = ""

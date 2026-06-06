@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.database.session import get_db
 from app.schemas import (
+    ChatArtAttach,
     ChatCreate,
     ChatListResponse,
     ChatNarratorUpdate,
@@ -141,6 +142,17 @@ async def send_message(
 ):
     service = ChatService(session)
     return await service.send_message(user.id, chat_id, data.content, data.reply_to_id)
+
+
+@router.post("/{chat_id}/art", response_model=MessageResponse)
+async def attach_chat_art(
+    chat_id: UUID,
+    data: ChatArtAttach,
+    user: UserResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    service = ChatService(session)
+    return await service.attach_generation(user.id, chat_id, data.generation_id)
 
 
 @router.delete("/{chat_id}/messages/{message_id}", response_model=MessageDeleteResponse)

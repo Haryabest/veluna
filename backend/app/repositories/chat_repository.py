@@ -133,6 +133,7 @@ class ChatRepository:
         content: str,
         tokens_used: int = 0,
         reply_to_id: UUID | None = None,
+        metadata_: dict | None = None,
     ) -> Message:
         role_enum = MessageRole(role) if isinstance(role, str) else role
         message = Message(
@@ -141,6 +142,7 @@ class ChatRepository:
             content=content,
             tokens_used=tokens_used,
             reply_to_id=reply_to_id,
+            metadata_=metadata_ or {},
         )
         self._session.add(message)
 

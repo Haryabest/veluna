@@ -161,6 +161,36 @@ export const chatService = {
     });
     return data;
   },
+
+  async attachArt(chatId: string, generationId: string) {
+    const { data } = await apiClient.post(`/chats/${chatId}/art`, { generation_id: generationId });
+    return data;
+  },
+};
+
+export type UserFinanceStats = {
+  balance: { gems: number; credits: number };
+  spent: { gems: number; credits: number };
+  deposited: { gems: number; credits: number };
+  purchases: {
+    completed_count: number;
+    stars_total: number;
+    gems_total: number;
+    credits_total: number;
+  };
+  lifetime: { total_earned: number; total_spent: number };
+};
+
+export const userService = {
+  async getFinanceStats() {
+    const { data } = await apiClient.get<UserFinanceStats>("/users/finance");
+    return data;
+  },
+
+  /** @deprecated use getFinanceStats */
+  async getSpending() {
+    return this.getFinanceStats();
+  },
 };
 
 export const generationService = {
@@ -265,6 +295,7 @@ export const balanceService = {
         description: string;
         created_at: string;
         type?: string;
+        currency?: string;
         metadata?: Record<string, unknown>;
       }>;
     }>("/users/transactions", { params: { type, page } });
@@ -277,13 +308,32 @@ export const balanceService = {
       return raw || "Операция";
     };
 
-    const items: BalanceHistoryItem[] = (data.items ?? []).map((t) => ({
-      id: t.id,
-      amount: t.amount,
-      currency: t.metadata?.currency === "credits" ? "credits" : "gems",
-      description: formatDescription(t.description),
-      created_at: t.created_at,
-    }));
+    const items: BalanceHistoryItem[] = (data.items ?? []).map((t) => {
+      const raw = t as {
+        currency?: string;
+        metadata?: Record<string, unknown>;
+        description?: string;
+      };
+      const metaCurrency = raw.metadata?.currency;
+      const desc = (raw.description || "").toLowerCase();
+      let currency: "gems" | "credits" = "gems";
+      if (raw.currency === "credits" || metaCurrency === "credits") {
+        currency = "credits";
+      } else if (raw.currency === "gems" || metaCurrency === "gems") {
+        currency = "gems";
+      } else if (desc.includes("image generation") || desc.includes("генерац")) {
+        currency = "gems";
+      } else if (desc.includes("сообщение") || desc.includes("narrator") || desc.includes("рассказчик")) {
+        currency = "credits";
+      }
+      return {
+        id: t.id,
+        amount: t.amount,
+        currency,
+        description: formatDescription(t.description),
+        created_at: t.created_at,
+      };
+    });
     return { items, type };
   },
 

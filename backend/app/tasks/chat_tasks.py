@@ -40,6 +40,7 @@ def process_ai_response(self, chat_id: str, user_message_id: str, user_id: str):
         from app.repositories.character_repository import CharacterRepository
         from app.repositories.character_scenario_repository import CharacterScenarioRepository
         from app.repositories.chat_repository import ChatRepository
+        from app.repositories.generation_repository import PaymentRepository
         from app.services.chat_service import ChatService
 
         settings = get_settings()
@@ -94,12 +95,28 @@ def process_ai_response(self, chat_id: str, user_message_id: str, user_id: str):
                     )
                 )
 
+                from app.services.api_cost_service import build_chat_message_api_meta
+
+                msg_meta = build_chat_message_api_meta(response)
                 await chats.add_message(
                     UUID(chat_id),
                     MessageRole.ASSISTANT,
                     response.content,
                     tokens_used=response.tokens_used,
+                    metadata_=msg_meta,
                 )
+
+                heart_cost = ChatService.message_heart_cost(narrator)
+                if heart_cost > 0 and ai.provider_name != "stub":
+                    payments = PaymentRepository(session)
+                    await payments.deduct_credits(
+                        UUID(user_id),
+                        heart_cost,
+                        f"Сообщение в чате: {character.name}",
+                        reference_id=chat_id,
+                        extra_metadata={"api_cost_rub": msg_meta.get("api_cost_rub")},
+                    )
+
                 await chats.set_ai_reply_status(chat, AiReplyStatus.IDLE, error=None)
                 await session.commit()
 

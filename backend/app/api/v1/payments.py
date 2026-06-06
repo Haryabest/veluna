@@ -37,7 +37,7 @@ async def list_transactions(
     transactions, total = await repo.list_transactions(user.id, page=page, kind=history_type)
     page_size = 20
     return PaginatedResponse(
-        items=[TransactionResponse.model_validate(t) for t in transactions],
+        items=[TransactionResponse.from_transaction(t) for t in transactions],
         total=total,
         page=page,
         page_size=page_size,

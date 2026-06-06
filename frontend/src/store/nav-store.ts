@@ -39,6 +39,8 @@ interface NavState {
   goToStudio: () => void;
   goBack: () => void;
   generationId: string | null;
+  studioModelId: string | null;
+  setStudioModelId: (id: string) => void;
 }
 
 export const useNavStore = create<NavState>((set, get) => ({
@@ -49,6 +51,9 @@ export const useNavStore = create<NavState>((set, get) => ({
   scenarioId: null,
   chatId: null,
   generationId: null,
+  studioModelId: null,
+
+  setStudioModelId: (id) => set({ studioModelId: id }),
 
   setTab: (tab) =>
     set({ tab, screen: tab, returnTo: null, characterId: null, scenarioId: null, chatId: null }),
@@ -102,7 +107,8 @@ export const useNavStore = create<NavState>((set, get) => ({
 
   openStudioAllModels: () => set({ screen: "studio-all-models", tab: "studio", returnTo: "studio-create" }),
 
-  goToStudio: () => set({ screen: "studio", tab: "studio", generationId: null, returnTo: null }),
+  goToStudio: () =>
+    set({ screen: "studio", tab: "studio", generationId: null, returnTo: null, studioModelId: null }),
 
   goBack: () => {
     const { screen, tab, returnTo } = get();

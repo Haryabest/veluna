@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { motion } from "framer-motion";
@@ -9,13 +9,18 @@ import { useNavStore } from "@/store/nav-store";
 import { generationService } from "@/services/api";
 import { QUERY_KEYS } from "@/lib/constants";
 import { chatBorderStyle } from "@/lib/theme";
+import { StudioArtViewer } from "@/components/studio/StudioArtViewer";
 
 export function StudioView() {
   const screen = useNavStore((s) => s.screen);
   const tab = useNavStore((s) => s.tab);
   const openStudioCreate = useNavStore((s) => s.openStudioCreate);
-  const openStudioResult = useNavStore((s) => s.openStudioResult);
   const showFab = tab === "studio" && screen === "studio";
+  const [viewerArt, setViewerArt] = useState<{
+    id: string;
+    imageUrl: string;
+    prompt?: string;
+  } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: QUERY_KEYS.generations,
@@ -83,7 +88,7 @@ export function StudioView() {
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: i * 0.04 }}
-            onClick={() => openStudioResult(art.id)}
+            onClick={() => setViewerArt(art)}
             className="aspect-square overflow-hidden rounded-2xl text-left active:scale-[0.98]"
             style={chatBorderStyle}
             aria-label={art.prompt ? `Арт: ${art.prompt}` : "Открыть арт"}
@@ -111,6 +116,8 @@ export function StudioView() {
           </button>,
           document.body
         )}
+
+      <StudioArtViewer art={viewerArt} onClose={() => setViewerArt(null)} />
     </div>
   );
 }

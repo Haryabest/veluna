@@ -4,7 +4,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavStore } from "@/store/nav-store";
 import { useChatsListStore, mapApiChatDetail } from "@/store/chats-list-store";
-import { characterService, chatService } from "@/services/api";
+import { ChatPhotoGenerateModal } from "@/components/chats/ChatPhotoGenerateModal";
+import { characterService, chatService, generationService } from "@/services/api";
 import { getApiError } from "@/lib/api-client";
 import { QUERY_KEYS } from "@/lib/constants";
 import { EmojiPicker } from "@/components/widgets/EmojiPicker";
@@ -25,6 +26,7 @@ import { useMessageLongPress } from "@/hooks/use-message-long-press";
 import { useToast } from "@/hooks/use-toast";
 import { renderMarkdownLite } from "@/lib/markdown-lite";
 import { cn } from "@/lib/utils";
+import { readMessagesCache, writeMessagesCache } from "@/lib/chat-messages-cache";
 import { CHAT_BORDER } from "@/lib/theme";
 import type { CharacterScenario } from "@/store/character-store";
 import { X } from "lucide-react";
@@ -133,6 +135,8 @@ export function ChatDialogView() {
   const [msgMenuOpen, setMsgMenuOpen] = useState(false);
   const [msgMenuAnchor, setMsgMenuAnchor] = useState<MessageMenuAnchor | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<ChatMessage | null>(null);
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [pendingGenerationId, setPendingGenerationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const menuBtnRef = useRef<HTMLButtonElement>(null);
@@ -167,10 +171,62 @@ export function ChatDialogView() {
 
   const { data: messages, isLoading } = useQuery({
     queryKey: QUERY_KEYS.messages(chatId ?? ""),
-    queryFn: () => chatService.getMessages(chatId!),
+    queryFn: async () => {
+      const list = await chatService.getMessages(chatId!);
+      if (chatId) writeMessagesCache(chatId, list);
+      return list;
+    },
     enabled: !!chatId,
+    staleTime: 2 * 60_000,
+    gcTime: 15 * 60_000,
+    placeholderData: () => (chatId ? readMessagesCache(chatId) : undefined),
     refetchInterval: isAiThinking ? 2000 : false,
   });
+
+  const { data: pendingGeneration } = useQuery({
+    queryKey: [...QUERY_KEYS.generations, "chat", pendingGenerationId] as const,
+    queryFn: () => generationService.getById(pendingGenerationId!),
+    enabled: !!pendingGenerationId,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status as string | undefined;
+      return status === "pending" || status === "processing" ? 1800 : false;
+    },
+  });
+
+  useEffect(() => {
+    if (!chatId || !pendingGenerationId || !pendingGeneration) return;
+    const status = pendingGeneration.status as string;
+    if (status !== "completed") {
+      if (status === "failed" || status === "moderated") {
+        toast("Генерация не удалась", "error");
+        setPendingGenerationId(null);
+      }
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const artMsg = await chatService.attachArt(chatId, pendingGenerationId);
+        if (cancelled) return;
+        const mapped = mapApiMessage(artMsg);
+        queryClient.setQueryData<ChatMessage[]>(QUERY_KEYS.messages(chatId), (old) => {
+          const list = Array.isArray(old) ? old : [];
+          if (list.some((m) => m.id === mapped.id)) return list;
+          return [...list, mapped];
+        });
+        void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.messages(chatId) });
+      } catch (err) {
+        if (!cancelled) toast(getApiError(err).message || "Не удалось добавить арт в чат", "error");
+      } finally {
+        if (!cancelled) setPendingGenerationId(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chatId, pendingGeneration, pendingGenerationId, queryClient, toast]);
 
   const sendMutation = useMutation({
     mutationFn: ({ content, replyToId }: { content: string; replyToId?: string }) =>
@@ -219,7 +275,7 @@ export function ChatDialogView() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isAiThinking, sendMutation.isPending]);
+  }, [messages, isAiThinking, sendMutation.isPending, pendingGenerationId]);
 
   const openScenarioMenu = useCallback(() => {
     const el = menuBtnRef.current;
@@ -413,6 +469,7 @@ export function ChatDialogView() {
             <ChatMessageBubble key={msg.id} msg={msg} onLongPress={openMessageMenu} />
           ))
         )}
+        {pendingGenerationId ? <ChatArtGeneratingBubble /> : null}
         {isAiThinking && <ChatThinkingBubble />}
         <div ref={messagesEndRef} />
       </div>
@@ -491,7 +548,9 @@ export function ChatDialogView() {
         >
           <button
             type="button"
-            className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5 text-left transition-transform active:scale-[0.98]"
+            onClick={() => setPhotoModalOpen(true)}
+            disabled={!!pendingGenerationId || isAiThinking}
+            className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5 text-left transition-transform active:scale-[0.98] disabled:opacity-60"
             style={{
               background: PHOTO_GRADIENT_BG,
               boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)",
@@ -524,6 +583,32 @@ export function ChatDialogView() {
       </div>
 
       <EmojiPicker open={emojiOpen} onClose={() => setEmojiOpen(false)} onSelect={insertEmoji} />
+
+      {characterId ? (
+        <ChatPhotoGenerateModal
+          open={photoModalOpen}
+          characterId={characterId}
+          characterName={characterName}
+          onClose={() => setPhotoModalOpen(false)}
+          onStarted={(id) => setPendingGenerationId(id)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ChatArtGeneratingBubble() {
+  return (
+    <div className="flex items-start">
+      <div
+        className="rounded-[18px] rounded-bl-[4px] px-3.5 py-2.5 text-sm text-text-secondary backdrop-blur-md"
+        style={{ border: `1px solid ${CHAT_BORDER}`, background: "rgba(26, 18, 40, 0.72)" }}
+      >
+        <span className="inline-flex items-center gap-2">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-pink-400" />
+          Создаю арт…
+        </span>
+      </div>
     </div>
   );
 }

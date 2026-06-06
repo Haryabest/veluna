@@ -29,6 +29,12 @@ logger = logging.getLogger(__name__)
 class ChatService:
     MAX_CONTEXT_MESSAGES = 20
 
+    @staticmethod
+    def message_heart_cost(narrator: CharacterNarrator | None) -> int:
+        if narrator and narrator.price > 0:
+            return narrator.price
+        return 1
+
     def __init__(self, session: AsyncSession):
         self._session = session
         self._chats = ChatRepository(session)
@@ -55,13 +61,6 @@ class ChatService:
 
         chat = await self._chats.get_user_chat(user_id, character_id, scenario_id, narrator_id)
         if not chat:
-            if narrator.price > 0:
-                await self._payments.deduct_credits(
-                    user_id,
-                    narrator.price,
-                    f"Narrator: {narrator.name}",
-                    reference_id=str(narrator_id),
-                )
             chat = await self._chats.create(user_id, character_id, scenario_id, narrator_id)
             opening = (scenario.opening_message or "").strip() or (character.greeting_message or "").strip()
             if opening:
@@ -112,14 +111,6 @@ class ChatService:
         if not narrator or narrator.character_id != chat.character_id or not narrator.is_active:
             raise NotFoundError("Narrator", str(narrator_id))
 
-        if narrator.price > 0:
-            await self._payments.deduct_credits(
-                user_id,
-                narrator.price,
-                f"Narrator: {narrator.name}",
-                reference_id=str(chat_id),
-            )
-
         chat.narrator_id = narrator_id
         await self._chats.add_message(
             chat_id,
@@ -156,16 +147,18 @@ class ChatService:
             if not parent or parent.deleted_for_all:
                 raise NotFoundError("Message", str(reply_to_id))
 
-        message_price = character.message_price
-        if self._ai.provider_name == "stub":
-            message_price = 0
-        if message_price > 0:
-            await self._payments.deduct_gems(
-                user_id,
-                message_price,
-                f"Message to {character.name}",
-                reference_id=str(chat_id),
-            )
+        narrator = chat.narrator
+        if chat.narrator_id and not narrator:
+            narrator = await self._narrators.get_by_id(chat.narrator_id)
+
+        heart_cost = self.message_heart_cost(narrator)
+        if self._ai.provider_name != "stub" and heart_cost > 0:
+            balance = await self._payments.get_balance(user_id)
+            available = balance.credits if balance else 0
+            if available < heart_cost:
+                from app.core.exceptions import InsufficientBalanceError
+
+                raise InsufficientBalanceError(required=heart_cost, available=available, currency="credits")
 
         await self._chats.add_message(
             chat_id,
@@ -185,6 +178,33 @@ class ChatService:
             user_message=self._to_message_response(user_msg),
             ai_reply_status=AiReplyStatus.PROCESSING.value,
         )
+
+    async def attach_generation(
+        self, user_id: UUID, chat_id: UUID, generation_id: UUID
+    ) -> MessageResponse:
+        from app.models import GenerationStatus
+        from app.repositories.generation_repository import GenerationRepository
+
+        chat = await self._chats.get_by_id(chat_id)
+        if not chat or chat.user_id != user_id:
+            raise NotFoundError("Chat", str(chat_id))
+
+        generations = GenerationRepository(self._session)
+        generation = await generations.get_by_id(generation_id)
+        if not generation or generation.user_id != user_id:
+            raise NotFoundError("Generation", str(generation_id))
+        if generation.status != GenerationStatus.COMPLETED:
+            raise ValidationError("Арт ещё не готов")
+        if not generation.image_url:
+            raise ValidationError("Нет изображения")
+
+        prompt = (generation.prompt or "Арт").strip()
+        content = f"![{prompt}]({generation.image_url})"
+        await self._chats.add_message(chat_id, MessageRole.ASSISTANT, content)
+        message = await self._chats.get_latest_message(chat_id)
+        if not message:
+            raise NotFoundError("Message", "last")
+        return self._to_message_response(message)
 
     def _enqueue_ai_response(self, chat_id: UUID, user_message_id: UUID, user_id: UUID) -> None:
         from app.tasks.chat_tasks import process_ai_response
@@ -334,6 +354,7 @@ class ChatService:
             last_message_at=chat.last_message_at,
             ai_reply_status=chat.ai_reply_status or AiReplyStatus.IDLE.value,
             ai_reply_error=chat.ai_reply_error,
+            message_heart_cost=self.message_heart_cost(narrator),
             created_at=chat.created_at,
         )
 

@@ -4,6 +4,7 @@ from aiogram.types import (
     KeyboardButton,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
+    WebAppInfo,
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -88,6 +89,34 @@ def main_reply_keyboard(webapp_url: str, *, include_admin: bool = False) -> Repl
         keyboard=rows,
         resize_keyboard=True,
         is_persistent=True,
+    )
+
+
+USER_FINANCE_CB = "user:finance"
+
+
+def user_start_inline(webapp_url: str) -> InlineKeyboardMarkup:
+    """Inline buttons under /start for all users."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Открыть Veluna",
+                    web_app=WebAppInfo(url=webapp_url),
+                )
+            ],
+            [
+                InlineKeyboardButton(text="💎 Баланс и траты", callback_data=USER_FINANCE_CB),
+            ],
+        ]
+    )
+
+
+def user_finance_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔄 Обновить", callback_data=USER_FINANCE_CB)],
+        ]
     )
 
 
@@ -464,9 +493,13 @@ def scenario_item_menu(scenario_id: str, character_id: str) -> InlineKeyboardMar
     builder = InlineKeyboardBuilder()
     builder.row(
         InlineKeyboardButton(
+            text="🖼 Фото",
+            callback_data=f"adm:scen:photo:{scenario_id}",
+        ),
+        InlineKeyboardButton(
             text="Удалить сценарий",
             callback_data=f"adm:scen:del:{scenario_id}",
-        )
+        ),
     )
     builder.row(
         InlineKeyboardButton(
@@ -506,6 +539,16 @@ def narrators_menu(character_id: str, narrators: list) -> InlineKeyboardMarkup:
 
 def narrator_item_menu(narrator_id: str, character_id: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(
+            text="✏️ Цена (сердца)",
+            callback_data=f"adm:narr:price:{narrator_id}",
+        ),
+        InlineKeyboardButton(
+            text="🖼 Фото",
+            callback_data=f"adm:narr:photo:{narrator_id}",
+        ),
+    )
     builder.row(
         InlineKeyboardButton(
             text="Удалить рассказчика",

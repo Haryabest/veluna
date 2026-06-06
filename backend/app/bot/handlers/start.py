@@ -3,30 +3,14 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
 
 from app.bot.filters import is_bot_admin
-from app.bot.keyboards import start_keyboard
+from app.bot.keyboards import start_keyboard, user_start_inline
 from app.core.config import reload_settings
 
 router = Router(name="start")
 
 
-def _start_text(is_admin: bool, webapp_url: str) -> str:
-    lines = [
-        "Добро пожаловать в Veluna — AI-компаньоны в аниме-стиле.",
-        "",
-        "⚠️ Старые ссылки <b>xijlo-…pinggy-free.link</b> больше не работают.",
-        "Открывайте Mini App через синюю кнопку меню Telegram «Открыть Veluna».",
-        "",
-        f"Актуальный адрес: <code>{webapp_url.rstrip('/')}</code>",
-    ]
-    if is_admin:
-        lines.extend(
-            [
-                "",
-                "<b>Администратор</b> — кнопки управления всегда внизу:",
-                "статистика, создание персонажей, рассылка, промокоды, товары.",
-            ]
-        )
-    return "\n".join(lines)
+def _start_text() -> str:
+    return "Добро пожаловать в Veluna — AI-компаньоны в аниме-стиле."
 
 
 @router.message(Command("paysupport"))
@@ -93,9 +77,14 @@ async def cmd_start(message: Message) -> None:
 
     url = webapp_url.rstrip("/")
     await message.answer(
-        _start_text(is_admin, url),
-        reply_markup=start_keyboard(url, include_admin=is_admin),
+        _start_text(),
+        reply_markup=user_start_inline(url),
     )
+    if is_admin:
+        await message.answer(
+            "Админ-меню:",
+            reply_markup=start_keyboard(url, include_admin=True),
+        )
 
 
 @router.message(Command("open"))
@@ -106,7 +95,4 @@ async def cmd_open(message: Message) -> None:
     if not webapp_url.startswith("https://"):
         await message.answer("Mini App URL не настроен. Запустите туннель: dev-miniapp-up.ps1")
         return
-    await message.answer(
-        "Mini App открывается через синюю кнопку меню Telegram «Открыть Veluna».\n\n"
-        f"Актуальный адрес:\n<code>{webapp_url}</code>",
-    )
+    await message.answer(_start_text())
