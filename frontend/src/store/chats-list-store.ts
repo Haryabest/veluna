@@ -1,12 +1,45 @@
 import { create } from "zustand";
 import { chatListService, chatService } from "@/services/api";
 
+const CHATS_CACHE_KEY = "veluna_chats_cache_v2";
+const CHATS_CACHE_TTL_MS = 30 * 60 * 1000;
+
+type ChatsCachePayload = {
+  savedAt: number;
+  chats: ChatListItem[];
+};
+
+function readChatsCache(): ChatListItem[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(CHATS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ChatsCachePayload;
+    if (Date.now() - parsed.savedAt > CHATS_CACHE_TTL_MS) return null;
+    return parsed.chats;
+  } catch {
+    return null;
+  }
+}
+
+function writeChatsCache(chats: ChatListItem[]) {
+  if (typeof window === "undefined") return;
+  try {
+    const payload: ChatsCachePayload = { savedAt: Date.now(), chats };
+    localStorage.setItem(CHATS_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    /* ignore quota */
+  }
+}
+
 export type ChatListItem = {
   id: string;
   characterId: string;
   characterName: string;
   scenarioId: string | null;
   scenarioTitle: string | null;
+  narratorId: string | null;
+  narratorName: string | null;
   avatarUrl: string;
   preview: string;
   time: string;
@@ -41,6 +74,8 @@ function mapApiChat(raw: {
   character_name: string;
   scenario_id?: string | null;
   scenario_title?: string | null;
+  narrator_id?: string | null;
+  narrator_name?: string | null;
   character_avatar_url?: string | null;
   display_title: string;
   is_pinned?: boolean;
@@ -51,12 +86,15 @@ function mapApiChat(raw: {
 }): ChatListItem {
   const characterName = raw.character_name;
   const scenarioTitle = raw.scenario_title ?? null;
+  const narratorName = raw.narrator_name ?? null;
   return {
     id: raw.id,
     characterId: raw.character_id,
     characterName,
     scenarioId: raw.scenario_id ?? null,
     scenarioTitle,
+    narratorId: raw.narrator_id ?? null,
+    narratorName,
     avatarUrl: raw.character_avatar_url || "",
     preview: raw.last_message_preview || "Начни диалог…",
     time: formatChatTime(raw.last_message_at),
@@ -73,17 +111,23 @@ export function mapApiChatDetail(raw: {
   character_name: string;
   scenario_id?: string | null;
   scenario_title?: string | null;
+  narrator_id?: string | null;
+  narrator_name?: string | null;
   character_avatar_url?: string | null;
 }): ChatListItem {
   const characterName = raw.character_name;
   const scenarioTitle = raw.scenario_title ?? null;
-  const displayName = scenarioTitle ? `${characterName} · ${scenarioTitle}` : characterName;
+  const narratorName = raw.narrator_name ?? null;
+  const parts = [characterName, scenarioTitle, narratorName].filter(Boolean);
+  const displayName = parts.length > 1 ? parts.join(" · ") : characterName;
   return {
     id: raw.id,
     characterId: raw.character_id,
     characterName,
     scenarioId: raw.scenario_id ?? null,
     scenarioTitle,
+    narratorId: raw.narrator_id ?? null,
+    narratorName,
     avatarUrl: raw.character_avatar_url || "",
     preview: "",
     time: "",
@@ -114,19 +158,31 @@ interface ChatsListState {
   removeChat: (id: string) => Promise<void>;
 }
 
+const cachedChats = readChatsCache();
+
 export const useChatsListStore = create<ChatsListState>((set, get) => ({
-  chats: [],
-  initialized: false,
+  chats: cachedChats ?? [],
+  initialized: Boolean(cachedChats?.length),
   loading: false,
 
   load: async () => {
-    set({ loading: true });
+    const cached = readChatsCache();
+    if (cached?.length) {
+      set({ chats: sortChats(cached), initialized: true });
+    }
+    set({ loading: !cached?.length });
     try {
       const data = await chatService.list(1);
       const items = Array.isArray(data.items) ? data.items.map(mapApiChat) : [];
-      set({ chats: sortChats(items), initialized: true, loading: false });
+      const sorted = sortChats(items);
+      writeChatsCache(sorted);
+      set({ chats: sorted, initialized: true, loading: false });
     } catch {
-      set({ chats: [], initialized: true, loading: false });
+      set((state) => ({
+        chats: state.chats,
+        initialized: true,
+        loading: false,
+      }));
     }
   },
 

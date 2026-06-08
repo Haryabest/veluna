@@ -18,9 +18,9 @@ Write-Host "Saved URL:" $url
 
 if ($url) {
     try {
-        $host = ([Uri]$url).Host
-        Resolve-DnsName $host -ErrorAction Stop | Out-Null
-        Write-Host "DNS:" $host "OK" -ForegroundColor Green
+        $tunnelHost = ([Uri]$url).Host
+        Resolve-DnsName $tunnelHost -ErrorAction Stop | Out-Null
+        Write-Host "DNS:" $tunnelHost "OK" -ForegroundColor Green
         try {
             $r = Invoke-WebRequest -Uri $url -TimeoutSec 15 -UseBasicParsing
             Write-Host "HTTP:" $r.StatusCode -ForegroundColor Green

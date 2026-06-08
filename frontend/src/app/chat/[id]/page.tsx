@@ -27,9 +27,15 @@ export default function ChatPage() {
 
   const sendMutation = useMutation({
     mutationFn: (content: string) => chatService.sendMessage(chatId, content),
-    onSuccess: (msg) => {
-      addMessage(chatId, msg);
+    onSuccess: (data) => {
+      addMessage(chatId, {
+        ...data.user_message,
+        role: data.user_message.role as "user" | "assistant" | "system",
+        tokens_used: 0,
+        is_regenerated: false,
+      });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.messages(chatId) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.chat(chatId) });
     },
   });
 

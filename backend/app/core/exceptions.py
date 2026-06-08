@@ -19,11 +19,12 @@ class ForbiddenError(VelunaError):
 
 
 class InsufficientBalanceError(VelunaError):
-    def __init__(self, required: int, available: int):
-        super().__init__(
-            f"Insufficient gems: required {required}, available {available}",
-            code="INSUFFICIENT_BALANCE",
-        )
+    def __init__(self, required: int, available: int, *, currency: str = "gems"):
+        if currency == "credits":
+            message = f"Недостаточно сердец: нужно {required}, доступно {available}"
+        else:
+            message = f"Недостаточно гемов: нужно {required}, доступно {available}"
+        super().__init__(message, code="INSUFFICIENT_BALANCE")
 
 
 class RateLimitError(VelunaError):

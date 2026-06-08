@@ -2,9 +2,11 @@ import logging
 from uuid import UUID
 
 from aiogram import Bot, F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message, ReplyKeyboardMarkup
+from sqlalchemy import and_, or_, select
 
 from app.bot.db import bot_session
 from app.bot.filters import AdminFilter, is_bot_admin
@@ -13,6 +15,8 @@ from app.bot.keyboards import (
     ADMIN_MENU_TEXT_PRODUCTS,
     ADMIN_MENU_TEXT_PROMOS,
     ADMIN_MENU_TEXT_STATS,
+    ADMIN_MENU_TEXT_EXPENSE_HISTORY,
+    ADMIN_MENU_TEXT_TOPUP_HISTORY,
     admin_main_menu,
     broadcast_confirm_kb,
     cancel_kb,
@@ -22,13 +26,21 @@ from app.bot.keyboards import (
     products_menu,
     promo_item_menu,
     promos_menu,
-    stats_submenu_keyboard,
+    stats_inline_keyboard,
+    topup_history_keyboard,
+    topup_history_inline_keyboard,
+    ADMIN_EXPENSES_CLEAR_SEARCH,
+    ADMIN_EXPENSES_SEARCH,
+    ADMIN_TOPUPS_CLEAR_SEARCH,
+    ADMIN_TOPUPS_PAGE_NEXT,
+    ADMIN_TOPUPS_PAGE_PREV,
+    ADMIN_TOPUPS_SEARCH,
 )
-from app.bot.states import AdminBroadcastStates, AdminProductStates, AdminPromoStates
+from app.bot.states import AdminBroadcastStates, AdminProductStates, AdminPromoStates, AdminTopupStates
 from app.services.broadcast_service import BroadcastService
 from app.bot.utils import upload_telegram_photo
 from app.core.config import get_settings
-from app.models import ShopProductType
+from app.models import Purchase, PurchaseStatus, ShopProductType, Transaction, TransactionType, User
 from app.services.catalog_service import CatalogService
 
 logger = logging.getLogger(__name__)
@@ -36,6 +48,10 @@ logger = logging.getLogger(__name__)
 router = Router(name="admin")
 router.message.filter(AdminFilter())
 router.callback_query.filter(AdminFilter())
+
+TOPUP_HISTORY_PAGE_SIZE = 10
+FINANCE_MODE_TOPUPS = "topups"
+FINANCE_MODE_EXPENSES = "expenses"
 
 
 def _fmt_minutes(total_minutes: int) -> str:
@@ -86,8 +102,17 @@ async def admin_menu(event: Message | CallbackQuery, state: FSMContext) -> None:
 
 
 async def _stats_text() -> str:
+    from app.bot.finance_display import format_platform_finance_for_stats
+    from app.repositories.generation_repository import PaymentRepository
+
     async with bot_session() as session:
+        repo = PaymentRepository(session)
         s = await CatalogService(session).user_stats()
+        finance = await repo.get_platform_finance_stats()
+        api_costs = await repo.get_platform_api_cost_stats()
+
+    finance_block = format_platform_finance_for_stats(finance, api_costs)
+
     return (
         "<b>Статистика Veluna</b>\n\n"
         "<b>Пользователи</b>\n"
@@ -96,13 +121,7 @@ async def _stats_text() -> str:
         f"• Активны сейчас (24 ч): <b>{s.active_users_24h}</b>\n"
         f"• Активны (7 дней): <b>{s.active_users_7d}</b>\n"
         f"• Заблокировано: <b>{s.banned_users}</b>\n\n"
-        "<b>Платежи</b>\n"
-        f"• Успешных оплат: <b>{s.payments_count}</b>\n"
-        f"• Куплено гемов: <b>{s.payments_gems_total}</b>\n"
-        f"• Telegram Stars: <b>{s.payments_stars_total}</b>\n"
-        f"• Доход (гемы, всего): <b>{s.revenue_gems_total}</b>\n\n"
-        "<b>Расходы</b>\n"
-        f"• Потрачено гемов: <b>{s.expenses_gems_total}</b>\n\n"
+        f"{finance_block}\n\n"
         "<b>Время пользования</b>\n"
         f"• Суммарно в чатах: <b>{_fmt_minutes(s.usage_time_minutes)}</b>\n"
         f"• В среднем на пользователя: <b>{_fmt_minutes(int(s.avg_usage_minutes_per_user))}</b>\n\n"
@@ -117,19 +136,272 @@ async def _stats_text() -> str:
 
 async def _send_stats(message: Message, user) -> None:
     settings = get_settings()
-    kb = stats_submenu_keyboard(settings.telegram_webapp_url)
+    inline_kb = stats_inline_keyboard(settings.telegram_webapp_url)
     try:
         text = await _stats_text()
-        text += "\n\n<i>Кнопка «Пользователи» внизу — список, блокировка и редактирование.</i>"
-    except Exception:
+        text += "\n\n<i>Кнопки управления — под этим сообщением.</i>"
+    except Exception as exc:
+        logger.exception("Admin stats failed: %s", exc)
         text = (
             "<b>Статистика</b>\n\n"
             "Не удалось загрузить данные. Локально:\n"
             "<code>docker compose up postgres redis -d</code>\n"
             "<code>cd backend; .\\.venv\\Scripts\\alembic upgrade head</code>"
         )
-    await message.answer(text, reply_markup=kb)
+    await message.answer(text, reply_markup=inline_kb)
     logger.info("Admin stats keyboard sent (Пользователи submenu)")
+
+
+def _user_label(user: User) -> str:
+    if user.username:
+        return f"@{user.username}"
+    name = " ".join(part for part in (user.first_name, user.last_name) if part)
+    return name or f"tg:{user.telegram_id}"
+
+
+def _event_sort_key(event: dict) -> object:
+    return event["created_at"]
+
+
+def _format_finance_event(index: int, event: dict) -> str:
+    user = event["user"]
+    created_at = event["created_at"]
+    created = created_at.strftime("%d.%m %H:%M") if created_at else "—"
+    kind = event["kind"]
+
+    if kind == "purchase":
+        purchase: Purchase = event["record"]
+        payment = f"\n   ID: <code>{purchase.telegram_payment_id}</code>" if purchase.telegram_payment_id else ""
+        gems = f" · +<b>{purchase.gems_amount}</b> гемов" if purchase.gems_amount else ""
+        return (
+            f"{index}. 🟢 <b>Пополнение</b> · <b>{_user_label(user)}</b>\n"
+            f"   <b>{purchase.stars_amount}</b> Stars{gems} · {created}"
+            f"{payment}"
+        )
+
+    tx: Transaction = event["record"]
+    amount_abs = abs(tx.amount)
+    from app.repositories.generation_repository import _transaction_currency
+
+    currency = _transaction_currency(tx)
+    cur_icon = "💎" if currency == "gems" else "❤️"
+
+    if tx.type == TransactionType.SPEND:
+        if tx.description == "Image generation":
+            label = "Генерация изображения"
+        elif tx.description.startswith("Message to "):
+            label = tx.description.replace("Message to ", "Чат с ", 1)
+        elif tx.description.startswith("Сообщение в чате"):
+            label = tx.description
+        else:
+            label = tx.description or "Расход"
+        ref = f"\n   ref: <code>{tx.reference_id}</code>" if tx.reference_id else ""
+        tx_meta = tx.metadata_ or {}
+        api_line = ""
+        if tx_meta.get("api_cost_rub") is not None:
+            from app.services.api_cost_service import format_rub
+
+            api_line = f"\n   API: <b>{format_rub(float(tx_meta['api_cost_rub']))}</b> ₽"
+        elif tx_meta.get("api_buzz_cost") is not None:
+            api_line = f"\n   API: <b>{tx_meta['api_buzz_cost']}</b> Buzz"
+        return (
+            f"{index}. 🔴 <b>Расход</b> · <b>{_user_label(user)}</b>\n"
+            f"   −<b>{amount_abs}</b>{cur_icon} · {label} · баланс {tx.balance_after} · {created}"
+            f"{api_line}{ref}"
+        )
+
+    if tx.type == TransactionType.BONUS:
+        label = "Бонус"
+    elif tx.type == TransactionType.ADMIN_ADJUST:
+        label = "Админское начисление"
+    elif tx.type == TransactionType.REFUND:
+        label = "Возврат"
+    elif tx.type == TransactionType.PURCHASE:
+        label = tx.description or "Покупка"
+    else:
+        label = tx.description or tx.type.value
+    return (
+        f"{index}. 🟡 <b>{label}</b> · <b>{_user_label(user)}</b>\n"
+        f"   +<b>{amount_abs}</b>{cur_icon} · баланс {tx.balance_after} · {created}"
+    )
+
+
+def _finance_title(mode: str) -> str:
+    return "История расходов" if mode == FINANCE_MODE_EXPENSES else "История пополнений"
+
+
+def _finance_search_prompt(mode: str) -> str:
+    if mode == FINANCE_MODE_EXPENSES:
+        return (
+            "<b>Поиск расходов</b>\n\n"
+            "Введите username, имя, Telegram ID, описание или reference ID.\n\n"
+            "<i>Отмена: /cancel</i>"
+        )
+    return (
+        "<b>Поиск пополнений</b>\n\n"
+        "Введите username, имя, Telegram ID, ID платежа, описание или reference ID.\n\n"
+        "<i>Отмена: /cancel</i>"
+    )
+
+
+async def _load_finance_history(
+    page: int,
+    *,
+    mode: str,
+    search_query: str | None = None,
+) -> tuple[list[dict], int]:
+    q = (search_query or "").strip()
+    async with bot_session() as session:
+        tx_base = (
+            select(Transaction, User)
+            .join(User, User.id == Transaction.user_id)
+        )
+        if mode == FINANCE_MODE_EXPENSES:
+            tx_base = tx_base.where(Transaction.type == TransactionType.SPEND)
+            purchase_base = None
+        else:
+            tx_base = tx_base.where(
+                or_(
+                    Transaction.type.in_(
+                        [
+                            TransactionType.BONUS,
+                            TransactionType.ADMIN_ADJUST,
+                            TransactionType.REFUND,
+                        ]
+                    ),
+                    and_(
+                        Transaction.amount > 0,
+                        Transaction.metadata_["currency"].as_string() == "credits",
+                    ),
+                )
+            )
+            purchase_base = (
+                select(Purchase, User)
+                .join(User, User.id == Purchase.user_id)
+                .where(Purchase.status == PurchaseStatus.COMPLETED)
+            )
+        if q:
+            like = f"%{q.lstrip('@')}%"
+            common_filters = [
+                User.username.ilike(like),
+                User.first_name.ilike(like),
+                User.last_name.ilike(like),
+            ]
+            if q.isdigit():
+                common_filters.append(User.telegram_id == int(q))
+            tx_base = tx_base.where(or_(*(common_filters + [
+                Transaction.description.ilike(f"%{q}%"),
+                Transaction.reference_id.ilike(f"%{q}%"),
+            ])))
+            if purchase_base is not None:
+                purchase_base = purchase_base.where(or_(*(common_filters + [
+                    Purchase.telegram_payment_id.ilike(f"%{q}%"),
+                ])))
+
+        tx_rows = (await session.execute(tx_base)).all()
+        events: list[dict] = [
+            {"kind": "transaction", "record": tx, "user": user, "created_at": tx.created_at}
+            for tx, user in tx_rows
+        ]
+        if purchase_base is not None:
+            purchase_rows = (await session.execute(purchase_base)).all()
+            events.extend(
+                {"kind": "purchase", "record": purchase, "user": user, "created_at": purchase.created_at}
+                for purchase, user in purchase_rows
+            )
+        events.sort(key=_event_sort_key, reverse=True)
+
+        total = len(events)
+        offset = (max(1, page) - 1) * TOPUP_HISTORY_PAGE_SIZE
+        return events[offset:offset + TOPUP_HISTORY_PAGE_SIZE], total
+
+
+async def _send_finance_history(
+    message: Message,
+    state: FSMContext,
+    page: int = 1,
+    *,
+    mode: str,
+    search_query: str | None = None,
+    inline: bool = False,
+    edit_existing: bool = False,
+) -> None:
+    rows, total = await _load_finance_history(page, mode=mode, search_query=search_query)
+    pages = max(1, (total + TOPUP_HISTORY_PAGE_SIZE - 1) // TOPUP_HISTORY_PAGE_SIZE) if total else 1
+    page = min(max(1, page), pages)
+    if page > 1 and not rows:
+        rows, total = await _load_finance_history(page, mode=mode, search_query=search_query)
+
+    await state.update_data(
+        topups_page=page,
+        topups_pages=pages,
+        topups_search_query=(search_query or "").strip(),
+        finance_mode=mode,
+    )
+
+    title_text = _finance_title(mode)
+    if search_query:
+        title = (
+            f"<b>{title_text}</b>\n"
+            f"Поиск: <code>{search_query}</code>\n"
+            f"Найдено: <b>{total}</b> · стр. {page}/{pages}"
+        )
+    else:
+        title = f"<b>{title_text}</b> · стр. {page}/{pages} · всего {total}"
+
+    if rows:
+        start = (page - 1) * TOPUP_HISTORY_PAGE_SIZE + 1
+        body = "\n\n".join(
+            _format_finance_event(start + i, event)
+            for i, event in enumerate(rows)
+        )
+    else:
+        if search_query:
+            body = "<i>Записей не найдено.</i>"
+        elif mode == FINANCE_MODE_EXPENSES:
+            body = "<i>Расходов пока нет.</i>"
+        else:
+            body = "<i>Пополнений пока нет.</i>"
+
+    markup = (
+        topup_history_inline_keyboard(
+            page=page,
+            pages=pages,
+            search_active=bool(search_query),
+            mode=mode,
+        )
+        if inline
+        else topup_history_keyboard(
+            page=page,
+            pages=pages,
+            search_active=bool(search_query),
+            mode=mode,
+        )
+    )
+    text = f"{title}\n\n{body}"
+    if edit_existing:
+        data = await state.get_data()
+        message_id = data.get("finance_message_id")
+        chat_id = data.get("finance_chat_id") or message.chat.id
+        if message_id:
+            try:
+                await message.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=int(message_id),
+                    text=text,
+                    reply_markup=markup if inline else None,
+                )
+                return
+            except Exception as exc:
+                if isinstance(exc, TelegramBadRequest) and "message is not modified" in str(exc):
+                    return
+                logger.exception("Failed to edit finance history message")
+
+    sent = await message.answer(
+        text,
+        reply_markup=markup,
+    )
+    await state.update_data(finance_chat_id=sent.chat.id, finance_message_id=sent.message_id)
 
 
 @router.message(F.text == ADMIN_MENU_TEXT_STATS)
@@ -143,6 +415,122 @@ async def admin_stats(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
     await _send_stats(callback.message, callback.from_user)
     await callback.answer()
+
+
+@router.callback_query(F.data == "adm:noop")
+async def admin_noop(callback: CallbackQuery) -> None:
+    await callback.answer()
+
+
+@router.callback_query(F.data.regexp(r"^adm:(topups|expenses):\d+$"))
+async def admin_finance_history_page_cb(callback: CallbackQuery, state: FSMContext) -> None:
+    mode = FINANCE_MODE_EXPENSES if callback.data.startswith("adm:expenses:") else FINANCE_MODE_TOPUPS
+    page = int(callback.data.rsplit(":", 1)[-1])
+    data = await state.get_data()
+    q = (data.get("topups_search_query") or "").strip() or None
+    if data.get("finance_mode") != mode:
+        q = None
+    await state.set_state(None)
+    await _send_finance_history(
+        callback.message,
+        state,
+        page=page,
+        mode=mode,
+        search_query=q,
+        inline=True,
+        edit_existing=True,
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.in_({"adm:topups:search", "adm:expenses:search"}))
+async def admin_finance_history_search_cb(callback: CallbackQuery, state: FSMContext) -> None:
+    mode = FINANCE_MODE_EXPENSES if callback.data.startswith("adm:expenses:") else FINANCE_MODE_TOPUPS
+    await state.set_state(AdminTopupStates.search)
+    await state.update_data(finance_mode=mode)
+    await callback.message.answer(
+        _finance_search_prompt(mode),
+        reply_markup=topup_history_keyboard(page=1, pages=1, mode=mode),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.in_({"adm:topups:clear", "adm:expenses:clear"}))
+async def admin_finance_history_clear_cb(callback: CallbackQuery, state: FSMContext) -> None:
+    mode = FINANCE_MODE_EXPENSES if callback.data.startswith("adm:expenses:") else FINANCE_MODE_TOPUPS
+    await state.set_state(None)
+    await _send_finance_history(callback.message, state, page=1, mode=mode, edit_existing=True)
+    await callback.answer("Поиск сброшен")
+
+
+@router.message(F.text == ADMIN_MENU_TEXT_TOPUP_HISTORY)
+async def admin_topup_history_open(message: Message, state: FSMContext) -> None:
+    await state.set_state(None)
+    await _send_finance_history(message, state, page=1, mode=FINANCE_MODE_TOPUPS)
+
+
+@router.message(F.text == ADMIN_MENU_TEXT_EXPENSE_HISTORY)
+async def admin_expense_history_open(message: Message, state: FSMContext) -> None:
+    await state.set_state(None)
+    await _send_finance_history(message, state, page=1, mode=FINANCE_MODE_EXPENSES)
+
+
+@router.message(F.text.in_({ADMIN_TOPUPS_PAGE_PREV, ADMIN_TOPUPS_PAGE_NEXT}))
+async def admin_topup_history_page(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    page = int(data.get("topups_page", 1))
+    pages = int(data.get("topups_pages", 1))
+    mode = data.get("finance_mode") or FINANCE_MODE_TOPUPS
+    if message.text == ADMIN_TOPUPS_PAGE_PREV:
+        page = max(1, page - 1)
+    else:
+        page = min(pages, page + 1)
+    q = (data.get("topups_search_query") or "").strip() or None
+    await _send_finance_history(
+        message,
+        state,
+        page=page,
+        mode=mode,
+        search_query=q,
+        edit_existing=True,
+    )
+
+
+@router.message(F.text.in_({ADMIN_TOPUPS_SEARCH, ADMIN_EXPENSES_SEARCH}))
+async def admin_finance_history_search_start(message: Message, state: FSMContext) -> None:
+    mode = FINANCE_MODE_EXPENSES if message.text == ADMIN_EXPENSES_SEARCH else FINANCE_MODE_TOPUPS
+    await state.set_state(AdminTopupStates.search)
+    await state.update_data(finance_mode=mode)
+    await message.answer(
+        _finance_search_prompt(mode),
+        reply_markup=topup_history_keyboard(page=1, pages=1, mode=mode),
+    )
+
+
+@router.message(F.text.in_({ADMIN_TOPUPS_CLEAR_SEARCH, ADMIN_EXPENSES_CLEAR_SEARCH}))
+async def admin_finance_history_search_clear(message: Message, state: FSMContext) -> None:
+    mode = FINANCE_MODE_EXPENSES if message.text == ADMIN_EXPENSES_CLEAR_SEARCH else FINANCE_MODE_TOPUPS
+    await state.set_state(None)
+    await _send_finance_history(message, state, page=1, mode=mode, edit_existing=True)
+
+
+@router.message(AdminTopupStates.search)
+async def admin_topup_history_search_run(message: Message, state: FSMContext) -> None:
+    query = (message.text or "").strip()
+    if not query:
+        await message.answer("Введите непустой запрос для поиска.")
+        return
+    data = await state.get_data()
+    mode = data.get("finance_mode") or FINANCE_MODE_TOPUPS
+    await state.set_state(None)
+    await _send_finance_history(
+        message,
+        state,
+        page=1,
+        mode=mode,
+        search_query=query,
+        edit_existing=True,
+    )
 
 
 @router.message(F.text == ADMIN_MENU_TEXT_BROADCAST)

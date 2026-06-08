@@ -42,6 +42,7 @@ const config: Config = {
         "fade-in": "fadeIn 0.3s ease-out",
         "slide-up": "slideUp 0.3s ease-out",
         "pulse-glow": "pulseGlow 2s ease-in-out infinite",
+        shimmer: "shimmer 1.4s ease-in-out infinite",
       },
       keyframes: {
         fadeIn: {
@@ -55,6 +56,9 @@ const config: Config = {
         pulseGlow: {
           "0%, 100%": { boxShadow: "0 0 10px var(--color-accent-glow)" },
           "50%": { boxShadow: "0 0 28px var(--color-accent-glow)" },
+        },
+        shimmer: {
+          "100%": { transform: "translateX(100%)" },
         },
       },
     },

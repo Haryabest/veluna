@@ -30,14 +30,14 @@ async def get_balance(
 async def list_transactions(
     page: int = Query(1, ge=1),
     history_type: str | None = Query(None, alias="type", pattern="^(expense|deposit)$"),
-    user: UserResponse = Depends(get_current_user),
+    user: UserResponse = Depends(get_current_user_flexible),
     session: AsyncSession = Depends(get_db),
 ):
     repo = PaymentRepository(session)
     transactions, total = await repo.list_transactions(user.id, page=page, kind=history_type)
     page_size = 20
     return PaginatedResponse(
-        items=[TransactionResponse.model_validate(t) for t in transactions],
+        items=[TransactionResponse.from_transaction(t) for t in transactions],
         total=total,
         page=page,
         page_size=page_size,

@@ -3,7 +3,8 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
-from app.models import Character, CharacterScenario
+from app.models import Character, CharacterNarrator, CharacterScenario
+from app.repositories.character_narrator_repository import CharacterNarratorRepository
 from app.repositories.character_repository import CharacterRepository
 from app.repositories.character_scenario_repository import CharacterScenarioRepository
 from app.services.admin_service import AdminService
@@ -18,6 +19,7 @@ class BotCharacterService:
         self._session = session
         self._characters = CharacterRepository(session)
         self._scenarios = CharacterScenarioRepository(session)
+        self._narrators = CharacterNarratorRepository(session)
         self._admin = AdminService(session)
 
     async def list_characters(self, page: int = 1, page_size: int = 50) -> tuple[list[Character], int]:
@@ -157,6 +159,98 @@ class BotCharacterService:
             raise NotFoundError("Scenario", str(scenario_id))
         await self._scenarios.deactivate(scenario)
         await self._admin._log(admin_id, "delete", "character_scenario", str(scenario_id))
+
+    async def list_narrators(self, character_id: UUID) -> list[CharacterNarrator]:
+        await self.get_character(character_id)
+        return await self._narrators.list_for_character(character_id)
+
+    async def create_narrator(
+        self,
+        admin_id: UUID,
+        character_id: UUID,
+        *,
+        name: str,
+        description: str,
+        price: int = 0,
+    ) -> CharacterNarrator:
+        await self._admin.verify_admin(admin_id)
+        await self.get_character(character_id)
+
+        name = name.strip()
+        if not name:
+            raise ValidationError("Название рассказчика обязательно")
+
+        count = await self._narrators.count_for_character(character_id)
+        narrator = await self._narrators.create(
+            character_id=character_id,
+            name=name,
+            description=description.strip(),
+            price=max(0, price),
+            sort_order=count,
+        )
+        await self._admin._log(
+            admin_id,
+            "create",
+            "character_narrator",
+            str(narrator.id),
+            {"character_id": str(character_id), "name": name},
+        )
+        return narrator
+
+    async def update_narrator(
+        self,
+        admin_id: UUID,
+        narrator_id: UUID,
+        *,
+        price: int | None = None,
+        image_url: str | None = None,
+        clear_image: bool = False,
+    ) -> CharacterNarrator:
+        await self._admin.verify_admin(admin_id)
+        narrator = await self._narrators.get_by_id(narrator_id)
+        if not narrator:
+            raise NotFoundError("Narrator", str(narrator_id))
+        updates: dict = {}
+        if price is not None:
+            updates["price"] = max(0, price)
+        if clear_image:
+            updates["image_url"] = None
+        elif image_url is not None:
+            updates["image_url"] = image_url
+        if updates:
+            await self._narrators.update(narrator, **updates)
+            await self._admin._log(admin_id, "update", "character_narrator", str(narrator_id), updates)
+        return narrator
+
+    async def update_scenario(
+        self,
+        admin_id: UUID,
+        scenario_id: UUID,
+        *,
+        image_url: str | None = None,
+        clear_image: bool = False,
+    ) -> CharacterScenario:
+        await self._admin.verify_admin(admin_id)
+        scenario = await self._scenarios.get_by_id(scenario_id)
+        if not scenario:
+            raise NotFoundError("Scenario", str(scenario_id))
+        updates: dict = {}
+        if clear_image:
+            updates["image_url"] = None
+        elif image_url is not None:
+            updates["image_url"] = image_url
+        if updates:
+            await self._scenarios.update(scenario, **updates)
+            await self._admin._log(admin_id, "update", "character_scenario", str(scenario_id), updates)
+        return scenario
+
+    async def deactivate_narrator(self, admin_id: UUID, narrator_id: UUID) -> None:
+        await self._admin.verify_admin(admin_id)
+        narrator = await self._narrators.get_by_id(narrator_id)
+        if not narrator:
+            raise NotFoundError("Narrator", str(narrator_id))
+        await self._narrators.deactivate(narrator)
+        await self._admin._log(admin_id, "delete", "character_narrator", str(narrator_id))
 
     async def delete_character(self, admin_id: UUID, character_id: UUID) -> Character:
         await self._admin.verify_admin(admin_id)

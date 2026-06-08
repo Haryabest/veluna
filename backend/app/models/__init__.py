@@ -106,6 +106,10 @@ class Character(Base, TimestampMixin):
         back_populates="character",
         order_by="CharacterScenario.sort_order",
     )
+    narrators: Mapped[list["CharacterNarrator"]] = relationship(
+        back_populates="character",
+        order_by="CharacterNarrator.sort_order",
+    )
 
 
 class CharacterScenario(Base, TimestampMixin):
@@ -117,15 +121,37 @@ class CharacterScenario(Base, TimestampMixin):
     story: Mapped[str] = mapped_column(Text, default="")
     communication_style: Mapped[str] = mapped_column(Text, default="")
     opening_message: Mapped[str] = mapped_column(Text, default="")
+    image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
     character: Mapped["Character"] = relationship(back_populates="scenarios")
 
 
+class CharacterNarrator(Base, TimestampMixin):
+    __tablename__ = "character_narrators"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    character_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("characters.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="")
+    price: Mapped[int] = mapped_column(Integer, default=0)
+    image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    character: Mapped["Character"] = relationship(back_populates="narrators")
+
+
 class ChatStatus(str, enum.Enum):
     ACTIVE = "active"
     ARCHIVED = "archived"
+
+
+class AiReplyStatus(str, enum.Enum):
+    IDLE = "idle"
+    PROCESSING = "processing"
+    FAILED = "failed"
 
 
 class Chat(Base, TimestampMixin):
@@ -137,6 +163,9 @@ class Chat(Base, TimestampMixin):
     scenario_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("character_scenarios.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    narrator_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("character_narrators.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     status: Mapped[ChatStatus] = mapped_column(_pg_enum(ChatStatus), default=ChatStatus.ACTIVE)
     custom_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
@@ -144,10 +173,13 @@ class Chat(Base, TimestampMixin):
     total_tokens: Mapped[int] = mapped_column(Integer, default=0)
     message_count: Mapped[int] = mapped_column(Integer, default=0)
     last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ai_reply_status: Mapped[str] = mapped_column(String(20), default=AiReplyStatus.IDLE.value)
+    ai_reply_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="chats")
     character: Mapped["Character"] = relationship(back_populates="chats")
     scenario: Mapped["CharacterScenario | None"] = relationship()
+    narrator: Mapped["CharacterNarrator | None"] = relationship()
     messages: Mapped[list["Message"]] = relationship(back_populates="chat", order_by="Message.created_at")
 
 
@@ -166,9 +198,15 @@ class Message(Base, TimestampMixin):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     tokens_used: Mapped[int] = mapped_column(Integer, default=0)
     is_regenerated: Mapped[bool] = mapped_column(Boolean, default=False)
+    reply_to_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("messages.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    deleted_for_all: Mapped[bool] = mapped_column(Boolean, default=False)
+    hidden_for_users: Mapped[list] = mapped_column(JSONB, default=list)
     metadata_: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
 
     chat: Mapped["Chat"] = relationship(back_populates="messages")
+    reply_to: Mapped["Message | None"] = relationship(remote_side="Message.id")
 
 
 class GenerationStatus(str, enum.Enum):

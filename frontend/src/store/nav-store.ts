@@ -5,6 +5,7 @@ export type AppScreen =
   | AppTab
   | "character"
   | "scenarios"
+  | "narrators"
   | "chat"
   | "shop"
   | "history"
@@ -20,10 +21,12 @@ interface NavState {
   /** Screen to return to on goBack from history / topup */
   returnTo: AppScreen | null;
   characterId: string | null;
+  scenarioId: string | null;
   chatId: string | null;
   setTab: (tab: AppTab) => void;
   openCharacter: (id: string) => void;
   openScenarios: () => void;
+  openNarrators: (scenarioId: string) => void;
   openChat: (chatId: string) => void;
   openChatForCharacter: (characterId: string) => void;
   openShop: () => void;
@@ -33,8 +36,11 @@ interface NavState {
   openStudioGenerating: () => void;
   openStudioResult: (generationId: string) => void;
   openStudioAllModels: () => void;
+  goToStudio: () => void;
   goBack: () => void;
   generationId: string | null;
+  studioModelId: string | null;
+  setStudioModelId: (id: string) => void;
 }
 
 export const useNavStore = create<NavState>((set, get) => ({
@@ -42,22 +48,29 @@ export const useNavStore = create<NavState>((set, get) => ({
   screen: "home",
   returnTo: null,
   characterId: null,
+  scenarioId: null,
   chatId: null,
   generationId: null,
+  studioModelId: null,
+
+  setStudioModelId: (id) => set({ studioModelId: id }),
 
   setTab: (tab) =>
-    set({ tab, screen: tab, returnTo: null, characterId: null, chatId: null }),
+    set({ tab, screen: tab, returnTo: null, characterId: null, scenarioId: null, chatId: null }),
 
   openCharacter: (characterId) => {
     const { screen } = get();
     set({
       screen: "character",
       characterId,
+      scenarioId: null,
       returnTo: isMainTab(screen) ? screen : get().tab,
     });
   },
 
-  openScenarios: () => set({ screen: "scenarios", returnTo: "character" }),
+  openScenarios: () => set({ screen: "scenarios", returnTo: "character", scenarioId: null }),
+
+  openNarrators: (scenarioId) => set({ screen: "narrators", scenarioId, returnTo: "scenarios" }),
 
   openChat: (chatId) => set({ screen: "chat", chatId, tab: "chats", returnTo: "chats" }),
 
@@ -93,6 +106,9 @@ export const useNavStore = create<NavState>((set, get) => ({
   openStudioResult: (generationId: string) => set({ screen: "studio-result", tab: "studio", generationId, returnTo: "studio" }),
 
   openStudioAllModels: () => set({ screen: "studio-all-models", tab: "studio", returnTo: "studio-create" }),
+
+  goToStudio: () =>
+    set({ screen: "studio", tab: "studio", generationId: null, returnTo: null, studioModelId: null }),
 
   goBack: () => {
     const { screen, tab, returnTo } = get();
@@ -136,7 +152,11 @@ export const useNavStore = create<NavState>((set, get) => ({
       return;
     }
     if (screen === "scenarios") {
-      set({ screen: "character", returnTo: returnTo ?? tab });
+      set({ screen: "character", returnTo: returnTo ?? tab, scenarioId: null });
+      return;
+    }
+    if (screen === "narrators") {
+      set({ screen: "scenarios", returnTo: returnTo ?? "character" });
       return;
     }
     if (screen === "character") {

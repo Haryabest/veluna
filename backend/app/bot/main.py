@@ -9,7 +9,7 @@ from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import MenuButtonWebApp, WebAppInfo
 
-from app.bot.handlers import admin_router, payments_router, start_router
+from app.bot.handlers import admin_router, balance_router, payments_router, start_router
 from app.core.config import get_settings, reload_settings
 
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
@@ -78,6 +78,7 @@ async def run_bot() -> None:
     )
     dp = Dispatcher(storage=MemoryStorage())
     dp.include_router(start_router)
+    dp.include_router(balance_router)
     dp.include_router(payments_router)
     dp.include_router(admin_router)
 

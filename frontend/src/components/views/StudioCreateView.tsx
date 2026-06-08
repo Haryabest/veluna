@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Grid3X3 } from "lucide-react";
 import { BackButton } from "@/components/shared/BackButton";
@@ -11,6 +11,7 @@ import { generationService } from "@/services/api";
 import { ensureTelegramSession, getApiError } from "@/lib/api-client";
 import {
   ASPECT_RATIOS,
+  findStudioModel,
   STUDIO_GENERATION_COST,
   STUDIO_MODELS,
   STUDIO_PROMPT_MAX,
@@ -29,13 +30,21 @@ export function StudioCreateView() {
   const openStudioGenerating = useNavStore((s) => s.openStudioGenerating);
   const openStudioResult = useNavStore((s) => s.openStudioResult);
   const openStudioAllModels = useNavStore((s) => s.openStudioAllModels);
+  const storedModelId = useNavStore((s) => s.studioModelId);
   const { toast } = useToast();
   const [prompt, setPrompt] = useState("");
-  const [modelId, setModelId] = useState(STUDIO_MODELS[0]?.id ?? "miaomiao");
+  const [modelId, setModelId] = useState(
+    storedModelId ?? STUDIO_MODELS[0]?.id ?? "miaomiao"
+  );
   const [aspectId, setAspectId] = useState<AspectRatioId>("1:1");
   const [loading, setLoading] = useState(false);
 
-  const selectedModel = STUDIO_MODELS.find((m) => m.id === modelId) ?? STUDIO_MODELS[0];
+  const selectedModel =
+    findStudioModel(modelId) ?? STUDIO_MODELS.find((m) => m.id === modelId) ?? STUDIO_MODELS[0];
+
+  useEffect(() => {
+    if (storedModelId) setModelId(storedModelId);
+  }, [storedModelId]);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -52,12 +61,13 @@ export function StudioCreateView() {
         return;
       }
       const [w, h] = aspectId.split(":").map(Number);
-      const width = w >= h ? 1024 : 768;
-      const height = h >= w ? 1024 : 768;
+      const width = w >= h ? 768 : 576;
+      const height = h >= w ? 768 : 576;
 
       openStudioGenerating();
 
       logGeneration("request", { prompt: finalPrompt, model: selectedModel.civitaiModelId, width, height });
+
       const result = await generationService.create({
         prompt: finalPrompt,
         model_id: selectedModel.civitaiModelId,

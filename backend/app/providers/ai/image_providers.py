@@ -154,15 +154,25 @@ class CivitaiProvider(ImageGenerationProvider):
         if not image_url:
             raise RuntimeError(f"Civitai SDK completed but returned no image URL: {sdk_response}")
 
+        civitai_summary = self._summarize_sdk_response(sdk_response)
+        metadata: dict[str, Any] = {
+            "model_name": model_label,
+            "model_air": model_urn,
+            "requested_model": request.model,
+            "civitai_response": civitai_summary,
+        }
+        buzz_cost = sum(
+            int(job["cost"])
+            for job in (civitai_summary.get("jobs") or [])
+            if isinstance(job, dict) and job.get("cost") is not None
+        )
+        if buzz_cost > 0:
+            metadata["api_buzz_cost"] = buzz_cost
+
         return ImageGenerationResponse(
             image_url=image_url,
             provider=self.provider_name,
-            metadata={
-                "model_name": model_label,
-                "model_air": model_urn,
-                "requested_model": request.model,
-                "civitai_response": self._summarize_sdk_response(sdk_response),
-            },
+            metadata=metadata,
         )
 
     async def _generate_v2_workflow(

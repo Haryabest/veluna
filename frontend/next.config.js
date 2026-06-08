@@ -15,6 +15,8 @@ function resolveBackendPort() {
 
 const backendPort = resolveBackendPort();
 const backendHost = process.env.BACKEND_HOST || '127.0.0.1';
+const minioHost = process.env.MINIO_HOST || backendHost;
+const minioPort = process.env.MINIO_PORT || '9000';
 
 const nextConfig = {
   output: 'standalone',
@@ -28,7 +30,7 @@ const nextConfig = {
       },
       {
         source: '/media/:path*',
-        destination: `http://${backendHost}:9000/veluna/:path*`,
+        destination: `http://${minioHost}:${minioPort}/veluna/:path*`,
       },
     ];
   },

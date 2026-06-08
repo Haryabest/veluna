@@ -36,7 +36,12 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_webapp_url: str = ""
 
-    ai_chat_provider: Literal["openai", "openrouter", "groq"] = "openai"
+    ai_chat_provider: Literal["genapi", "openai", "openrouter", "groq"] = "genapi"
+    gen_api_key: str = ""
+    gen_api_model: str = "gpt-4o-mini"
+    gen_api_base_url: str = "https://proxy.gen-api.ru/v1"
+    gen_api_input_rub_per_1k_tokens: float = 0.05
+    gen_api_output_rub_per_1k_tokens: float = 0.15
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     openrouter_api_key: str = ""
@@ -111,6 +116,19 @@ class Settings(BaseSettings):
         if self.app_env == "development":
             return 604_800  # 7 days
         return 86_400  # 24 h
+
+    @property
+    def telegram_bot_link(self) -> str:
+        """Public t.me link to the bot (for share captions)."""
+        url = (self.telegram_webapp_url or "").strip().rstrip("/")
+        if not url:
+            return ""
+        marker = "t.me/"
+        if marker not in url.lower():
+            return ""
+        tail = url.lower().split(marker, 1)[1]
+        username = tail.split("/")[0].strip()
+        return f"https://t.me/{username}" if username else ""
 
 
 @lru_cache

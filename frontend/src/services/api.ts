@@ -58,6 +58,11 @@ export const characterService = {
     const { data } = await apiClient.get(`/characters/${characterId}/scenarios`);
     return data;
   },
+
+  async listNarrators(characterId: string) {
+    const { data } = await apiClient.get(`/characters/${characterId}/narrators`);
+    return data;
+  },
 };
 
 export type ChatListApiItem = {
@@ -66,6 +71,8 @@ export type ChatListApiItem = {
   character_name: string;
   scenario_id?: string | null;
   scenario_title?: string | null;
+  narrator_id?: string | null;
+  narrator_name?: string | null;
   character_avatar_url?: string | null;
   display_title: string;
   is_pinned?: boolean;
@@ -100,11 +107,22 @@ export const chatService = {
     return data;
   },
 
-  async create(characterId: string, scenarioId: string) {
+  async create(characterId: string, scenarioId: string, narratorId: string) {
     const { data } = await apiClient.post("/chats", {
       character_id: characterId,
       scenario_id: scenarioId,
+      narrator_id: narratorId,
     });
+    return data;
+  },
+
+  async switchScenario(chatId: string, scenarioId: string) {
+    const { data } = await apiClient.patch(`/chats/${chatId}/scenario`, { scenario_id: scenarioId });
+    return data;
+  },
+
+  async switchNarrator(chatId: string, narratorId: string) {
+    const { data } = await apiClient.patch(`/chats/${chatId}/narrator`, { narrator_id: narratorId });
     return data;
   },
 
@@ -118,9 +136,60 @@ export const chatService = {
     return data;
   },
 
-  async sendMessage(chatId: string, content: string) {
-    const { data } = await apiClient.post(`/chats/${chatId}/messages`, { content });
+  async sendMessage(chatId: string, content: string, replyToId?: string) {
+    const { data } = await apiClient.post(`/chats/${chatId}/messages`, {
+      content,
+      reply_to_id: replyToId ?? null,
+    });
+    return data as {
+      user_message: {
+        id: string;
+        chat_id: string;
+        role: string;
+        content: string;
+        reply_to_id?: string | null;
+        reply_preview?: { id: string; role: string; content: string } | null;
+        created_at: string;
+      };
+      ai_reply_status: string;
+    };
+  },
+
+  async deleteMessage(chatId: string, messageId: string, scope: "self" | "all") {
+    const { data } = await apiClient.delete(`/chats/${chatId}/messages/${messageId}`, {
+      params: { scope },
+    });
     return data;
+  },
+
+  async attachArt(chatId: string, generationId: string) {
+    const { data } = await apiClient.post(`/chats/${chatId}/art`, { generation_id: generationId });
+    return data;
+  },
+};
+
+export type UserFinanceStats = {
+  balance: { gems: number; credits: number };
+  spent: { gems: number; credits: number };
+  deposited: { gems: number; credits: number };
+  purchases: {
+    completed_count: number;
+    stars_total: number;
+    gems_total: number;
+    credits_total: number;
+  };
+  lifetime: { total_earned: number; total_spent: number };
+};
+
+export const userService = {
+  async getFinanceStats() {
+    const { data } = await apiClient.get<UserFinanceStats>("/users/finance");
+    return data;
+  },
+
+  /** @deprecated use getFinanceStats */
+  async getSpending() {
+    return this.getFinanceStats();
   },
 };
 
@@ -143,6 +212,13 @@ export const generationService = {
   async translate(text: string) {
     const { data } = await apiClient.post<{ translated: string }>("/generations/translate", { text });
     return data.translated;
+  },
+
+  async prepareShare(id: string) {
+    const { data } = await apiClient.post<{ prepared_message_id: string; bot_link?: string }>(
+      `/generations/${id}/share`
+    );
+    return data;
   },
 };
 
@@ -219,15 +295,45 @@ export const balanceService = {
         description: string;
         created_at: string;
         type?: string;
+        currency?: string;
+        metadata?: Record<string, unknown>;
       }>;
     }>("/users/transactions", { params: { type, page } });
-    const items: BalanceHistoryItem[] = (data.items ?? []).map((t) => ({
-      id: t.id,
-      amount: t.amount,
-      currency: "gems",
-      description: t.description || "Операция",
-      created_at: t.created_at,
-    }));
+
+    const formatDescription = (raw: string) => {
+      if (raw === "Image generation") return "Генерация изображения";
+      if (raw.startsWith("Message to ")) return `Чат с ${raw.replace("Message to ", "")}`;
+      if (raw.startsWith("Narrator: ")) return raw.replace("Narrator: ", "Рассказчик: ");
+      if (raw === "Welcome bonus") return "Приветственный бонус";
+      return raw || "Операция";
+    };
+
+    const items: BalanceHistoryItem[] = (data.items ?? []).map((t) => {
+      const raw = t as {
+        currency?: string;
+        metadata?: Record<string, unknown>;
+        description?: string;
+      };
+      const metaCurrency = raw.metadata?.currency;
+      const desc = (raw.description || "").toLowerCase();
+      let currency: "gems" | "credits" = "gems";
+      if (raw.currency === "credits" || metaCurrency === "credits") {
+        currency = "credits";
+      } else if (raw.currency === "gems" || metaCurrency === "gems") {
+        currency = "gems";
+      } else if (desc.includes("image generation") || desc.includes("генерац")) {
+        currency = "gems";
+      } else if (desc.includes("сообщение") || desc.includes("narrator") || desc.includes("рассказчик")) {
+        currency = "credits";
+      }
+      return {
+        id: t.id,
+        amount: t.amount,
+        currency,
+        description: formatDescription(t.description),
+        created_at: t.created_at,
+      };
+    });
     return { items, type };
   },
 

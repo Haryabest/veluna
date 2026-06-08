@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Download, Share2, Sparkles } from "lucide-react";
+import { Share2, Sparkles } from "lucide-react";
 import { BackButton } from "@/components/shared/BackButton";
 import { useNavStore } from "@/store/nav-store";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +13,8 @@ import { QUERY_KEYS } from "@/lib/constants";
 import { chatBorderStyle } from "@/lib/theme";
 import { translateGenerationStatus } from "@/lib/i18n";
 import { logGeneration } from "@/lib/generation-log";
+import { shareArtImage } from "@/lib/share-art";
+import { ArtSceneBackground } from "@/components/shared/ArtSceneBackground";
 import { cn } from "@/lib/utils";
 
 const POLL_STATUSES = new Set(["pending", "processing"]);
@@ -24,7 +26,9 @@ function isInProgress(status: string | undefined) {
 export function StudioResultView() {
   const generationId = useNavStore((s) => s.generationId);
   const goBack = useNavStore((s) => s.goBack);
+  const goToStudio = useNavStore((s) => s.goToStudio);
   const { toast } = useToast();
+  const [sharing, setSharing] = useState(false);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [...QUERY_KEYS.generations, generationId] as const,
@@ -55,53 +59,22 @@ export function StudioResultView() {
     }
   }, [generationId, status]);
 
-  const handleDownload = useCallback(async () => {
-    if (!imageUrl) {
-      toast("Изображение ещё не готово", "info");
-      return;
-    }
-    logGeneration("download", { id: generationId, url: imageUrl });
-    try {
-      const res = await fetch(imageUrl);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `veluna-art-${generationId ?? "art"}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast("Скачивание началось", "success");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logGeneration("error", { action: "download", error: msg });
-      toast("Не удалось скачать", "error");
-    }
-  }, [generationId, imageUrl, toast]);
-
   const handleShare = useCallback(async () => {
-    if (!imageUrl) {
+    if (!imageUrl || !generationId) {
       toast("Изображение ещё не готово", "info");
       return;
     }
+
+    setSharing(true);
     logGeneration("share", { id: generationId, url: imageUrl });
-    const shareText = "Мой арт из Veluna";
     try {
-      if (typeof navigator !== "undefined" && navigator.share) {
-        await navigator.share({ title: shareText, text: shareText, url: imageUrl });
-        return;
-      }
-      await navigator.clipboard.writeText(imageUrl);
-      toast("Ссылка скопирована", "success");
+      await shareArtImage(imageUrl, generationId);
     } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      try {
-        await navigator.clipboard.writeText(imageUrl);
-        toast("Ссылка скопирована", "success");
-      } catch {
-        logGeneration("error", { action: "share", error: String(err) });
-        toast("Не удалось поделиться", "error");
-      }
+      const msg = getApiError(err).message;
+      logGeneration("error", { action: "share", error: msg });
+      toast(msg || "Не удалось поделиться", "error");
+    } finally {
+      setSharing(false);
     }
   }, [generationId, imageUrl, toast]);
 
@@ -118,22 +91,17 @@ export function StudioResultView() {
   }
 
   if (isLoading && !data) {
-    return <ResultLoader subtitle={translateGenerationStatus("processing")} />;
+    return <ResultLoader subtitle="Загрузка…" generating={false} />;
   }
 
   if (isError) {
     const msg = getApiError(error).message || "Ошибка загрузки результата";
     logGeneration("error", { id: generationId, error: msg });
-    return (
-      <ResultError
-        message={msg}
-        onBack={goBack}
-      />
-    );
+    return <ResultError message={msg} onBack={goBack} />;
   }
 
   if (isInProgress(status)) {
-    return <ResultLoader subtitle={translateGenerationStatus(status ?? "processing")} />;
+    return <ResultLoader subtitle={translateGenerationStatus(status ?? "processing")} generating />;
   }
 
   if (status === "failed" || status === "moderated") {
@@ -168,49 +136,49 @@ export function StudioResultView() {
         </motion.div>
 
         {data?.prompt ? (
-          <p className="mt-4 line-clamp-3 text-center text-xs text-text-muted">{data.prompt}</p>
+          <p className="mt-4 text-center text-sm text-text-secondary">{data.prompt}</p>
         ) : null}
 
-        <div className="mt-6 flex gap-3">
-          <button
-            type="button"
-            onClick={handleDownload}
-            className={cn(
-              "flex flex-1 items-center justify-center gap-2 rounded-2xl bg-bg-elevated/80 py-3.5 text-sm font-semibold text-text-primary transition-colors hover:bg-bg-elevated"
-            )}
-            style={chatBorderStyle}
-          >
-            <Download className="h-4 w-4" />
-            Скачать
-          </button>
+        <div className="mt-6 flex flex-col gap-3">
           <button
             type="button"
             onClick={handleShare}
+            disabled={sharing}
             className={cn(
-              "flex flex-1 items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold text-white"
+              "flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold text-white transition-opacity",
+              sharing && "opacity-70"
             )}
             style={{
               background: "linear-gradient(135deg, #f9a8d4 0%, #ec4899 100%)",
             }}
           >
             <Share2 className="h-4 w-4" />
-            Поделиться
+            {sharing ? "Открываю…" : "Поделиться"}
+          </button>
+          <button
+            type="button"
+            onClick={goToStudio}
+            className="w-full rounded-2xl bg-bg-elevated/80 py-3.5 text-sm font-semibold text-text-primary transition-colors hover:bg-bg-elevated"
+            style={chatBorderStyle}
+          >
+            Вернуться в студию
           </button>
         </div>
       </div>
     );
   }
 
-  return <ResultLoader subtitle={translateGenerationStatus(status ?? "pending")} />;
+  return <ResultLoader subtitle={translateGenerationStatus(status ?? "pending")} generating />;
 }
 
-function ResultLoader({ subtitle }: { subtitle: string }) {
+function ResultLoader({ subtitle, generating = false }: { subtitle: string; generating?: boolean }) {
   return (
-    <div className="flex min-h-[70vh] flex-col items-center justify-center px-6">
+    <div className="relative flex min-h-[70vh] flex-col items-center justify-center overflow-hidden px-6">
+      {generating ? <ArtSceneBackground /> : null}
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="mb-6 flex h-24 w-24 items-center justify-center rounded-full"
+        className="relative z-10 mb-6 flex h-24 w-24 items-center justify-center rounded-full"
         style={{
           background: "linear-gradient(135deg, #f9a8d4 0%, #e879f9 50%, #c084fc 100%)",
           boxShadow: "0 0 48px rgba(232, 121, 249, 0.45)",
@@ -220,9 +188,11 @@ function ResultLoader({ subtitle }: { subtitle: string }) {
           <Sparkles className="h-12 w-12 text-white" strokeWidth={1.5} />
         </motion.div>
       </motion.div>
-      <p className="text-lg font-bold text-text-primary">Создаю арт</p>
-      <p className="mt-2 text-sm text-text-secondary">{subtitle}</p>
-      <div className="mt-8 flex gap-1.5">
+      <p className="relative z-10 text-lg font-bold text-text-primary">
+        {generating ? "Создаю арт" : "Загрузка"}
+      </p>
+      <p className="relative z-10 mt-2 text-sm text-text-secondary">{subtitle}</p>
+      <div className="relative z-10 mt-8 flex gap-1.5">
         {[0, 1, 2].map((i) => (
           <motion.div
             key={i}

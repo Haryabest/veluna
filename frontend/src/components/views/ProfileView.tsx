@@ -7,7 +7,7 @@ import { History } from "lucide-react";
 import { useNavStore } from "@/store/nav-store";
 import { useUserStore } from "@/store/user-store";
 import { usePaymentStore } from "@/store/payment-store";
-import { balanceService } from "@/services/api";
+import { balanceService, userService } from "@/services/api";
 import { AnimeGemIcon, AnimeHeartIcon } from "@/components/icons/CurrencyIcons";
 import { ListPanel } from "@/components/shared/ListPanel";
 import { formatGems } from "@/lib/utils";
@@ -18,7 +18,6 @@ import { chatSeparatorVerticalStyle } from "@/lib/theme";
 export function ProfileView() {
   const { user } = useUserStore();
   const openHistory = useNavStore((s) => s.openHistory);
-  const openTopUp = useNavStore((s) => s.openTopUp);
   const { gems, credits, setBalance } = usePaymentStore();
   const { displayName: tgName, username: tgUsername, photoUrl: tgPhoto } = useTelegramUser();
 
@@ -34,6 +33,12 @@ export function ProfileView() {
   const { data: balance } = useQuery({
     queryKey: QUERY_KEYS.balance,
     queryFn: () => balanceService.get(),
+  });
+
+  const { data: finance } = useQuery({
+    queryKey: QUERY_KEYS.financeStats,
+    queryFn: () => userService.getFinanceStats(),
+    staleTime: 60_000,
   });
 
   useEffect(() => {
@@ -79,19 +84,38 @@ export function ProfileView() {
         </div>
       </ListPanel>
 
-      <motion.button
-        type="button"
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={openTopUp}
-        className="w-full rounded-2xl py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-glow-sm transition-opacity hover:opacity-95 active:opacity-90"
-        style={{
-          background: "linear-gradient(90deg, #9b8cff 0%, #b45cf0 45%, #9333ea 100%)",
-        }}
-      >
-        ПОПОЛНИТЬ БАЛАНС
-      </motion.button>
+      {finance ? (
+        <ListPanel>
+          <div className="grid grid-cols-2 divide-x divide-white/5">
+            <div className="px-4 py-3">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-text-muted">Потрачено</p>
+              <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-rose-400">
+                <span className="inline-flex items-center gap-1">
+                  −{formatGems(finance.spent.gems)}
+                  <AnimeGemIcon className="h-3.5 w-3.5" />
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  −{formatGems(finance.spent.credits)}
+                  <AnimeHeartIcon className="h-3.5 w-3.5" />
+                </span>
+              </p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-text-muted">Пополнено</p>
+              <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-emerald-400">
+                <span className="inline-flex items-center gap-1">
+                  +{formatGems(finance.deposited.gems)}
+                  <AnimeGemIcon className="h-3.5 w-3.5" />
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  +{formatGems(finance.deposited.credits)}
+                  <AnimeHeartIcon className="h-3.5 w-3.5" />
+                </span>
+              </p>
+            </div>
+          </div>
+        </ListPanel>
+      ) : null}
 
       <ListPanel>
         <button

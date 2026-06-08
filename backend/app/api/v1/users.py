@@ -5,7 +5,7 @@ from app.api.deps import get_current_user, get_current_user_flexible
 from app.database.session import get_db
 from app.repositories.admin_repository import AdminRepository
 from app.repositories.generation_repository import PaymentRepository
-from app.schemas import UserResponse
+from app.schemas import UserFinanceStatsResponse, UserResponse
 from app.schemas.admin import AdminUserStatsDetailResponse
 
 router = APIRouter()
@@ -35,7 +35,7 @@ async def get_balance(
 async def list_user_transactions(
     page: int = Query(1, ge=1),
     history_type: str | None = Query(None, alias="type", pattern="^(expense|deposit)$"),
-    user: UserResponse = Depends(get_current_user),
+    user: UserResponse = Depends(get_current_user_flexible),
     session: AsyncSession = Depends(get_db),
 ):
     from app.schemas import PaginatedResponse, TransactionResponse
@@ -43,7 +43,7 @@ async def list_user_transactions(
     repo = PaymentRepository(session)
     transactions, total = await repo.list_transactions(user.id, page=page, kind=history_type)
     page_size = 20
-    items = [TransactionResponse.model_validate(t) for t in transactions]
+    items = [TransactionResponse.from_transaction(t) for t in transactions]
     return PaginatedResponse(
         items=items,
         total=total,
@@ -56,6 +56,26 @@ async def list_user_transactions(
 @router.get("/profile", response_model=UserResponse)
 async def get_profile(user: UserResponse = Depends(get_current_user)):
     return user
+
+
+@router.get("/spending", response_model=UserFinanceStatsResponse)
+async def get_spending_summary(
+    user: UserResponse = Depends(get_current_user_flexible),
+    session: AsyncSession = Depends(get_db),
+):
+    """Balance, spent/deposited totals and purchase stats."""
+    raw = await PaymentRepository(session).get_finance_stats(user.id)
+    return UserFinanceStatsResponse(**raw)
+
+
+@router.get("/finance", response_model=UserFinanceStatsResponse)
+async def get_finance_stats(
+    user: UserResponse = Depends(get_current_user_flexible),
+    session: AsyncSession = Depends(get_db),
+):
+    """Alias for /spending — full financial statistics."""
+    raw = await PaymentRepository(session).get_finance_stats(user.id)
+    return UserFinanceStatsResponse(**raw)
 
 
 @router.get("/me/stats", response_model=AdminUserStatsDetailResponse)

@@ -38,6 +38,8 @@ interface TelegramWebAppLite {
   initData: string;
   initDataUnsafe?: { user?: TelegramUser };
   openInvoice?: (url: string, callback?: (status: string) => void) => void;
+  openTelegramLink?: (url: string) => void;
+  shareMessage?: (msgId: string, callback?: (success: boolean) => void) => void;
   ready?: () => void;
   expand?: () => void;
 }

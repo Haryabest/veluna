@@ -6,14 +6,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.database.session import get_db
 from app.schemas import (
+    ChatArtAttach,
     ChatCreate,
     ChatListResponse,
+    ChatNarratorUpdate,
     ChatPinUpdate,
     ChatResponse,
+    ChatScenarioUpdate,
     ChatUpdate,
     MessageCreate,
+    MessageDeleteResponse,
     MessageResponse,
     PaginatedResponse,
+    SendMessageResponse,
     UserResponse,
 )
 from app.services.chat_service import ChatService
@@ -46,7 +51,9 @@ async def create_chat(
     session: AsyncSession = Depends(get_db),
 ):
     service = ChatService(session)
-    return await service.get_or_create_chat(user.id, data.character_id, data.scenario_id)
+    return await service.get_or_create_chat(
+        user.id, data.character_id, data.scenario_id, data.narrator_id
+    )
 
 
 @router.get("/{chat_id}", response_model=ChatResponse)
@@ -57,6 +64,28 @@ async def get_chat(
 ):
     service = ChatService(session)
     return await service.get_chat(user.id, chat_id)
+
+
+@router.patch("/{chat_id}/scenario", response_model=ChatResponse)
+async def switch_chat_scenario(
+    chat_id: UUID,
+    data: ChatScenarioUpdate,
+    user: UserResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    service = ChatService(session)
+    return await service.switch_scenario(user.id, chat_id, data.scenario_id)
+
+
+@router.patch("/{chat_id}/narrator", response_model=ChatResponse)
+async def switch_chat_narrator(
+    chat_id: UUID,
+    data: ChatNarratorUpdate,
+    user: UserResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    service = ChatService(session)
+    return await service.switch_narrator(user.id, chat_id, data.narrator_id)
 
 
 @router.patch("/{chat_id}", response_model=ChatListResponse)
@@ -104,7 +133,7 @@ async def get_messages(
     return await service.get_messages(user.id, chat_id, limit=limit)
 
 
-@router.post("/{chat_id}/messages", response_model=MessageResponse)
+@router.post("/{chat_id}/messages", response_model=SendMessageResponse, status_code=202)
 async def send_message(
     chat_id: UUID,
     data: MessageCreate,
@@ -112,4 +141,27 @@ async def send_message(
     session: AsyncSession = Depends(get_db),
 ):
     service = ChatService(session)
-    return await service.send_message(user.id, chat_id, data.content)
+    return await service.send_message(user.id, chat_id, data.content, data.reply_to_id)
+
+
+@router.post("/{chat_id}/art", response_model=MessageResponse)
+async def attach_chat_art(
+    chat_id: UUID,
+    data: ChatArtAttach,
+    user: UserResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    service = ChatService(session)
+    return await service.attach_generation(user.id, chat_id, data.generation_id)
+
+
+@router.delete("/{chat_id}/messages/{message_id}", response_model=MessageDeleteResponse)
+async def delete_message(
+    chat_id: UUID,
+    message_id: UUID,
+    scope: str = Query("self", pattern="^(self|all)$"),
+    user: UserResponse = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    service = ChatService(session)
+    return await service.delete_message(user.id, chat_id, message_id, scope)

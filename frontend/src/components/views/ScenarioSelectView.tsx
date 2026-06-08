@@ -5,15 +5,13 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useNavStore } from "@/store/nav-store";
-import { useChatsListStore } from "@/store/chats-list-store";
 import { useCharacter } from "@/hooks/use-character";
-import { useToast } from "@/hooks/use-toast";
 import { BackButton } from "@/components/shared/BackButton";
+import { ScenarioRowSkeleton } from "@/components/shared/Skeleton";
 import { QUERY_KEYS } from "@/lib/constants";
 import { chatBorderStyle, chatSeparatorStyle } from "@/lib/theme";
 import { truncate } from "@/lib/utils";
-import { characterService, chatService } from "@/services/api";
-import { getApiError } from "@/lib/api-client";
+import { characterService } from "@/services/api";
 import type { CharacterScenario } from "@/store/character-store";
 
 function scenarioDescription(scenario: CharacterScenario): string {
@@ -24,30 +22,10 @@ function scenarioDescription(scenario: CharacterScenario): string {
 export function ScenarioSelectView() {
   const characterId = useNavStore((s) => s.characterId);
   const goBack = useNavStore((s) => s.goBack);
-  const openChat = useNavStore((s) => s.openChat);
-  const loadChats = useChatsListStore((s) => s.load);
-  const upsertChat = useChatsListStore((s) => s.upsertFromDetail);
-  const { toast } = useToast();
-  const [starting, setStarting] = useState(false);
+  const openNarrators = useNavStore((s) => s.openNarrators);
 
   const { character } = useCharacter(characterId);
   const resolvedCharacterId = character?.id ?? characterId;
-
-  const startChat = async (scenario: CharacterScenario) => {
-    const cid = resolvedCharacterId;
-    if (!cid || starting) return;
-    setStarting(true);
-    try {
-      const chat = await chatService.create(cid, scenario.id);
-      upsertChat(chat);
-      await loadChats();
-      openChat(chat.id);
-    } catch (err) {
-      toast(getApiError(err).message || "Не удалось открыть чат", "error");
-    } finally {
-      setStarting(false);
-    }
-  };
 
   const { data: scenarios = [], isLoading } = useQuery<CharacterScenario[]>({
     queryKey: QUERY_KEYS.characterScenarios(resolvedCharacterId ?? ""),
@@ -70,7 +48,11 @@ export function ScenarioSelectView() {
       </header>
 
       {isLoading ? (
-        <p className="px-2 text-sm text-text-muted">Загрузка сценариев…</p>
+        <div className="overflow-hidden rounded-2xl bg-bg-elevated/60" style={chatBorderStyle}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <ScenarioRowSkeleton key={i} />
+          ))}
+        </div>
       ) : scenarios.length === 0 ? (
         <div className="rounded-2xl bg-bg-elevated px-4 py-8 text-center" style={chatBorderStyle}>
           <p className="text-sm font-semibold text-text-primary">Сценариев пока нет</p>
@@ -87,8 +69,7 @@ export function ScenarioSelectView() {
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04 }}
-              onClick={() => startChat(scenario)}
-              disabled={starting}
+              onClick={() => openNarrators(scenario.id)}
               className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-bg-elevated active:bg-bg-elevated/80"
               style={i < scenarios.length - 1 ? chatSeparatorStyle : undefined}
             >
