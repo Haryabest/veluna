@@ -21,6 +21,7 @@ from app.schemas import (
     MessageResponse,
     SendMessageResponse,
 )
+from app.services.chat_cache_service import chat_cache
 from app.services.chat_prompt import build_character_system_prompt
 
 logger = logging.getLogger(__name__)
@@ -44,6 +45,13 @@ class ChatService:
         self._payments = PaymentRepository(session)
         self._ai = get_chat_provider()
 
+    async def _invalidate_chat_cache(self, chat_id: UUID, user_id: UUID) -> None:
+        try:
+            await chat_cache.invalidate_chat(chat_id, user_id)
+            await chat_cache.invalidate_user_lists(user_id)
+        except Exception:
+            logger.debug("Chat cache invalidation failed for chat %s", chat_id, exc_info=True)
+
     async def get_or_create_chat(
         self, user_id: UUID, character_id: UUID, scenario_id: UUID, narrator_id: UUID
     ) -> ChatResponse:
@@ -66,10 +74,18 @@ class ChatService:
             if opening:
                 await self._chats.add_message(chat.id, MessageRole.ASSISTANT, opening)
             chat = await self._chats.get_by_id(chat.id)
+            await self._invalidate_chat_cache(chat.id, user_id)
 
         return self._to_chat_response(chat, character, scenario, narrator)
 
     async def get_chat(self, user_id: UUID, chat_id: UUID) -> ChatResponse:
+        try:
+            cached = await chat_cache.get_detail(chat_id)
+            if cached:
+                return ChatResponse.model_validate(cached)
+        except Exception:
+            logger.debug("Chat detail cache read failed for %s", chat_id, exc_info=True)
+
         chat = await self._require_user_chat(user_id, chat_id)
         character = chat.character or await self._characters.get_by_id(chat.character_id)
         scenario = chat.scenario
@@ -78,7 +94,12 @@ class ChatService:
         narrator = chat.narrator
         if chat.narrator_id and not narrator:
             narrator = await self._narrators.get_by_id(chat.narrator_id)
-        return self._to_chat_response(chat, character, scenario, narrator)
+        response = self._to_chat_response(chat, character, scenario, narrator)
+        try:
+            await chat_cache.set_detail(chat_id, response.model_dump(mode="json"))
+        except Exception:
+            logger.debug("Chat detail cache write failed for %s", chat_id, exc_info=True)
+        return response
 
     async def switch_scenario(self, user_id: UUID, chat_id: UUID, scenario_id: UUID) -> ChatResponse:
         chat = await self._require_user_chat(user_id, chat_id)
@@ -100,6 +121,7 @@ class ChatService:
         narrator = chat.narrator
         if chat.narrator_id and not narrator:
             narrator = await self._narrators.get_by_id(chat.narrator_id)
+        await self._invalidate_chat_cache(chat_id, user_id)
         return self._to_chat_response(chat, character, scenario, narrator)
 
     async def switch_narrator(self, user_id: UUID, chat_id: UUID, narrator_id: UUID) -> ChatResponse:
@@ -122,6 +144,7 @@ class ChatService:
         scenario = chat.scenario
         if chat.scenario_id and not scenario:
             scenario = await self._scenarios.get_by_id(chat.scenario_id)
+        await self._invalidate_chat_cache(chat_id, user_id)
         return self._to_chat_response(chat, character, scenario, narrator)
 
     async def send_message(
@@ -173,6 +196,7 @@ class ChatService:
             raise NotFoundError("Message", "last")
 
         self._enqueue_ai_response(chat_id, user_msg.id, user_id)
+        await self._invalidate_chat_cache(chat_id, user_id)
 
         return SendMessageResponse(
             user_message=self._to_message_response(user_msg),
@@ -204,6 +228,7 @@ class ChatService:
         message = await self._chats.get_latest_message(chat_id)
         if not message:
             raise NotFoundError("Message", "last")
+        await self._invalidate_chat_cache(chat_id, user_id)
         return self._to_message_response(message)
 
     def _enqueue_ai_response(self, chat_id: UUID, user_message_id: UUID, user_id: UUID) -> None:
@@ -256,15 +281,33 @@ class ChatService:
         else:
             raise ValidationError("scope должен быть self или all")
 
+        await self._invalidate_chat_cache(chat_id, user_id)
         return MessageDeleteResponse(id=message_id, scope=scope)
 
     async def get_messages(self, user_id: UUID, chat_id: UUID, limit: int = 50) -> list[MessageResponse]:
+        try:
+            cached = await chat_cache.get_messages(chat_id, user_id, limit)
+            if cached is not None:
+                return [MessageResponse.model_validate(item) for item in cached]
+        except Exception:
+            logger.debug("Messages cache read failed for chat %s", chat_id, exc_info=True)
+
         chat = await self._chats.get_by_id(chat_id)
         if not chat or chat.user_id != user_id:
             raise NotFoundError("Chat", str(chat_id))
 
         messages = await self._chats.get_messages(chat_id, user_id, limit=limit)
-        return [self._to_message_response(m) for m in messages]
+        responses = [self._to_message_response(m) for m in messages]
+        try:
+            await chat_cache.set_messages(
+                chat_id,
+                user_id,
+                limit,
+                [item.model_dump(mode="json") for item in responses],
+            )
+        except Exception:
+            logger.debug("Messages cache write failed for chat %s", chat_id, exc_info=True)
+        return responses
 
     def _to_message_response(self, message: Message) -> MessageResponse:
         preview = None
@@ -287,23 +330,44 @@ class ChatService:
         )
 
     async def list_user_chats(self, user_id: UUID, page: int = 1) -> tuple[list[ChatListResponse], int]:
+        try:
+            cached = await chat_cache.get_list(user_id, page)
+            if cached:
+                items_raw, total = cached
+                return [ChatListResponse.model_validate(item) for item in items_raw], total
+        except Exception:
+            logger.debug("Chat list cache read failed for user %s", user_id, exc_info=True)
+
         chats, total = await self._chats.list_user_chats(user_id, page=page)
-        items = [await self._to_list_item(chat) for chat in chats]
+        previews = await self._chats.batch_last_message_previews([chat.id for chat in chats], user_id)
+        items = [await self._to_list_item(chat, previews.get(chat.id)) for chat in chats]
+        try:
+            await chat_cache.set_list(
+                user_id,
+                page,
+                [item.model_dump(mode="json") for item in items],
+                total,
+            )
+        except Exception:
+            logger.debug("Chat list cache write failed for user %s", user_id, exc_info=True)
         return items, total
 
     async def update_title(self, user_id: UUID, chat_id: UUID, title: str) -> ChatListResponse:
         chat = await self._require_user_chat(user_id, chat_id)
         await self._chats.update_title(chat, title)
+        await self._invalidate_chat_cache(chat_id, user_id)
         return await self._to_list_item(chat)
 
     async def set_pinned(self, user_id: UUID, chat_id: UUID, pinned: bool) -> ChatListResponse:
         chat = await self._require_user_chat(user_id, chat_id)
         await self._chats.set_pinned(chat, pinned)
+        await self._invalidate_chat_cache(chat_id, user_id)
         return await self._to_list_item(chat)
 
     async def archive_chat(self, user_id: UUID, chat_id: UUID) -> None:
         chat = await self._require_user_chat(user_id, chat_id)
         await self._chats.archive(chat)
+        await self._invalidate_chat_cache(chat_id, user_id)
 
     async def _require_user_chat(self, user_id: UUID, chat_id: UUID) -> Chat:
         chat = await self._chats.get_by_id(chat_id)
@@ -358,7 +422,7 @@ class ChatService:
             created_at=chat.created_at,
         )
 
-    async def _to_list_item(self, chat: Chat) -> ChatListResponse:
+    async def _to_list_item(self, chat: Chat, preview: str | None = None) -> ChatListResponse:
         character = chat.character or await self._characters.get_by_id(chat.character_id)
         scenario = chat.scenario
         if chat.scenario_id and not scenario:
@@ -369,7 +433,8 @@ class ChatService:
         name = character.name if character else "Персонаж"
         scenario_title = scenario.title if scenario else None
         narrator_name = narrator.name if narrator else None
-        preview = await self._chats.get_last_message_preview(chat.id, chat.user_id)
+        if preview is None:
+            preview = await self._chats.get_last_message_preview(chat.id, chat.user_id)
         return ChatListResponse(
             id=chat.id,
             character_id=chat.character_id,

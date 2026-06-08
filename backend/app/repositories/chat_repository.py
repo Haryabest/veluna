@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -11,15 +11,20 @@ class ChatRepository:
     def __init__(self, session: AsyncSession):
         self._session = session
 
-    async def get_by_id(self, chat_id: UUID) -> Chat | None:
+    def _chat_options(self, *, include_messages: bool = False):
+        opts = [
+            selectinload(Chat.character),
+            selectinload(Chat.scenario),
+            selectinload(Chat.narrator),
+        ]
+        if include_messages:
+            opts.append(selectinload(Chat.messages))
+        return opts
+
+    async def get_by_id(self, chat_id: UUID, *, include_messages: bool = False) -> Chat | None:
         result = await self._session.execute(
             select(Chat)
-            .options(
-                selectinload(Chat.messages),
-                selectinload(Chat.character),
-                selectinload(Chat.scenario),
-                selectinload(Chat.narrator),
-            )
+            .options(*self._chat_options(include_messages=include_messages))
             .where(Chat.id == chat_id)
         )
         return result.scalar_one_or_none()
@@ -45,15 +50,16 @@ class ChatRepository:
         return result.scalar_one_or_none()
 
     async def list_user_chats(self, user_id: UUID, page: int = 1, page_size: int = 20) -> tuple[list[Chat], int]:
-        query = (
-            select(Chat)
-            .options(selectinload(Chat.character), selectinload(Chat.scenario), selectinload(Chat.narrator))
-            .where(Chat.user_id == user_id, Chat.status == ChatStatus.ACTIVE)
-        )
-        total = (await self._session.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
+        filters = (Chat.user_id == user_id, Chat.status == ChatStatus.ACTIVE)
+        total = (
+            await self._session.execute(select(func.count()).select_from(Chat).where(*filters))
+        ).scalar_one()
         offset = (page - 1) * page_size
         result = await self._session.execute(
-            query.order_by(Chat.is_pinned.desc(), Chat.last_message_at.desc().nullslast())
+            select(Chat)
+            .options(selectinload(Chat.character), selectinload(Chat.scenario), selectinload(Chat.narrator))
+            .where(*filters)
+            .order_by(Chat.is_pinned.desc(), Chat.last_message_at.desc().nullslast())
             .offset(offset)
             .limit(page_size)
         )
@@ -70,7 +76,19 @@ class ChatRepository:
         )
 
     async def get_last_message_preview(self, chat_id: UUID, user_id: UUID | None = None) -> str | None:
-        query = select(Message.content).where(Message.chat_id == chat_id, Message.deleted_for_all.is_(False))
+        previews = await self.batch_last_message_previews([chat_id], user_id)
+        return previews.get(chat_id)
+
+    async def batch_last_message_previews(
+        self, chat_ids: list[UUID], user_id: UUID | None = None
+    ) -> dict[UUID, str | None]:
+        if not chat_ids:
+            return {}
+
+        query = select(Message.chat_id, Message.content).where(
+            Message.chat_id.in_(chat_ids),
+            Message.deleted_for_all.is_(False),
+        )
         if user_id is not None:
             user_key = str(user_id)
             query = query.where(
@@ -79,12 +97,15 @@ class ChatRepository:
                     ~Message.hidden_for_users.contains([user_key]),
                 )
             )
-        result = await self._session.execute(query.order_by(Message.created_at.desc()).limit(1))
-        row = result.scalar_one_or_none()
-        if not row:
-            return None
-        text = row.strip()
-        return text[:120] if len(text) > 120 else text
+
+        result = await self._session.execute(
+            query.distinct(Message.chat_id).order_by(Message.chat_id, Message.created_at.desc())
+        )
+        previews: dict[UUID, str | None] = {cid: None for cid in chat_ids}
+        for chat_id, content in result.all():
+            text = (content or "").strip()
+            previews[chat_id] = text[:120] if len(text) > 120 else text or None
+        return previews
 
     async def update_title(self, chat: Chat, title: str) -> Chat:
         chat.custom_title = title.strip()
@@ -126,6 +147,17 @@ class ChatRepository:
         await self._session.flush()
         return chat
 
+    async def _touch_chat_on_message(self, chat_id: UUID, tokens_used: int = 0) -> None:
+        await self._session.execute(
+            update(Chat)
+            .where(Chat.id == chat_id)
+            .values(
+                message_count=Chat.message_count + 1,
+                total_tokens=Chat.total_tokens + tokens_used,
+                last_message_at=func.now(),
+            )
+        )
+
     async def add_message(
         self,
         chat_id: UUID,
@@ -145,13 +177,7 @@ class ChatRepository:
             metadata_=metadata_ or {},
         )
         self._session.add(message)
-
-        chat = await self.get_by_id(chat_id)
-        if chat:
-            chat.message_count += 1
-            chat.total_tokens += tokens_used
-            chat.last_message_at = func.now()
-
+        await self._touch_chat_on_message(chat_id, tokens_used)
         await self._session.flush()
         return message
 
@@ -202,8 +228,10 @@ class ChatRepository:
 
     async def delete_message_for_all(self, message: Message) -> Message:
         message.deleted_for_all = True
-        chat = await self.get_by_id(message.chat_id)
-        if chat and chat.message_count > 0:
-            chat.message_count -= 1
+        await self._session.execute(
+            update(Chat)
+            .where(Chat.id == message.chat_id, Chat.message_count > 0)
+            .values(message_count=Chat.message_count - 1)
+        )
         await self._session.flush()
         return message

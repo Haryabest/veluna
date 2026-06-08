@@ -38,6 +38,13 @@ class RedisCache:
     async def delete(self, key: str) -> None:
         await self._client.delete(key)
 
+    async def delete_pattern(self, pattern: str) -> int:
+        deleted = 0
+        async for key in self._client.scan_iter(match=pattern, count=200):
+            await self._client.delete(key)
+            deleted += 1
+        return deleted
+
     async def exists(self, key: str) -> bool:
         return bool(await self._client.get(key))
 

@@ -121,6 +121,14 @@ def process_ai_response(self, chat_id: str, user_message_id: str, user_id: str):
                 await session.commit()
 
                 try:
+                    from app.services.chat_cache_service import chat_cache
+
+                    await chat_cache.invalidate_chat(UUID(chat_id), UUID(user_id))
+                    await chat_cache.invalidate_user_lists(UUID(user_id))
+                except Exception:
+                    logger.debug("Chat cache invalidation failed after AI reply", exc_info=True)
+
+                try:
                     process_chat_analytics.delay(user_id, chat_id, response.tokens_used)
                 except Exception:
                     pass
@@ -131,6 +139,12 @@ def process_ai_response(self, chat_id: str, user_message_id: str, user_id: str):
                 logger.exception("AI response failed for chat %s", chat_id)
                 await chats.set_ai_reply_status(chat, AiReplyStatus.FAILED, str(exc))
                 await session.commit()
+                try:
+                    from app.services.chat_cache_service import chat_cache
+
+                    await chat_cache.invalidate_chat(UUID(chat_id), UUID(user_id))
+                except Exception:
+                    logger.debug("Chat cache invalidation failed after AI error", exc_info=True)
                 raise self.retry(exc=exc) from exc
 
     run_async(_process())

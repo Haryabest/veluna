@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     rate_limit_requests: int = 100
     rate_limit_window_seconds: int = 60
 
+    chat_cache_list_ttl: int = 120
+    chat_cache_detail_ttl: int = 30
+    chat_cache_messages_ttl: int = 120
+
     gem_cost_per_message: int = 1
     gem_cost_per_generation: int = 10
     default_user_gems: int = 50
