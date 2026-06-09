@@ -15,7 +15,7 @@ export function StudioView() {
   const screen = useNavStore((s) => s.screen);
   const tab = useNavStore((s) => s.tab);
   const openStudioCreate = useNavStore((s) => s.openStudioCreate);
-  const showFab = tab === "studio" && screen === "studio";
+  const showFab = tab === "studio" && screen === "studio" && !viewerArt;
   const [viewerArt, setViewerArt] = useState<{
     id: string;
     imageUrl: string;

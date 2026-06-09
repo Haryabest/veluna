@@ -56,10 +56,6 @@ export function StudioArtViewer({ art, onClose }: Props) {
               <img src={art.imageUrl} alt="" className="w-full object-contain" />
             </motion.div>
 
-            {art.prompt ? (
-              <p className="mt-4 text-center text-sm text-text-secondary">{art.prompt}</p>
-            ) : null}
-
             <div className="mt-6 flex flex-col gap-3">
               <button
                 type="button"
@@ -79,8 +75,10 @@ export function StudioArtViewer({ art, onClose }: Props) {
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full rounded-2xl bg-bg-elevated/80 py-3.5 text-sm font-semibold text-text-primary"
-                style={chatBorderStyle}
+                className="w-full rounded-2xl py-3.5 text-sm font-semibold text-white"
+                style={{
+                  background: "linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)",
+                }}
               >
                 Закрыть
               </button>

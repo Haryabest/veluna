@@ -32,10 +32,10 @@ function openExternalUrl(url: string) {
   }
 }
 
-/** Opens native Telegram share with image URL. */
+/** Opens native Telegram share: attaches image URL and includes bot link in text. */
 export function openTelegramImageShare(imageUrl: string, botLink?: string) {
   const link = botLink || getTelegramBotLink();
-  const text = link ? `Смотри какой арт!\n\n${link}` : "Смотри какой арт!";
+  const text = link || "Смотри какой арт!";
   const shareUrl = `https://t.me/share/url?${new URLSearchParams({
     url: imageUrl,
     text,
@@ -43,12 +43,12 @@ export function openTelegramImageShare(imageUrl: string, botLink?: string) {
   openExternalUrl(shareUrl);
 }
 
-/** Opens native Telegram chat picker to share text + bot link (fallback). */
+/** Opens native Telegram chat picker with the bot link + image as attachment. */
 export function openTelegramTextShare(botLink: string, imageUrl?: string) {
   const link = botLink || getTelegramBotLink();
   const parts = ["Смотри какой арт!"];
-  if (imageUrl) parts.push(imageUrl);
   if (link) parts.push(link);
+  if (imageUrl) parts.push(imageUrl);
   const text = parts.join("\n\n");
   const shareUrl = `https://t.me/share/url?${new URLSearchParams({
     ...(link ? { url: link } : imageUrl ? { url: imageUrl } : {}),
