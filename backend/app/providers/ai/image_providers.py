@@ -1,6 +1,5 @@
-import os
+import asyncio
 from typing import Any
-
 import httpx
 
 from app.core.config import get_settings
@@ -112,8 +111,6 @@ class CivitaiProvider(ImageGenerationProvider):
         return "civitai"
 
     async def generate(self, request: ImageGenerationRequest) -> ImageGenerationResponse:
-        import asyncio
-
         model_urn = await resolve_civitai_model_air(request.model)
         model_label = await resolve_civitai_model_label(request.model)
         resource_type = resource_type_from_air(model_urn)
@@ -126,60 +123,11 @@ class CivitaiProvider(ImageGenerationProvider):
         if not model_urn:
             raise ValueError("Civitai model is required")
 
-        sdk_input = {
-            "model": model_urn,
-            "params": {
-                "prompt": request.prompt,
-                "negativePrompt": request.negative_prompt or "",
-                "scheduler": "EulerA",
-                "steps": request.num_inference_steps or (30 if ecosystem == "anima" else 28),
-                "cfgScale": 4 if ecosystem == "anima" else 7,
-                "width": request.width or 1024,
-                "height": request.height or 1024,
-                "clipSkip": 2,
-            },
-            "quantity": 1,
-        }
-
-        # civitai-py reads the token during import from CIVITAI_API_TOKEN.
-        os.environ["CIVITAI_API_TOKEN"] = self._api_key
-        import civitai
-
-        try:
-            sdk_response = await civitai.image.create(sdk_input, wait=True)
-        except Exception as exc:
-            if self._should_fallback_from_sdk(exc):
-                return await self._generate_v2_workflow(
-                    request,
-                    model_urn=model_urn,
-                    model_label=model_label,
-                    ecosystem=ecosystem,
-                )
-            raise ValueError(self._format_sdk_error(exc)) from exc
-
-        image_url = self._extract_sdk_image_url(sdk_response)
-        if not image_url:
-            raise RuntimeError(f"Civitai SDK completed but returned no image URL: {sdk_response}")
-
-        civitai_summary = self._summarize_sdk_response(sdk_response)
-        metadata: dict[str, Any] = {
-            "model_name": model_label,
-            "model_air": model_urn,
-            "requested_model": request.model,
-            "civitai_response": civitai_summary,
-        }
-        buzz_cost = sum(
-            int(job["cost"])
-            for job in (civitai_summary.get("jobs") or [])
-            if isinstance(job, dict) and job.get("cost") is not None
-        )
-        if buzz_cost > 0:
-            metadata["api_buzz_cost"] = buzz_cost
-
-        return ImageGenerationResponse(
-            image_url=image_url,
-            provider=self.provider_name,
-            metadata=metadata,
+        return await self._generate_v2_workflow(
+            request,
+            model_urn=model_urn,
+            model_label=model_label,
+            ecosystem=ecosystem,
         )
 
     async def _generate_v2_workflow(
@@ -190,9 +138,9 @@ class CivitaiProvider(ImageGenerationProvider):
         model_label: str,
         ecosystem: str,
     ) -> ImageGenerationResponse:
+        # SFW only; Buzz: blue → green → yellow (Civitai default, no currencies filter).
         body: dict[str, Any] = {
             "allowMatureContent": False,
-            "currencies": ["blue"],
             "steps": [{
                 "$type": "imageGen",
                 "input": {
@@ -217,7 +165,7 @@ class CivitaiProvider(ImageGenerationProvider):
 
         async with httpx.AsyncClient() as client:
             submit_resp = await client.post(
-                "https://orchestration.civitai.com/v2/consumer/workflows?wait=90",
+                "https://orchestration.civitai.com/v2/consumer/workflows?wait=90&hideMatureContent=true",
                 headers=headers,
                 json=body,
                 timeout=120.0,
@@ -330,47 +278,6 @@ class CivitaiProvider(ImageGenerationProvider):
 
         return None
 
-    def _summarize_sdk_response(self, response: Any) -> dict[str, Any]:
-        if hasattr(response, "model_dump"):
-            response = response.model_dump()
-        if not isinstance(response, dict):
-            return {"type": type(response).__name__}
-        jobs = response.get("jobs")
-        return {
-            "token": response.get("token"),
-            "jobs": [
-                {
-                    "jobId": job.get("jobId"),
-                    "cost": job.get("cost"),
-                    "scheduled": job.get("scheduled"),
-                }
-                for job in jobs
-                if isinstance(job, dict)
-            ] if isinstance(jobs, list) else None,
-        }
-
-    def _format_sdk_error(self, exc: Exception) -> str:
-        text = str(exc)
-        lower = text.lower()
-        if "insufficient" in lower and "buzz" in lower:
-            return "На Civitai API токене недостаточно Buzz для генерации. Проверьте баланс аккаунта Civitai для этого API токена."
-        if "validation error" in lower:
-            return f"Civitai SDK отклонил параметры генерации: {text}"
-        detail = text or exc.__class__.__name__
-        return f"Civitai SDK error: {detail[:500]}"
-
-    def _should_fallback_from_sdk(self, exc: Exception) -> bool:
-        text = str(exc).lower()
-        name = exc.__class__.__name__.lower()
-        return (
-            "403" in text
-            or "timeout" in text
-            or "timeout" in name
-            or "network" in text
-            or "network" in name
-            or isinstance(exc, (httpx.TimeoutException, httpx.NetworkError))
-        )
-
     def _format_v2_error(self, response: httpx.Response) -> str:
         try:
             data = response.json()
@@ -380,11 +287,11 @@ class CivitaiProvider(ImageGenerationProvider):
         if not isinstance(data, dict):
             text = str(data)
             if "insufficient" in text.lower() and "buzz" in text.lower():
-                return "На Civitai API токене недостаточно Blue Buzz для генерации. Проверьте баланс аккаунта Civitai для этого API токена."
+                return "На Civitai API токене недостаточно Buzz для генерации. Проверьте баланс (blue/green/yellow) аккаунта Civitai для этого API токена."
             return f"Civitai API error {response.status_code}: {text[:500]}"
 
         if data.get("transactions", {}).get("insufficientBuzz") or data.get("insufficientBuzz"):
-            return "На Civitai API токене недостаточно Blue Buzz для генерации. Проверьте баланс аккаунта Civitai для этого API токена."
+            return "На Civitai API токене недостаточно Buzz для генерации. Проверьте баланс (blue/green/yellow) аккаунта Civitai для этого API токена."
 
         errors = data.get("errors")
         if errors:
