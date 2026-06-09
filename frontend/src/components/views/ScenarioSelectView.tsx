@@ -8,10 +8,10 @@ import { useNavStore } from "@/store/nav-store";
 import { useCharacter } from "@/hooks/use-character";
 import { BackButton } from "@/components/shared/BackButton";
 import { ScenarioRowSkeleton } from "@/components/shared/Skeleton";
-import { QUERY_KEYS } from "@/lib/constants";
+import { characterScenariosQueryOptions } from "@/lib/catalog-queries";
 import { chatBorderStyle, chatSeparatorStyle } from "@/lib/theme";
 import { truncate } from "@/lib/utils";
-import { characterService } from "@/services/api";
+import { useOpenNarrators } from "@/hooks/use-catalog-navigation";
 import type { CharacterScenario } from "@/store/character-store";
 
 function scenarioDescription(scenario: CharacterScenario): string {
@@ -22,17 +22,14 @@ function scenarioDescription(scenario: CharacterScenario): string {
 export function ScenarioSelectView() {
   const characterId = useNavStore((s) => s.characterId);
   const goBack = useNavStore((s) => s.goBack);
-  const openNarrators = useNavStore((s) => s.openNarrators);
+  const openNarrators = useOpenNarrators();
 
   const { character } = useCharacter(characterId);
   const resolvedCharacterId = character?.id ?? characterId;
 
   const { data: scenarios = [], isLoading } = useQuery<CharacterScenario[]>({
-    queryKey: QUERY_KEYS.characterScenarios(resolvedCharacterId ?? ""),
-    queryFn: () =>
-      characterService.listScenarios(resolvedCharacterId!) as Promise<CharacterScenario[]>,
+    ...characterScenariosQueryOptions(resolvedCharacterId ?? ""),
     enabled: !!resolvedCharacterId,
-    retry: 1,
   });
 
   const thumbUrl = character?.preview_url || character?.avatar_url;

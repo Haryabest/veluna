@@ -29,10 +29,9 @@ Write-Host "Building Next.js (production)..." -ForegroundColor Cyan
 npm run build
 if ($LASTEXITCODE -ne 0) { throw "next build failed" }
 
-Write-Host "Starting on http://0.0.0.0:3000 ..." -ForegroundColor Green
-Start-Process -FilePath "powershell.exe" `
-    -ArgumentList "-NoExit", "-NoProfile", "-Command", "cd '$PWD'; `$env:BACKEND_PORT='$backendPort'; npm run start" `
-    -WindowStyle Normal | Out-Null
+Write-Host "Starting on http://0.0.0.0:3000 (background, logs in logs/frontend.*)..." -ForegroundColor Green
+. (Join-Path $PSScriptRoot "lib\process-utils.ps1")
+Start-FrontendHidden -WorkingDirectory $PWD -Root $Root -BackendPort ([int]$backendPort) | Out-Null
 
 Start-Sleep 4
 try {

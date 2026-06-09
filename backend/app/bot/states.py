@@ -7,6 +7,10 @@ class AdminCharacterStates(StatesGroup):
     subtitle = State()
     behavior_param = State()
     photo = State()
+    edit_name = State()
+    edit_description = State()
+    edit_subtitle = State()
+    edit_photo = State()
     scenario_title = State()
     scenario_story = State()
     scenario_communication = State()
@@ -50,6 +54,8 @@ class AdminUserStates(StatesGroup):
     edit_name = State()
     edit_gems = State()
     edit_credits = State()
+    ban_duration = State()
+    ban_reason = State()
 
 
 class AdminTopupStates(StatesGroup):

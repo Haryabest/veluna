@@ -14,6 +14,13 @@ class GemAdjustRequest(BaseSchema):
 
 class UserBanRequest(BaseSchema):
     is_banned: bool
+    reason: str | None = Field(default=None, max_length=2000)
+    duration_days: int | None = Field(
+        default=None,
+        ge=1,
+        le=3650,
+        description="None = permanent ban",
+    )
 
 
 class AdminStatsResponse(BaseSchema):
@@ -96,6 +103,8 @@ class CharacterMediaConfirmRequest(BaseSchema):
 
 class AdminUserDetailResponse(UserResponse):
     is_banned: bool
+    ban_reason: str | None = None
+    banned_until: datetime | None = None
     last_seen_at: datetime | None
     credits: int = 0
     total_spent: int = 0

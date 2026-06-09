@@ -33,6 +33,11 @@ class UserResponse(BaseSchema):
     gems: int = 0
     created_at: datetime
 
+    @field_validator("photo_url", mode="before")
+    @classmethod
+    def _normalize_photo(cls, v: str | None) -> str | None:
+        return normalize_media_url(v)
+
 
 class UserBalanceResponse(BaseSchema):
     gems: int

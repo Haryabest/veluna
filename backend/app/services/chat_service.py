@@ -222,8 +222,7 @@ class ChatService:
         if not generation.image_url:
             raise ValidationError("Нет изображения")
 
-        prompt = (generation.prompt or "Арт").strip()
-        content = f"![{prompt}]({generation.image_url})"
+        content = f"![фотография]({generation.image_url})"
         await self._chats.add_message(chat_id, MessageRole.ASSISTANT, content)
         message = await self._chats.get_latest_message(chat_id)
         if not message:

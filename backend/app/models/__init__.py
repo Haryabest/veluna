@@ -54,6 +54,8 @@ class User(Base, TimestampMixin):
     role: Mapped[UserRole] = mapped_column(_pg_enum(UserRole), default=UserRole.USER)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_banned: Mapped[bool] = mapped_column(Boolean, default=False)
+    ban_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    banned_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     balance: Mapped["UserBalance"] = relationship(back_populates="user", uselist=False)

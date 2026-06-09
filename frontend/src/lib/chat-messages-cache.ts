@@ -1,4 +1,4 @@
-const PREFIX = "veluna_msgs_";
+const PREFIX = "veluna_msgs_v3_";
 const TTL_MS = 30 * 60 * 1000;
 
 type CachedMessages = {

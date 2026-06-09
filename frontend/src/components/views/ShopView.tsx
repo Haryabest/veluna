@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { ShopCheckoutSheet } from "@/components/shop/ShopCheckoutSheet";
 import { ShopProductCard } from "@/components/shop/ShopProductCard";
@@ -16,6 +16,7 @@ import { useNavStore } from "@/store/nav-store";
 import { usePaymentStore } from "@/store/payment-store";
 import { useUserStore } from "@/store/user-store";
 import { shopService, authService, balanceService } from "@/services/api";
+import { balanceQueryOptions, shopProductsQueryOptions } from "@/lib/catalog-queries";
 import { SHOP_TAB_LABELS, type ShopProduct, type ShopTab } from "@/lib/shop";
 import { BackButton } from "@/components/shared/BackButton";
 import { useMounted } from "@/hooks/use-mounted";
@@ -27,6 +28,7 @@ const TABS: ShopTab[] = ["bundle", "gems", "credits"];
 
 export function ShopView() {
   const mounted = useMounted();
+  const queryClient = useQueryClient();
   const goBack = useNavStore((s) => s.goBack);
   const { user, setUser } = useUserStore();
   const { gems, credits, setBalance } = usePaymentStore();
@@ -36,10 +38,7 @@ export function ShopView() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [paying, setPaying] = useState(false);
 
-  const { data: balance } = useQuery({
-    queryKey: QUERY_KEYS.balance,
-    queryFn: () => balanceService.get(),
-  });
+  const { data: balance } = useQuery(balanceQueryOptions);
 
   useEffect(() => {
     if (balance) {
@@ -50,11 +49,13 @@ export function ShopView() {
   const gemsDisplay = balance?.gems ?? gems ?? user?.gems ?? 0;
   const creditsDisplay = balance?.credits ?? credits ?? 0;
 
-  const { data: apiProducts, isLoading } = useQuery({
-    queryKey: ["shop", "products"],
-    queryFn: () => shopService.listProducts(),
-    retry: false,
-  });
+  const {
+    data: apiProducts,
+    isLoading,
+    isFetching,
+    isError,
+    refetch: refetchProducts,
+  } = useQuery(shopProductsQueryOptions);
 
   const products: ShopProduct[] = useMemo(() => {
     const list = (Array.isArray(apiProducts) ? apiProducts : []) as ShopProduct[];
@@ -82,12 +83,19 @@ export function ShopView() {
       const status = await openTelegramInvoice(checkout.invoice_url);
 
       if (status === "paid") {
-        toast("Оплата прошла! Гемы зачислены 💎", "success");
+        toast("Оплата прошла! Баланс обновлён 💎", "success");
         setSheetOpen(false);
         setSelected(null);
+        await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.balance });
+        await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financeStats });
+        await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.shopProducts });
         try {
-          const me = await authService.getMe();
+          const [me, freshBalance] = await Promise.all([
+            authService.getMe(),
+            balanceService.get(),
+          ]);
           setUser(me);
+          setBalance(freshBalance.gems, freshBalance.credits);
         } catch {
           /* ignore */
         }
@@ -156,15 +164,32 @@ export function ShopView() {
         ))}
       </div>
 
-      {isLoading && (
+      {isLoading && !apiProducts && (
         <p className="py-8 text-center text-sm text-text-muted">Загрузка…</p>
       )}
 
-      {!isLoading && filtered.length === 0 && (
+      {isFetching && apiProducts && (
+        <p className="py-1 text-center text-xs text-text-muted">Обновление…</p>
+      )}
+
+      {isError && (
+        <div className="py-8 text-center">
+          <p className="text-sm text-text-muted">Не удалось загрузить товары</p>
+          <button
+            type="button"
+            onClick={() => void refetchProducts()}
+            className="mt-3 text-sm font-medium text-accent-light underline"
+          >
+            Повторить
+          </button>
+        </div>
+      )}
+
+      {!isLoading && !isFetching && !isError && filtered.length === 0 && (
         <p className="py-12 text-center text-sm text-text-muted">Товаров пока нет</p>
       )}
 
-      {!isLoading && filtered.length > 0 && (
+      {filtered.length > 0 && (
         <ListPanel>
           {filtered.map((product, i) => (
             <ShopProductCard

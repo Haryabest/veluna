@@ -1,5 +1,6 @@
 export type ShopTab = "bundle" | "gems" | "credits";
 
+export { shopProductsQueryOptions } from "@/lib/catalog-queries";
 export interface ShopProduct {
   id: string;
   name: string;

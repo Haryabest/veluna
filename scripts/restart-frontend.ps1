@@ -27,10 +27,9 @@ if ($Rebuild -or -not (Test-Path (Join-Path $feDir ".next"))) {
     if ($LASTEXITCODE -ne 0) { Pop-Location; throw "next build failed" }
     Pop-Location
 }
-Start-Process powershell.exe -ArgumentList @(
-    "-NoExit", "-NoProfile", "-Command",
-    "cd '$feDir'; `$host.UI.RawUI.WindowTitle='Veluna Frontend'; `$env:BACKEND_PORT='$port'; npm run start"
-) -WindowStyle Normal | Out-Null
+
+. (Join-Path $PSScriptRoot "lib\process-utils.ps1")
+Start-FrontendHidden -WorkingDirectory $feDir -Root $Root -BackendPort ([int]$port) | Out-Null
 Start-Sleep -Seconds 6
 try {
     $h = Invoke-WebRequest "http://127.0.0.1:$port/health" -UseBasicParsing -TimeoutSec 5

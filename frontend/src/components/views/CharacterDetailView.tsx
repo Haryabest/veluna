@@ -3,12 +3,13 @@
 import { motion } from "framer-motion";
 import { BackButton } from "@/components/shared/BackButton";
 import { useCharacter } from "@/hooks/use-character";
+import { useOpenScenarios } from "@/hooks/use-catalog-navigation";
 import { useNavStore } from "@/store/nav-store";
 
 export function CharacterDetailView() {
   const characterId = useNavStore((s) => s.characterId);
   const goBack = useNavStore((s) => s.goBack);
-  const openScenarios = useNavStore((s) => s.openScenarios);
+  const openScenarios = useOpenScenarios();
   const { character, isLoading, isError } = useCharacter(characterId);
 
   if (isLoading) {

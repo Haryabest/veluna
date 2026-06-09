@@ -20,6 +20,7 @@ from app.bot.keyboards import (
     admin_main_menu,
     broadcast_confirm_kb,
     cancel_kb,
+    skip_cancel_kb,
     main_reply_keyboard,
     product_item_menu,
     product_type_keyboard,
@@ -850,12 +851,16 @@ async def admin_product_type(callback: CallbackQuery, state: FSMContext) -> None
         "bundle": ShopProductType.BUNDLE,
     }
     await state.update_data(product_type=mapping[type_key].value)
+    await _ask_product_amounts(callback.message, state, edit=True)
+    await callback.answer()
+
+
+async def _ask_product_stars_price(message: Message, state: FSMContext) -> None:
     await state.set_state(AdminProductStates.price)
-    await callback.message.edit_text(
-        "Введите <b>цену</b> (целое число, в звёздах/гемах):",
+    await message.answer(
+        "Сколько <b>Telegram Stars</b> ⭐ стоит этот товар?",
         reply_markup=cancel_kb("adm:products"),
     )
-    await callback.answer()
 
 
 @router.message(AdminProductStates.price)
@@ -865,20 +870,21 @@ async def admin_product_price(message: Message, state: FSMContext) -> None:
         if price < 0:
             raise ValueError
     except ValueError:
-        await message.answer("Введите неотрицательное целое число.")
+        await message.answer("Введите неотрицательное целое число Stars.")
         return
     await state.update_data(price=price)
     await state.set_state(AdminProductStates.sale_price)
     await message.answer(
-        "Введите <b>цену со скидкой</b> или /skip если без скидки:",
-        reply_markup=cancel_kb("adm:products"),
+        "Введите <b>цену со скидкой</b> (Stars ⭐) или нажмите «Без скидки»:",
+        reply_markup=skip_cancel_kb("adm:prod:sale:skip", "adm:products"),
     )
 
 
-@router.message(AdminProductStates.sale_price, Command("skip"))
-async def admin_product_sale_skip(message: Message, state: FSMContext) -> None:
+@router.callback_query(AdminProductStates.sale_price, F.data == "adm:prod:sale:skip")
+async def admin_product_sale_skip_cb(callback: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(sale_price=None)
-    await _ask_product_amounts(message, state)
+    await callback.answer()
+    await _ask_product_photo(callback.message, state)
 
 
 @router.message(AdminProductStates.sale_price)
@@ -888,26 +894,28 @@ async def admin_product_sale(message: Message, state: FSMContext) -> None:
         if sale < 0:
             raise ValueError
     except ValueError:
-        await message.answer("Введите целое число или /skip.")
+        await message.answer("Введите целое число Stars или нажмите «Без скидки».")
         return
     await state.update_data(sale_price=sale)
-    await _ask_product_amounts(message, state)
+    await _ask_product_photo(message, state)
 
 
-async def _ask_product_amounts(message: Message, state: FSMContext) -> None:
+async def _ask_product_amounts(message: Message, state: FSMContext, *, edit: bool = False) -> None:
     data = await state.get_data()
+    markup = cancel_kb("adm:products")
     if data.get("product_type") == ShopProductType.GEMS.value:
         await state.set_state(AdminProductStates.gems_amount)
-        await message.answer("Сколько <b>гемов</b> в пакете?", reply_markup=cancel_kb("adm:products"))
+        text = "Сколько <b>гемов</b> 💎 в пакете?"
     elif data.get("product_type") == ShopProductType.CREDITS.value:
         await state.set_state(AdminProductStates.credits_amount)
-        await message.answer("Сколько <b>кредитов</b> в пакете?", reply_markup=cancel_kb("adm:products"))
+        text = "Сколько <b>кредитов</b> ❤️ в пакете?"
     else:
         await state.set_state(AdminProductStates.gems_amount)
-        await message.answer(
-            "Набор: введите количество <b>гемов</b> (далее спросим кредиты):",
-            reply_markup=cancel_kb("adm:products"),
-        )
+        text = "Набор: сколько <b>гемов</b> 💎 в пакете? (далее спросим кредиты)"
+    if edit:
+        await message.edit_text(text, reply_markup=markup)
+    else:
+        await message.answer(text, reply_markup=markup)
 
 
 @router.message(AdminProductStates.gems_amount)
@@ -921,9 +929,13 @@ async def admin_product_gems(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     if data.get("product_type") == ShopProductType.BUNDLE.value:
         await state.set_state(AdminProductStates.credits_amount)
-        await message.answer("Сколько <b>кредитов</b> в наборе?", reply_markup=cancel_kb("adm:products"))
+        await message.answer(
+            "Сколько <b>кредитов</b> ❤️ в наборе?",
+            reply_markup=cancel_kb("adm:products"),
+        )
     else:
-        await _ask_product_photo(message, state)
+        await state.update_data(credits_amount=0)
+        await _ask_product_stars_price(message, state)
 
 
 @router.message(AdminProductStates.credits_amount)
@@ -934,20 +946,28 @@ async def admin_product_credits(message: Message, state: FSMContext) -> None:
         await message.answer("Введите целое число.")
         return
     await state.update_data(credits_amount=credits)
-    await _ask_product_photo(message, state)
+    data = await state.get_data()
+    if data.get("product_type") == ShopProductType.CREDITS.value:
+        await state.update_data(gems_amount=0)
+    await _ask_product_stars_price(message, state)
 
 
 async def _ask_product_photo(message: Message, state: FSMContext) -> None:
     await state.set_state(AdminProductStates.photo)
     await message.answer(
-        "Отправьте <b>фото товара</b> (или /skip):",
-        reply_markup=cancel_kb("adm:products"),
+        "Отправьте <b>фото товара</b> или нажмите «Без фото»:",
+        reply_markup=skip_cancel_kb(
+            "adm:prod:photo:skip",
+            "adm:products",
+            skip_label="Без фото",
+        ),
     )
 
 
-@router.message(AdminProductStates.photo, Command("skip"))
-async def admin_product_photo_skip(message: Message, state: FSMContext) -> None:
-    await _save_product(message, state, image_url=None)
+@router.callback_query(AdminProductStates.photo, F.data == "adm:prod:photo:skip")
+async def admin_product_photo_skip_cb(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.answer()
+    await _save_product(callback.message, state, image_url=None)
 
 
 @router.message(AdminProductStates.photo, F.photo)
@@ -978,7 +998,10 @@ async def _save_product(message: Message, state: FSMContext, image_url: str | No
     price_show = product.sale_price or product.price
     img = "\nФото: да" if product.image_url else "\nФото: нет"
     await message.answer(
-        f"Товар создан: <b>{product.name}</b>\nТип: {product.product_type}\nЦена: {price_show}{img}",
+        f"Товар создан: <b>{product.name}</b>\n"
+        f"Тип: {product.product_type}\n"
+        f"💎 {product.gems_amount} · ❤️ {product.credits_amount}\n"
+        f"Цена: <b>{price_show}</b> ⭐{img}",
         reply_markup=product_item_menu(str(product.id)),
     )
 
@@ -992,12 +1015,14 @@ async def admin_product_view(callback: CallbackQuery) -> None:
     if not product:
         await callback.answer("Не найден", show_alert=True)
         return
-    sale = f"\nЦена со скидкой: {product.sale_price}" if product.sale_price else ""
+    sale = f"\nЦена со скидкой: {product.sale_price} ⭐" if product.sale_price else ""
     active = "в магазине" if product.is_active else "скрыт"
     img = f"\nФото: {product.image_url}" if product.image_url else "\nФото: нет"
     await callback.message.edit_text(
-        f"<b>{product.name}</b>\nТип: {product.product_type}\nЦена: {product.price}{sale}\n"
-        f"Гемы: {product.gems_amount} | Кредиты: {product.credits_amount}{img}\nСтатус: {active}",
+        f"<b>{product.name}</b>\nТип: {product.product_type}\n"
+        f"💎 {product.gems_amount} · ❤️ {product.credits_amount}\n"
+        f"Цена: {product.price} ⭐{sale}\n"
+        f"Статус: {active}{img}",
         reply_markup=product_item_menu(str(product.id), is_active=product.is_active),
     )
     await callback.answer()
@@ -1009,15 +1034,20 @@ async def admin_product_edit_photo_start(callback: CallbackQuery, state: FSMCont
     await state.set_state(AdminProductStates.edit_photo)
     await state.update_data(edit_product_id=product_id)
     await callback.message.edit_text(
-        "Отправьте новое <b>фото товара</b> (или /skip чтобы убрать):",
-        reply_markup=cancel_kb(f"adm:prod:view:{product_id}"),
+        "Отправьте новое <b>фото товара</b> или нажмите «Без фото»:",
+        reply_markup=skip_cancel_kb(
+            "adm:prod:edit:photo:skip",
+            f"adm:prod:view:{product_id}",
+            skip_label="Без фото",
+        ),
     )
     await callback.answer()
 
 
-@router.message(AdminProductStates.edit_photo, Command("skip"))
-async def admin_product_edit_photo_clear(message: Message, state: FSMContext) -> None:
-    await _save_product_photo(message, state, image_url=None)
+@router.callback_query(AdminProductStates.edit_photo, F.data == "adm:prod:edit:photo:skip")
+async def admin_product_edit_photo_skip_cb(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.answer()
+    await _save_product_photo(callback.message, state, image_url=None)
 
 
 @router.message(AdminProductStates.edit_photo, F.photo)

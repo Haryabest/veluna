@@ -30,13 +30,25 @@ ADMIN_EXPENSES_SEARCH = "🔍 Поиск расходов"
 ADMIN_EXPENSES_CLEAR_SEARCH = "✕ Сбросить поиск расходов"
 ADMIN_USER_BLOCK = "🔒 Заблокировать"
 ADMIN_USER_UNBLOCK = "✅ Разблокировать"
+ADMIN_BAN_DURATION_1 = "⏱ 1 день"
+ADMIN_BAN_DURATION_7 = "⏱ 7 дней"
+ADMIN_BAN_DURATION_30 = "⏱ 30 дней"
+ADMIN_BAN_DURATION_FOREVER = "⏱ Навсегда"
+ADMIN_BAN_DURATIONS = frozenset(
+    {
+        ADMIN_BAN_DURATION_1,
+        ADMIN_BAN_DURATION_7,
+        ADMIN_BAN_DURATION_30,
+        ADMIN_BAN_DURATION_FOREVER,
+    }
+)
 ADMIN_USER_EDIT_MENU = "✏️ Редактировать"
 ADMIN_USER_EDIT_NAME = "✏️ Имя"
 ADMIN_USER_EDIT_GEMS = "💎 Гемы"
 ADMIN_USER_EDIT_CREDITS = "🎫 Кредиты"
 ADMIN_USER_TOGGLE_ROLE = "👤 Сменить роль"
 ADMIN_MENU_TEXT_BROADCAST = "Рассылка"
-ADMIN_MENU_TEXT_CHARACTERS = "Создать персонажа"
+ADMIN_MENU_TEXT_CHARACTERS = "Персонажи"
 ADMIN_MENU_TEXT_CHAR_NEW = "+ Новый персонаж"
 ADMIN_MENU_TEXT_CHAR_ORDER = "Порядок на главной"
 ADMIN_MENU_TEXT_CHAR_DELETE = "Удалить персонажа"
@@ -104,9 +116,6 @@ def user_start_inline(webapp_url: str) -> InlineKeyboardMarkup:
                     text="Открыть Veluna",
                     web_app=WebAppInfo(url=webapp_url),
                 )
-            ],
-            [
-                InlineKeyboardButton(text="💎 Баланс и траты", callback_data=USER_FINANCE_CB),
             ],
         ]
     )
@@ -263,6 +272,32 @@ def user_detail_keyboard(*, is_banned: bool) -> ReplyKeyboardMarkup:
     )
 
 
+def ban_duration_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                KeyboardButton(text=ADMIN_BAN_DURATION_1),
+                KeyboardButton(text=ADMIN_BAN_DURATION_7),
+            ],
+            [
+                KeyboardButton(text=ADMIN_BAN_DURATION_30),
+                KeyboardButton(text=ADMIN_BAN_DURATION_FOREVER),
+            ],
+            [KeyboardButton(text=ADMIN_MENU_TEXT_BACK_USER)],
+        ],
+        resize_keyboard=True,
+        is_persistent=True,
+    )
+
+
+def ban_reason_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=ADMIN_MENU_TEXT_BACK_USER)]],
+        resize_keyboard=True,
+        is_persistent=True,
+    )
+
+
 def user_edit_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
@@ -307,7 +342,7 @@ def characters_menu(characters: list, catalog_positions: dict | None = None) -> 
 
 
 def characters_submenu_keyboard() -> ReplyKeyboardMarkup:
-    """Bottom keys after admin pressed «Создать персонажа»."""
+    """Bottom keys in the characters section."""
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=ADMIN_MENU_TEXT_CHAR_NEW)],
@@ -350,8 +385,40 @@ def character_delete_confirm_menu(character_id: str) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
+def character_edit_menu(character_id: str) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="✏️ Имя", callback_data=f"adm:char:edit:name:{character_id}")
+    )
+    builder.row(
+        InlineKeyboardButton(text="✏️ Описание", callback_data=f"adm:char:edit:desc:{character_id}")
+    )
+    builder.row(
+        InlineKeyboardButton(text="✏️ Подпись", callback_data=f"adm:char:edit:subtitle:{character_id}")
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="✏️ Параметры поведения",
+            callback_data=f"adm:char:edit:behavior:{character_id}",
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(text="📷 Фото", callback_data=f"adm:char:edit:photo:{character_id}")
+    )
+    builder.row(
+        InlineKeyboardButton(text="« Назад", callback_data=f"adm:char:view:{character_id}")
+    )
+    return builder.as_markup()
+
+
 def character_item_menu(character_id: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(
+            text="✏️ Редактировать",
+            callback_data=f"adm:char:edit:{character_id}",
+        )
+    )
     builder.row(
         InlineKeyboardButton(
             text="Сценарии",
@@ -596,7 +663,7 @@ def products_menu(products: list[ShopProductResponse]) -> InlineKeyboardMarkup:
         price = product.sale_price or product.price
         builder.row(
             InlineKeyboardButton(
-                text=f"{product.name} ({product.product_type}) — {price}",
+                text=f"{product.name} ({product.product_type}) — {price} ⭐",
                 callback_data=f"adm:prod:view:{product.id}",
             )
         )
@@ -644,4 +711,19 @@ def broadcast_confirm_kb() -> InlineKeyboardMarkup:
 def cancel_kb(back: str = "adm:menu") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text="Отмена", callback_data=back)]]
+    )
+
+
+def skip_cancel_kb(
+    skip_data: str,
+    back: str = "adm:menu",
+    *,
+    skip_label: str = "Без скидки",
+) -> InlineKeyboardMarkup:
+    """Skip action button above cancel."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=skip_label, callback_data=skip_data)],
+            [InlineKeyboardButton(text="Отмена", callback_data=back)],
+        ]
     )

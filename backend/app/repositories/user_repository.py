@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import func, or_, select
@@ -47,9 +48,29 @@ class UserRepository:
             if not hasattr(user, key):
                 continue
             # Allow explicit False for is_banned / is_active
-            if value is None:
+            if value is None and key not in ("ban_reason", "banned_until"):
                 continue
             setattr(user, key, value)
+        await self._session.flush()
+        return user
+
+    async def apply_ban(
+        self,
+        user: User,
+        *,
+        reason: str,
+        banned_until: datetime | None,
+    ) -> User:
+        user.is_banned = True
+        user.ban_reason = reason.strip() or None
+        user.banned_until = banned_until
+        await self._session.flush()
+        return user
+
+    async def clear_ban(self, user: User) -> User:
+        user.is_banned = False
+        user.ban_reason = None
+        user.banned_until = None
         await self._session.flush()
         return user
 

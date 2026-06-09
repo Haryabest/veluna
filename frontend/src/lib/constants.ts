@@ -31,6 +31,7 @@ export const QUERY_KEYS = {
   messages: (chatId: string) => ["messages", chatId] as const,
   generations: ["generations"] as const,
   balance: ["balance"] as const,
+  shopProducts: ["shop", "products"] as const,
   financeStats: ["users", "finance"] as const,
   balanceHistory: (type: string) => ["balance-history", type] as const,
   transactions: ["transactions"] as const,

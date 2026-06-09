@@ -64,6 +64,11 @@ async function reauthFromTelegram(): Promise<string | null> {
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
+    const detail = error.response?.data as { detail?: { code?: string } } | undefined;
+    if (detail?.detail?.code === "ACCOUNT_BANNED") {
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401 && typeof window !== "undefined" && error.config) {
       const cfg = error.config as InternalAxiosRequestConfig & { _retried?: boolean };
       if (!cfg._retried) {
@@ -105,6 +110,8 @@ apiClient.interceptors.response.use(
 export interface ApiError {
   code: string;
   message: string;
+  ban_reason?: string | null;
+  banned_until?: string | null;
 }
 
 export function getApiError(error: unknown): ApiError {
@@ -114,6 +121,8 @@ export function getApiError(error: unknown): ApiError {
       return {
         code: detail.code || "ERROR",
         message: detail.message || "Неизвестная ошибка",
+        ban_reason: detail.ban_reason ?? null,
+        banned_until: detail.banned_until ?? null,
       };
     }
     if (typeof detail === "string" && detail) {

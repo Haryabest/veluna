@@ -7,38 +7,54 @@ import { History } from "lucide-react";
 import { useNavStore } from "@/store/nav-store";
 import { useUserStore } from "@/store/user-store";
 import { usePaymentStore } from "@/store/payment-store";
-import { balanceService, userService } from "@/services/api";
+import { balanceQueryOptions } from "@/lib/catalog-queries";
+import { QUERY_KEYS } from "@/lib/constants";
+import { authService, userService } from "@/services/api";
 import { AnimeGemIcon, AnimeHeartIcon } from "@/components/icons/CurrencyIcons";
 import { ListPanel } from "@/components/shared/ListPanel";
 import { formatGems } from "@/lib/utils";
-import { QUERY_KEYS } from "@/lib/constants";
 import { useTelegramUser } from "@/hooks/use-telegram-user";
+import { ProfileAvatar } from "@/components/shared/ProfileAvatar";
 import { chatSeparatorVerticalStyle } from "@/lib/theme";
 
+import { resolveProfileAvatarUrl } from "@/lib/profile-avatar";
+
 export function ProfileView() {
-  const { user } = useUserStore();
+  const { user, setUser } = useUserStore();
   const openHistory = useNavStore((s) => s.openHistory);
   const { gems, credits, setBalance } = usePaymentStore();
   const { displayName: tgName, username: tgUsername, photoUrl: tgPhoto } = useTelegramUser();
 
+  const { data: profile } = useQuery({
+    queryKey: QUERY_KEYS.user,
+    queryFn: () => authService.getMe(),
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+
+  useEffect(() => {
+    if (profile) setUser(profile);
+  }, [profile, setUser]);
+
   const displayName =
     tgName !== "Гость"
       ? tgName
-      : user
-        ? `${user.first_name ?? ""}${user.last_name ? ` ${user.last_name}` : ""}`.trim() || "Гость"
-        : "Гость";
-  const username = tgUsername ?? user?.username;
-  const photoUrl = tgPhoto ?? user?.photo_url;
+      : profile
+        ? `${profile.first_name ?? ""}${profile.last_name ? ` ${profile.last_name}` : ""}`.trim() || "Гость"
+        : user
+          ? `${user.first_name ?? ""}${user.last_name ? ` ${user.last_name}` : ""}`.trim() || "Гость"
+          : "Гость";
+  const username = tgUsername ?? profile?.username ?? user?.username;
+  const photoUrl = resolveProfileAvatarUrl(tgPhoto, profile?.photo_url, user?.photo_url);
 
-  const { data: balance } = useQuery({
-    queryKey: QUERY_KEYS.balance,
-    queryFn: () => balanceService.get(),
-  });
+  const { data: balance } = useQuery(balanceQueryOptions);
 
   const { data: finance } = useQuery({
     queryKey: QUERY_KEYS.financeStats,
     queryFn: () => userService.getFinanceStats(),
-    staleTime: 60_000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   useEffect(() => {
@@ -53,14 +69,7 @@ export function ProfileView() {
   return (
     <div className="mx-auto max-w-lg space-y-4 px-4 pt-6">
       <header className="flex items-center gap-4">
-        <div className="h-16 w-16 overflow-hidden rounded-full bg-bg-elevated ring-2 ring-accent/30">
-          {photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={photoUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-2xl">👤</div>
-          )}
-        </div>
+        <ProfileAvatar photoUrl={photoUrl} name={displayName || "Гость"} />
         <div>
           <h1 className="text-xl font-bold">{displayName || "Гость"}</h1>
           {username && <p className="text-sm text-text-muted">@{username}</p>}

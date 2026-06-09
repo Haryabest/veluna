@@ -17,6 +17,7 @@ from app.bot.keyboards import (
     char_create_narrator_kb,
     character_delete_confirm_menu,
     character_delete_list_menu,
+    character_edit_menu,
     character_item_menu,
     character_order_controls_menu,
     character_order_list_menu,
@@ -288,7 +289,16 @@ async def admin_char_behavior_param(message: Message, state: FSMContext) -> None
         return
     params.append(text)
     await state.update_data(behavior_params=params)
+    edit_char_id = data.get("edit_character_id")
     if idx >= BEHAVIOR_PARAMS_COUNT:
+        if edit_char_id:
+            await _apply_character_update(
+                message,
+                state,
+                UUID(edit_char_id),
+                behavior_params=params,
+            )
+            return
         await state.set_state(AdminCharacterStates.photo)
         await message.answer(
             "5/6 Отправьте <b>фото</b> персонажа (или /skip):",
@@ -662,6 +672,44 @@ async def admin_char_order_move(callback: CallbackQuery) -> None:
     await _send_order_controls(callback.message, char_id)
 
 
+async def _show_character_view(message: Message, char_id: UUID, *, edit: bool = False) -> None:
+    async with bot_session() as session:
+        ch = await BotCharacterService(session).get_character(char_id)
+    text = _format_character(ch)
+    markup = character_item_menu(str(char_id))
+    if edit:
+        try:
+            await message.edit_text(text, reply_markup=markup)
+            return
+        except Exception:
+            pass
+    await message.answer(text, reply_markup=markup)
+
+
+async def _apply_character_update(
+    message: Message,
+    state: FSMContext,
+    char_id: UUID,
+    **fields,
+) -> None:
+    admin_id = await _admin_id(message.from_user.id)
+    if not admin_id:
+        await message.answer("Нет прав администратора.")
+        return
+    try:
+        async with bot_session() as session:
+            await BotCharacterService(session).update_character(admin_id, char_id, **fields)
+    except ValidationError as exc:
+        await message.answer(str(exc.message))
+        return
+    except Exception as exc:
+        await message.answer(f"Ошибка: {exc}")
+        return
+    await state.clear()
+    await message.answer("Сохранено.")
+    await _show_character_view(message, char_id)
+
+
 @router.callback_query(F.data.startswith("adm:char:view:"))
 async def admin_char_view(callback: CallbackQuery) -> None:
     char_id = UUID(callback.data.split(":")[-1])
@@ -672,6 +720,136 @@ async def admin_char_view(callback: CallbackQuery) -> None:
         reply_markup=character_item_menu(str(ch.id)),
     )
     await callback.answer()
+
+
+@router.callback_query(F.data.regexp(r"^adm:char:edit:[0-9a-f-]{36}$"))
+async def admin_char_edit_menu(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
+    char_id = callback.data.split(":")[-1]
+    async with bot_session() as session:
+        ch = await BotCharacterService(session).get_character(UUID(char_id))
+    await callback.message.edit_text(
+        f"<b>Редактирование</b> — {ch.name}\n\nВыберите поле:",
+        reply_markup=character_edit_menu(char_id),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("adm:char:edit:name:"))
+async def admin_char_edit_name_start(callback: CallbackQuery, state: FSMContext) -> None:
+    char_id = callback.data.split(":")[-1]
+    await state.set_state(AdminCharacterStates.edit_name)
+    await state.update_data(edit_character_id=char_id)
+    await callback.message.edit_text(
+        "Введите новое <b>имя</b> персонажа:",
+        reply_markup=cancel_kb(f"adm:char:edit:{char_id}"),
+    )
+    await callback.answer()
+
+
+@router.message(AdminCharacterStates.edit_name)
+async def admin_char_edit_name_save(message: Message, state: FSMContext) -> None:
+    name = (message.text or "").strip()
+    if not name:
+        await message.answer("Имя не может быть пустым.")
+        return
+    data = await state.get_data()
+    await _apply_character_update(message, state, UUID(data["edit_character_id"]), name=name)
+
+
+@router.callback_query(F.data.startswith("adm:char:edit:desc:"))
+async def admin_char_edit_desc_start(callback: CallbackQuery, state: FSMContext) -> None:
+    char_id = callback.data.split(":")[-1]
+    await state.set_state(AdminCharacterStates.edit_description)
+    await state.update_data(edit_character_id=char_id)
+    await callback.message.edit_text(
+        f"Введите новое <b>описание</b> (до {500} символов):",
+        reply_markup=cancel_kb(f"adm:char:edit:{char_id}"),
+    )
+    await callback.answer()
+
+
+@router.message(AdminCharacterStates.edit_description)
+async def admin_char_edit_desc_save(message: Message, state: FSMContext) -> None:
+    desc = (message.text or "").strip()
+    if not desc:
+        await message.answer("Описание не может быть пустым.")
+        return
+    if len(desc) > 500:
+        await message.answer(f"Слишком длинно: {len(desc)}/500.")
+        return
+    data = await state.get_data()
+    await _apply_character_update(message, state, UUID(data["edit_character_id"]), description=desc)
+
+
+@router.callback_query(F.data.startswith("adm:char:edit:subtitle:"))
+async def admin_char_edit_subtitle_start(callback: CallbackQuery, state: FSMContext) -> None:
+    char_id = callback.data.split(":")[-1]
+    await state.set_state(AdminCharacterStates.edit_subtitle)
+    await state.update_data(edit_character_id=char_id)
+    await callback.message.edit_text(
+        "Введите новую <b>подпись</b> под именем (или «-» чтобы убрать):",
+        reply_markup=cancel_kb(f"adm:char:edit:{char_id}"),
+    )
+    await callback.answer()
+
+
+@router.message(AdminCharacterStates.edit_subtitle)
+async def admin_char_edit_subtitle_save(message: Message, state: FSMContext) -> None:
+    raw = (message.text or "").strip()
+    subtitle = "" if raw in {"-", "—", "нет", "убрать"} else raw
+    data = await state.get_data()
+    await _apply_character_update(message, state, UUID(data["edit_character_id"]), subtitle=subtitle)
+
+
+@router.callback_query(F.data.startswith("adm:char:edit:behavior:"))
+async def admin_char_edit_behavior_start(callback: CallbackQuery, state: FSMContext) -> None:
+    char_id = callback.data.split(":")[-1]
+    await state.set_state(AdminCharacterStates.behavior_param)
+    await state.update_data(
+        edit_character_id=char_id,
+        behavior_params=[],
+        behavior_param_index=1,
+    )
+    await callback.message.edit_text(
+        f"Параметр поведения <b>1/{BEHAVIOR_PARAMS_COUNT}</b>\n"
+        "Краткая черта для нейросети (тон, характер, стиль речи):",
+        reply_markup=cancel_kb(f"adm:char:edit:{char_id}"),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("adm:char:edit:photo:"))
+async def admin_char_edit_photo_start(callback: CallbackQuery, state: FSMContext) -> None:
+    char_id = callback.data.split(":")[-1]
+    await state.set_state(AdminCharacterStates.edit_photo)
+    await state.update_data(edit_character_id=char_id)
+    await callback.message.edit_text(
+        "Отправьте новое <b>фото</b> персонажа или /skip чтобы удалить:",
+        reply_markup=cancel_kb(f"adm:char:edit:{char_id}"),
+    )
+    await callback.answer()
+
+
+@router.message(AdminCharacterStates.edit_photo, Command("skip"))
+async def admin_char_edit_photo_skip(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    await _apply_character_update(
+        message, state, UUID(data["edit_character_id"]), clear_avatar=True
+    )
+
+
+@router.message(AdminCharacterStates.edit_photo, F.photo)
+async def admin_char_edit_photo_save(message: Message, state: FSMContext, bot: Bot) -> None:
+    try:
+        avatar_url = await upload_telegram_photo(bot, message.photo[-1].file_id)
+    except Exception as exc:
+        await message.answer(f"Не удалось загрузить фото: {exc}")
+        return
+    data = await state.get_data()
+    await _apply_character_update(
+        message, state, UUID(data["edit_character_id"]), avatar_url=avatar_url
+    )
 
 
 @router.callback_query(F.data.startswith("adm:char:scenarios:"))

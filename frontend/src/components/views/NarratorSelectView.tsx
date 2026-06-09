@@ -11,11 +11,11 @@ import { useToast } from "@/hooks/use-toast";
 import { BackButton } from "@/components/shared/BackButton";
 import { ScenarioRowSkeleton } from "@/components/shared/Skeleton";
 import { AnimeHeartIcon } from "@/components/icons/CurrencyIcons";
-import { QUERY_KEYS } from "@/lib/constants";
+import { characterNarratorsQueryOptions } from "@/lib/catalog-queries";
+import { chatService } from "@/services/api";
+import { getApiError } from "@/lib/api-client";
 import { chatBorderStyle, chatSeparatorStyle } from "@/lib/theme";
 import { truncate } from "@/lib/utils";
-import { characterService, chatService } from "@/services/api";
-import { getApiError } from "@/lib/api-client";
 
 export type CharacterNarrator = {
   id: string;
@@ -56,11 +56,8 @@ export function NarratorSelectView() {
   };
 
   const { data: narrators = [], isLoading } = useQuery<CharacterNarrator[]>({
-    queryKey: QUERY_KEYS.characterNarrators(resolvedCharacterId ?? ""),
-    queryFn: () =>
-      characterService.listNarrators(resolvedCharacterId!) as Promise<CharacterNarrator[]>,
+    ...characterNarratorsQueryOptions(resolvedCharacterId ?? ""),
     enabled: !!resolvedCharacterId,
-    retry: 1,
   });
 
   return (

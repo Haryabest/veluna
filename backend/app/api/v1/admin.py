@@ -101,7 +101,13 @@ async def ban_user(
     admin: UserResponse = Depends(get_admin_user),
     session: AsyncSession = Depends(get_db),
 ):
-    return await _service(session).set_user_ban(admin.id, user_id, body.is_banned)
+    return await _service(session).set_user_ban(
+        admin.id,
+        user_id,
+        body.is_banned,
+        reason=body.reason,
+        duration_days=body.duration_days,
+    )
 
 
 @router.post("/users/{user_id}/gems")

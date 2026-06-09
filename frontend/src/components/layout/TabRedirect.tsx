@@ -2,12 +2,12 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useNavStore } from "@/store/nav-store";
+import { useSetTab } from "@/hooks/use-catalog-navigation";
 
 /** Redirect legacy routes to main shell with correct tab */
 export function TabRedirect({ tab }: { tab: "studio" | "profile" | "chats" | "home" }) {
   const router = useRouter();
-  const setTab = useNavStore((s) => s.setTab);
+  const setTab = useSetTab();
 
   useEffect(() => {
     setTab(tab);

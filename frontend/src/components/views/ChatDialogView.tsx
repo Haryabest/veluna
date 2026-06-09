@@ -5,8 +5,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavStore } from "@/store/nav-store";
 import { useChatsListStore, mapApiChatDetail } from "@/store/chats-list-store";
 import { ChatPhotoGenerateModal } from "@/components/chats/ChatPhotoGenerateModal";
-import { characterService, chatService, generationService } from "@/services/api";
+import { chatService, generationService } from "@/services/api";
 import { getApiError } from "@/lib/api-client";
+import {
+  characterNarratorsQueryOptions,
+  characterScenariosQueryOptions,
+} from "@/lib/catalog-queries";
 import { QUERY_KEYS } from "@/lib/constants";
 import { EmojiPicker } from "@/components/widgets/EmojiPicker";
 import { AnimeGemIcon } from "@/components/icons/CurrencyIcons";
@@ -27,7 +31,9 @@ import { useToast } from "@/hooks/use-toast";
 import { renderMarkdownLite } from "@/lib/markdown-lite";
 import { cn } from "@/lib/utils";
 import { readMessagesCache, writeMessagesCache } from "@/lib/chat-messages-cache";
+import { buildChatMessageRows } from "@/lib/chat-dates";
 import { CHAT_BORDER } from "@/lib/theme";
+import { ChatDaySeparator } from "@/components/chats/ChatDaySeparator";
 import type { CharacterScenario } from "@/store/character-store";
 import { X } from "lucide-react";
 
@@ -45,21 +51,14 @@ type ChatMessage = {
   reply_preview?: { id: string; role: string; content: string } | null;
 };
 
-function mapApiMessage(raw: {
-  id: string;
-  role: string;
-  content: string;
-  created_at?: string;
-  reply_to_id?: string | null;
-  reply_preview?: { id: string; role: string; content: string } | null;
-}): ChatMessage {
+function mapApiMessage(raw: Record<string, unknown>): ChatMessage {
   return {
     id: String(raw.id),
-    role: raw.role,
-    content: raw.content,
-    created_at: raw.created_at,
-    reply_to_id: raw.reply_to_id ?? null,
-    reply_preview: raw.reply_preview ?? null,
+    role: String(raw.role),
+    content: String(raw.content ?? ""),
+    created_at: (raw.created_at as string | undefined) ?? (raw.createdAt as string | undefined),
+    reply_to_id: (raw.reply_to_id as string | null | undefined) ?? null,
+    reply_preview: (raw.reply_preview as ChatMessage["reply_preview"]) ?? null,
   };
 }
 
@@ -156,30 +155,39 @@ export function ChatDialogView() {
   const chatMeta = listChat ?? (chatDetail ? mapApiChatDetail(chatDetail) : undefined);
   const characterId = chatMeta?.characterId;
 
-  const { data: scenarios = [], isLoading: scenariosLoading } = useQuery<CharacterScenario[]>({
-    queryKey: QUERY_KEYS.characterScenarios(characterId ?? ""),
-    queryFn: () => characterService.listScenarios(characterId!) as Promise<CharacterScenario[]>,
+  const { data: scenarios = [], isLoading: scenariosLoading } = useQuery({
+    ...characterScenariosQueryOptions(characterId ?? ""),
     enabled: !!characterId && menuOpen,
   });
 
-  const { data: narrators = [], isLoading: narratorsLoading } = useQuery<CharacterNarrator[]>({
-    queryKey: QUERY_KEYS.characterNarrators(characterId ?? ""),
-    queryFn: () =>
-      characterService.listNarrators(characterId!) as Promise<CharacterNarrator[]>,
+  const { data: narrators = [], isLoading: narratorsLoading } = useQuery({
+    ...characterNarratorsQueryOptions(characterId ?? ""),
     enabled: !!characterId && menuOpen,
   });
+
+  useEffect(() => {
+    if (!menuOpen || !characterId) return;
+    void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.characterScenarios(characterId) });
+    void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.characterNarrators(characterId) });
+  }, [menuOpen, characterId, queryClient]);
 
   const { data: messages, isLoading } = useQuery({
     queryKey: QUERY_KEYS.messages(chatId ?? ""),
     queryFn: async () => {
       const list = await chatService.getMessages(chatId!);
-      if (chatId) writeMessagesCache(chatId, list);
-      return list;
+      const mapped = (Array.isArray(list) ? list : []).map((m) => mapApiMessage(m as Record<string, unknown>));
+      if (chatId) writeMessagesCache(chatId, mapped);
+      return mapped;
     },
     enabled: !!chatId,
     staleTime: 2 * 60_000,
     gcTime: 15 * 60_000,
-    placeholderData: () => (chatId ? readMessagesCache(chatId) : undefined),
+    placeholderData: () => {
+      if (!chatId) return undefined;
+      const cached = readMessagesCache(chatId);
+      if (!Array.isArray(cached)) return undefined;
+      return cached.map((m) => mapApiMessage(m as Record<string, unknown>));
+    },
     refetchInterval: isAiThinking ? 2000 : false,
   });
 
@@ -346,6 +354,7 @@ export function ChatDialogView() {
   const narratorName = chatMeta.narratorName;
   const avatarUrl = chatMeta.avatarUrl;
   const displayMessages: ChatMessage[] = Array.isArray(messages) ? messages : [];
+  const messageRows = buildChatMessageRows(displayMessages);
 
   const openMessageMenu = useCallback((msg: ChatMessage, clientX: number, clientY: number) => {
     if (msg.role === "system") return;
@@ -465,9 +474,13 @@ export function ChatDialogView() {
             ))}
           </div>
         ) : (
-          displayMessages.map((msg) => (
-            <ChatMessageBubble key={msg.id} msg={msg} onLongPress={openMessageMenu} />
-          ))
+          messageRows.map((row) =>
+            row.kind === "day" ? (
+              <ChatDaySeparator key={row.id} label={row.label} />
+            ) : (
+              <ChatMessageBubble key={row.id} msg={row.msg} onLongPress={openMessageMenu} />
+            )
+          )
         )}
         {pendingGenerationId ? <ChatArtGeneratingBubble /> : null}
         {isAiThinking && <ChatThinkingBubble />}

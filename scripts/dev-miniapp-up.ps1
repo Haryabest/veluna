@@ -75,67 +75,37 @@ $log = Join-Path $Root ".pinggy.log"
 Remove-Item $log -Force -ErrorAction SilentlyContinue
 
 Write-Host ""
-Write-Host "=== Pinggy tunnel ===" -ForegroundColor Cyan
-Write-Host "1. A NEW PowerShell window will open (check the taskbar: 'Veluna Pinggy')." -ForegroundColor Yellow
-Write-Host "2. In that window: if 'password' is asked -> press ENTER (empty)." -ForegroundColor Yellow
-Write-Host "3. Wait for https://....pinggy-free.link in that window." -ForegroundColor Yellow
-Write-Host "4. Keep that window OPEN while using the Mini App." -ForegroundColor Yellow
+Write-Host "=== Pinggy tunnel (background) ===" -ForegroundColor Cyan
+Write-Host "Log: $log and logs/pinggy.log" -ForegroundColor DarkGray
 Write-Host ""
 
-$sshArgs = @(
+Write-Host "Starting Pinggy in background (log: $log)..." -ForegroundColor Cyan
+$ssh = (Get-Command ssh -ErrorAction Stop).Source
+. (Join-Path $PSScriptRoot "lib\process-utils.ps1")
+Start-HiddenProcess -FilePath $ssh -ArgumentList @(
     "-p", "443", "-T",
     "-R0:127.0.0.1:3000",
     "-o", "StrictHostKeyChecking=no",
     "-o", "ServerAliveInterval=30",
     "-o", "ServerAliveCountMax=3",
     "free.pinggy.io"
-)
-
-$logEscaped = $log.Replace("'", "''")
-$inner = @"
-`$host.UI.RawUI.WindowTitle = 'Veluna Pinggy'
-Write-Host '=== Veluna Pinggy ===' -ForegroundColor Cyan
-Write-Host 'Password? Press ENTER (leave empty).' -ForegroundColor Yellow
-Write-Host ''
-ssh -p 443 -T -R0:127.0.0.1:3000 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=3 free.pinggy.io 2>&1 | ForEach-Object {
-  Write-Host `$_
-  Add-Content -LiteralPath '$logEscaped' -Value `$_ -Encoding utf8 -ErrorAction SilentlyContinue
-}
-Write-Host ''
-Write-Host 'Tunnel stopped or disconnected.' -ForegroundColor Red
-Read-Host 'Press Enter to close'
-"@
-
-$pinggyStarted = $false
-try {
-    Start-Process -FilePath "powershell.exe" `
-        -ArgumentList "-NoExit", "-NoProfile", "-Command", $inner `
-        -WindowStyle Normal | Out-Null
-    Write-Host "Pinggy window started." -ForegroundColor Green
-    $pinggyStarted = $true
-} catch {
-    Write-Host "Could not open separate window - starting tunnel in background." -ForegroundColor Yellow
-    $bg = "`$log = '$logEscaped'; ssh -p 443 -T -R0:127.0.0.1:3000 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=3 free.pinggy.io 2>&1 | ForEach-Object { Add-Content -LiteralPath `$log -Value `$_ -Encoding utf8 -ErrorAction SilentlyContinue }"
-    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile", "-WindowStyle", "Hidden", "-Command", $bg -WindowStyle Hidden | Out-Null
-    Write-Host "Pinggy runs in background (log: $log)." -ForegroundColor Green
-    $pinggyStarted = $true
-}
-if (-not $pinggyStarted) {
-    throw "Could not start Pinggy. Run manually: ssh -p 443 -T -R0:127.0.0.1:3000 free.pinggy.io"
-}
+) -WorkingDirectory $Root -LogBaseName "pinggy" -Root $Root | Out-Null
+Write-Host "Pinggy started (background)." -ForegroundColor Green
 
 $found = $null
 $deadline = (Get-Date).AddSeconds(90)
 $waited = 0
 while ((Get-Date) -lt $deadline -and -not $found) {
-    if (Test-Path $log) {
-        $found = Find-PinggyUrl (Get-Content $log -Raw -Encoding utf8 -ErrorAction SilentlyContinue)
+    $pinggyLog = Join-Path $Root "logs\pinggy.log"
+    foreach ($path in @($log, $pinggyLog)) {
+        if ($found -or -not (Test-Path $path)) { continue }
+        $found = Find-PinggyUrl (Get-Content $path -Raw -Encoding utf8 -ErrorAction SilentlyContinue)
     }
     if (-not $found) {
         Start-Sleep 2
         $waited += 2
         if ($waited % 10 -eq 0) {
-            Write-Host "  Waiting for URL... ${waited}s / 90s (see 'Veluna Pinggy' window)" -ForegroundColor DarkGray
+            Write-Host "  Waiting for URL... ${waited}s / 90s (see logs/pinggy.log)" -ForegroundColor DarkGray
         }
     }
 }
@@ -143,7 +113,7 @@ while ((Get-Date) -lt $deadline -and -not $found) {
 if (-not $found) {
     Write-Host ""
     Write-Host "URL not detected automatically." -ForegroundColor Yellow
-    Write-Host "Copy https://....pinggy-free.link from the 'Veluna Pinggy' window." -ForegroundColor Yellow
+    Write-Host "Copy https://....pinggy-free.link from logs/pinggy.log" -ForegroundColor Yellow
     Write-Host "Or run: .\scripts\dev-miniapp-up.ps1 -Url https://YOUR-URL.pinggy-free.link"
     Write-Host ""
     $manual = Read-Host "Paste URL here (Enter to cancel)"
@@ -156,4 +126,4 @@ if (-not $found) {
 & (Join-Path $PSScriptRoot "set-miniapp-url.ps1") -Url $found
 Write-Host ""
 Write-Host "Mini App URL: $found" -ForegroundColor Green
-Write-Host "Keep the 'Veluna Pinggy' window OPEN. Open the bot -> menu button." -ForegroundColor Cyan
+Write-Host "Pinggy runs in background. Open the bot -> menu button." -ForegroundColor Cyan

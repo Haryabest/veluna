@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import AiReplyStatus, Chat, ChatStatus, Message, MessageRole
+from app.utils.message_preview import format_message_preview
 
 
 class ChatRepository:
@@ -103,8 +104,7 @@ class ChatRepository:
         )
         previews: dict[UUID, str | None] = {cid: None for cid in chat_ids}
         for chat_id, content in result.all():
-            text = (content or "").strip()
-            previews[chat_id] = text[:120] if len(text) > 120 else text or None
+            previews[chat_id] = format_message_preview(content)
         return previews
 
     async def update_title(self, chat: Chat, title: str) -> Chat:

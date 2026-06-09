@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
 from app.core.config import get_settings
-from app.core.exceptions import VelunaError
+from app.core.exceptions import AccountBannedError, VelunaError
 from app.core.logging import setup_logging
 from app.middleware.rate_limit import RateLimitMiddleware, RequestLoggingMiddleware
 from app.websocket.manager import websocket_chat_handler
@@ -46,13 +46,20 @@ async def veluna_exception_handler(_request, exc: VelunaError):
     status_map = {
         "NOT_FOUND": 404,
         "FORBIDDEN": 403,
+        "ACCOUNT_BANNED": 403,
         "INSUFFICIENT_BALANCE": 402,
         "RATE_LIMIT": 429,
         "SERVICE_UNAVAILABLE": 503,
     }
+    detail: dict = {"code": exc.code, "message": exc.message}
+    if isinstance(exc, AccountBannedError):
+        detail["ban_reason"] = exc.ban_reason
+        detail["banned_until"] = (
+            exc.banned_until.isoformat() if exc.banned_until is not None else None
+        )
     return JSONResponse(
         status_code=status_map.get(exc.code, 400),
-        content={"detail": {"code": exc.code, "message": exc.message}},
+        content={"detail": detail},
     )
 
 

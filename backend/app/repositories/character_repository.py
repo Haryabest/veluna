@@ -50,7 +50,7 @@ class CharacterRepository:
 
     async def update(self, character: Character, **kwargs) -> Character:
         for key, value in kwargs.items():
-            if value is not None and hasattr(character, key):
+            if hasattr(character, key):
                 setattr(character, key, value)
         await self._session.flush()
         return character

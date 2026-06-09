@@ -5,8 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CharacterCard } from "@/components/entities/CharacterCard";
 import { CharacterCardSkeleton } from "@/components/shared/Skeleton";
 import { CurrencyBar } from "@/components/widgets/CurrencyBar";
-import { QUERY_KEYS } from "@/lib/constants";
-import { characterService, balanceService } from "@/services/api";
+import { charactersListQueryOptions, balanceQueryOptions } from "@/lib/catalog-queries";
 import type { Character } from "@/store/character-store";
 import { useCharacterStore } from "@/store/character-store";
 
@@ -17,18 +16,9 @@ function sortCharacters(list: Character[]): Character[] {
 export function HomeView() {
   const setCharacters = useCharacterStore((s) => s.setCharacters);
 
-  const { data: balance } = useQuery({
-    queryKey: QUERY_KEYS.balance,
-    queryFn: () => balanceService.get(),
-    staleTime: 15_000,
-  });
+  const { data: balance } = useQuery(balanceQueryOptions);
 
-  const { data, isFetching, isError } = useQuery({
-    queryKey: QUERY_KEYS.characters(1),
-    queryFn: () => characterService.list(1),
-    retry: 1,
-    staleTime: 30_000,
-  });
+  const { data, isFetching, isError } = useQuery(charactersListQueryOptions);
 
   const characters: Character[] = useMemo(() => {
     const items = data?.items;
@@ -39,9 +29,9 @@ export function HomeView() {
   }, [data]);
 
   useEffect(() => {
-    if (Array.isArray(data?.items) && data.items.length > 0) {
-      setCharacters(sortCharacters(data.items as Character[]));
-    }
+    const items = data?.items;
+    if (!Array.isArray(items)) return;
+    setCharacters(sortCharacters(items as Character[]));
   }, [data, setCharacters]);
 
   return (
@@ -53,7 +43,7 @@ export function HomeView() {
           <h2 className="text-xs font-semibold uppercase tracking-widest text-text-muted">
             Персонажи
           </h2>
-          {isFetching && characters.length === 0 && (
+          {isFetching && (
             <span className="text-[10px] text-text-muted">обновление…</span>
           )}
           {isError && (

@@ -18,6 +18,8 @@ import { StudioGeneratingView } from "@/components/views/StudioGeneratingView";
 import { StudioResultView } from "@/components/views/StudioResultView";
 import { StudioAllModelsView } from "@/components/views/StudioAllModelsView";
 import { cn } from "@/lib/utils";
+import { useCatalogRefresh } from "@/hooks/use-catalog-refresh";
+import { useCatalogVersionCheck } from "@/hooks/use-catalog-version-check";
 
 function ScreenContent({ screen }: { screen: AppScreen }) {
   switch (screen) {
@@ -59,6 +61,8 @@ function ScreenContent({ screen }: { screen: AppScreen }) {
 export function AppShell() {
   const screen = useNavStore((s) => s.screen);
   const showNav = isMainTab(screen);
+  useCatalogRefresh();
+  useCatalogVersionCheck();
 
   return (
     <>

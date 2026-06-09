@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useNavStore } from "@/store/nav-store";
+import { useOpenShop } from "@/hooks/use-catalog-navigation";
 import { useUserStore } from "@/store/user-store";
 import { AnimeGemIcon, AnimeHeartIcon } from "@/components/icons/CurrencyIcons";
 import { formatGems } from "@/lib/utils";
@@ -13,7 +13,7 @@ interface CurrencyBarProps {
 
 export function CurrencyBar({ gems: gemsProp, hearts: heartsProp }: CurrencyBarProps) {
   const { user } = useUserStore();
-  const openShop = useNavStore((s) => s.openShop);
+  const openShop = useOpenShop();
   const gems = gemsProp ?? user?.gems ?? 0;
   const hearts = heartsProp ?? 0;
 

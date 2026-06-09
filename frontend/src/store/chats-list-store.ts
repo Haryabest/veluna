@@ -68,6 +68,13 @@ function formatChatTime(iso: string | null | undefined): string {
   return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
 }
 
+function formatChatPreview(raw: string | null | undefined): string {
+  const text = (raw ?? "").trim();
+  if (!text) return "Начни диалог…";
+  if (/^!\[[^\]]*\]\([^)]+\)\s*$/.test(text)) return "фотография";
+  return text;
+}
+
 function mapApiChat(raw: {
   id: string;
   character_id: string;
@@ -96,7 +103,7 @@ function mapApiChat(raw: {
     narratorId: raw.narrator_id ?? null,
     narratorName,
     avatarUrl: raw.character_avatar_url || "",
-    preview: raw.last_message_preview || "Начни диалог…",
+    preview: formatChatPreview(raw.last_message_preview),
     time: formatChatTime(raw.last_message_at),
     unread: raw.unread ?? 0,
     isSystem: raw.is_system ?? false,

@@ -22,8 +22,7 @@ export function renderMarkdownLite(text: string): ReactNode[] {
     nodes.push(
       <span key={`img-${key++}`} className="mt-1 block">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={url} alt={alt} className="max-w-full rounded-xl object-contain" />
-        {alt ? <span className="mt-1 block text-xs text-text-muted">{alt}</span> : null}
+        <img src={url} alt={alt || "фотография"} className="max-w-full rounded-xl object-contain" />
       </span>
     );
     lastIndex = match.index + match[0].length;

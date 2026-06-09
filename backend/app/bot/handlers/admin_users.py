@@ -8,6 +8,11 @@ from aiogram.types import CallbackQuery, Message
 from app.bot.db import bot_session
 from app.bot.filters import AdminFilter
 from app.bot.keyboards import (
+    ADMIN_BAN_DURATIONS,
+    ADMIN_BAN_DURATION_1,
+    ADMIN_BAN_DURATION_30,
+    ADMIN_BAN_DURATION_7,
+    ADMIN_BAN_DURATION_FOREVER,
     ADMIN_MENU_TEXT_BACK_ADMIN,
     main_reply_keyboard,
     ADMIN_MENU_TEXT_BACK_STATS,
@@ -25,6 +30,8 @@ from app.bot.keyboards import (
     ADMIN_USERS_PAGE_PREV,
     ADMIN_USERS_CLEAR_SEARCH,
     ADMIN_USERS_SEARCH,
+    ban_duration_keyboard,
+    ban_reason_keyboard,
     stats_submenu_keyboard,
     user_detail_keyboard,
     user_edit_keyboard,
@@ -37,6 +44,7 @@ from app.core.exceptions import ForbiddenError, NotFoundError
 from app.repositories.user_repository import UserRepository
 from app.schemas.admin import AdminUserUpdateRequest
 from app.services.admin_service import AdminService
+from app.services.user_ban_service import ban_duration_label, format_ban_message
 
 router = Router(name="admin_users")
 router.message.filter(AdminFilter())
@@ -169,7 +177,12 @@ async def _send_users_list(
 def _format_user_detail(detail, stats, finance: dict | None = None) -> str:
     name = " ".join(filter(None, [detail.first_name, detail.last_name])) or "Без имени"
     uname = f"@{detail.username}" if detail.username else f"tg:{detail.telegram_id}"
-    ban = "да 🚫" if detail.is_banned else "нет"
+    if detail.is_banned:
+        until = ban_duration_label(detail.banned_until)
+        reason = (detail.ban_reason or "не указана").strip()
+        ban = f"да 🚫 · до <b>{until}</b>\nПричина: {reason}"
+    else:
+        ban = "нет"
     active = "да" if detail.is_active else "нет"
     text = (
         f"<b>{name}</b>\n"
@@ -311,8 +324,117 @@ async def admin_user_pick(message: Message, state: FSMContext) -> None:
     await _send_user_detail(message, state, user_id)
 
 
-@router.message(F.text.in_({ADMIN_USER_BLOCK, ADMIN_USER_UNBLOCK}))
-async def admin_user_toggle_ban(message: Message, state: FSMContext) -> None:
+@router.message(F.text == ADMIN_USER_BLOCK)
+async def admin_user_ban_start(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    uid = data.get("selected_user_id")
+    if not uid:
+        await message.answer("Сначала выберите пользователя из списка.")
+        return
+
+    await state.set_state(AdminUserStates.ban_duration)
+    await message.answer(
+        "<b>Блокировка профиля</b>\n\nВыберите срок блокировки:",
+        reply_markup=ban_duration_keyboard(),
+    )
+
+
+@router.message(AdminUserStates.ban_duration, F.text == ADMIN_MENU_TEXT_BACK_USER)
+async def admin_user_ban_cancel(message: Message, state: FSMContext) -> None:
+    await state.set_state(None)
+    data = await state.get_data()
+    uid = data.get("selected_user_id")
+    if uid:
+        await _send_user_detail(message, state, UUID(uid))
+
+
+@router.message(AdminUserStates.ban_duration, F.text.in_(ADMIN_BAN_DURATIONS))
+async def admin_user_ban_duration(message: Message, state: FSMContext) -> None:
+    duration_map = {
+        ADMIN_BAN_DURATION_1: 1,
+        ADMIN_BAN_DURATION_7: 7,
+        ADMIN_BAN_DURATION_30: 30,
+        ADMIN_BAN_DURATION_FOREVER: None,
+    }
+    duration_days = duration_map.get(message.text or "")
+    if duration_days is None and message.text != ADMIN_BAN_DURATION_FOREVER:
+        await message.answer("Выберите срок кнопкой ниже.")
+        return
+
+    until_label = ban_duration_label(None) if duration_days is None else f"{duration_days} дн."
+    await state.update_data(ban_duration_days=duration_days)
+    await state.set_state(AdminUserStates.ban_reason)
+    await message.answer(
+        f"Срок: <b>{until_label}</b>\n\n"
+        "Введите <b>причину блокировки</b> (увидит пользователь):\n\n"
+        "<i>Отмена: «← К пользователю»</i>",
+        reply_markup=ban_reason_keyboard(),
+    )
+
+
+@router.message(AdminUserStates.ban_duration)
+async def admin_user_ban_duration_invalid(message: Message) -> None:
+    await message.answer("Выберите срок блокировки кнопкой ниже.", reply_markup=ban_duration_keyboard())
+
+
+@router.message(AdminUserStates.ban_reason)
+async def admin_user_ban_apply(message: Message, state: FSMContext) -> None:
+    if message.text == ADMIN_MENU_TEXT_BACK_USER:
+        await state.set_state(None)
+        data = await state.get_data()
+        uid = data.get("selected_user_id")
+        if uid:
+            await _send_user_detail(message, state, UUID(uid))
+        return
+
+    reason = (message.text or "").strip()
+    if not reason:
+        await message.answer("Причина не может быть пустой. Введите текст или нажмите «← К пользователю».")
+        return
+
+    data = await state.get_data()
+    uid = data.get("selected_user_id")
+    if not uid:
+        await state.set_state(None)
+        await message.answer("Пользователь не выбран.")
+        return
+
+    admin_id = await _admin_id(message.from_user.id)
+    if not admin_id:
+        return
+
+    duration_days = data.get("ban_duration_days")
+    user_id = UUID(uid)
+    try:
+        async with bot_session() as session:
+            detail = await AdminService(session).set_user_ban(
+                admin_id,
+                user_id,
+                True,
+                reason=reason,
+                duration_days=duration_days,
+            )
+    except (ForbiddenError, NotFoundError) as exc:
+        await _answer_admin_error(message, exc)
+        return
+    except Exception as exc:
+        await _answer_admin_error(message, exc)
+        return
+
+    await state.set_state(None)
+    await message.answer("Пользователь заблокирован.")
+    try:
+        await message.bot.send_message(
+            detail.telegram_id,
+            format_ban_message(detail.ban_reason, detail.banned_until),
+        )
+    except Exception:
+        pass
+    await _send_user_detail(message, state, user_id)
+
+
+@router.message(F.text == ADMIN_USER_UNBLOCK)
+async def admin_user_unban(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     uid = data.get("selected_user_id")
     if not uid:
@@ -323,10 +445,9 @@ async def admin_user_toggle_ban(message: Message, state: FSMContext) -> None:
     if not admin_id:
         return
 
-    ban = message.text == ADMIN_USER_BLOCK
     try:
         async with bot_session() as session:
-            await AdminService(session).set_user_ban(admin_id, UUID(uid), ban)
+            await AdminService(session).set_user_ban(admin_id, UUID(uid), False)
     except (ForbiddenError, NotFoundError) as exc:
         await _answer_admin_error(message, exc)
         return
@@ -334,8 +455,7 @@ async def admin_user_toggle_ban(message: Message, state: FSMContext) -> None:
         await _answer_admin_error(message, exc)
         return
 
-    action = "заблокирован" if ban else "разблокирован"
-    await message.answer(f"Пользователь {action}.")
+    await message.answer("Пользователь разблокирован.")
     await _send_user_detail(message, state, UUID(uid))
 
 

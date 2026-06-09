@@ -8,6 +8,7 @@ from app.utils.civitai_air import (
     ecosystem_from_air,
     resolve_civitai_model_air,
     resolve_civitai_model_label,
+    resource_type_from_air,
 )
 from app.providers.ai.image_base import (
     ImageGenerationProvider,
@@ -115,6 +116,12 @@ class CivitaiProvider(ImageGenerationProvider):
 
         model_urn = await resolve_civitai_model_air(request.model)
         model_label = await resolve_civitai_model_label(request.model)
+        resource_type = resource_type_from_air(model_urn)
+        if resource_type and resource_type != "checkpoint":
+            raise ValueError(
+                f"«{model_label}» — это {resource_type}, а не checkpoint. "
+                "Для генерации нужна полноценная модель (Checkpoint), не LoRA/Embedding."
+            )
         ecosystem = ecosystem_from_air(model_urn)
         if not model_urn:
             raise ValueError("Civitai model is required")

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Home, MessageCircle, Palette, User, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMounted } from "@/hooks/use-mounted";
+import { useSetTab } from "@/hooks/use-catalog-navigation";
 import { useNavStore, type AppTab } from "@/store/nav-store";
 
 const navItems: { tab: AppTab; label: string; Icon: LucideIcon }[] = [
@@ -16,7 +17,7 @@ const navItems: { tab: AppTab; label: string; Icon: LucideIcon }[] = [
 export function BottomNav() {
   const mounted = useMounted();
   const tab = useNavStore((s) => s.tab);
-  const setTab = useNavStore((s) => s.setTab);
+  const setTab = useSetTab();
 
   return (
     <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-[max(1rem,env(safe-area-inset-bottom))]">

@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import type { Character } from "@/store/character-store";
-import { useNavStore } from "@/store/nav-store";
+import { useOpenCharacter } from "@/hooks/use-catalog-navigation";
 import { truncate } from "@/lib/utils";
 
 interface CharacterCardProps {
@@ -11,7 +11,7 @@ interface CharacterCardProps {
 }
 
 export function CharacterCard({ character, index = 0 }: CharacterCardProps) {
-  const openCharacter = useNavStore((s) => s.openCharacter);
+  const openCharacter = useOpenCharacter();
   const imageUrl = character.preview_url || character.avatar_url;
 
   return (

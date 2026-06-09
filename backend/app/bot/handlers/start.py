@@ -2,9 +2,12 @@ from aiogram import Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
 
+from app.bot.db import bot_session
 from app.bot.filters import is_bot_admin
 from app.bot.keyboards import start_keyboard, user_start_inline
 from app.core.config import reload_settings
+from app.repositories.user_repository import UserRepository
+from app.services.user_ban_service import format_ban_message, is_ban_active, refresh_ban_status
 
 router = Router(name="start")
 
@@ -61,6 +64,15 @@ async def cmd_start(message: Message) -> None:
     settings = reload_settings()
     webapp_url = settings.telegram_webapp_url
     is_admin = await is_bot_admin(message.from_user)
+
+    async with bot_session() as session:
+        repo = UserRepository(session)
+        user = await repo.get_by_telegram_id(message.from_user.id)
+        if user:
+            user = await refresh_ban_status(user, repo)
+            if is_ban_active(user):
+                await message.answer(format_ban_message(user.ban_reason, user.banned_until))
+                return
 
     if not webapp_url:
         await message.answer(

@@ -99,11 +99,15 @@ function Set-FrontendBackendPort([int]$Port) {
 }
 
 function Start-FrontendProcess([int]$BackendPort, [string]$NpmScript) {
+    . (Join-Path $Scripts "lib\process-utils.ps1")
     $feDir = Join-Path $Root "frontend"
-    Start-Process powershell.exe -ArgumentList @(
-        "-NoExit", "-NoProfile", "-Command",
-        "cd '$feDir'; `$host.UI.RawUI.WindowTitle='Veluna Frontend'; `$env:BACKEND_PORT='$BackendPort'; npm run $NpmScript"
-    ) -WindowStyle Normal | Out-Null
+    if ($NpmScript -eq "start") {
+        Start-FrontendHidden -WorkingDirectory $feDir -Root $Root -BackendPort $BackendPort | Out-Null
+        return
+    }
+    $env:BACKEND_PORT = "$BackendPort"
+    Start-NpmHidden -NpmArgs @("run", $NpmScript) `
+        -WorkingDirectory $feDir -LogBaseName "frontend" -Root $Root | Out-Null
 }
 
 function Sync-EnvFiles {
@@ -270,10 +274,7 @@ function Start-Bot {
         Where-Object { $_.CommandLine -match 'app\.bot\.main' } |
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
     Start-Sleep -Seconds 1
-    Start-Process powershell.exe -ArgumentList @(
-        "-NoExit", "-NoProfile", "-ExecutionPolicy", "Bypass",
-        "-File", (Join-Path $Scripts "run-bot-local.ps1")
-    ) -WindowStyle Normal | Out-Null
+    & (Join-Path $Scripts "run-bot-local.ps1") -Background
 }
 
 # --- main ---
@@ -362,11 +363,11 @@ Write-Host "  API proxy: http://127.0.0.1:3000/api/v1  -> 127.0.0.1:$backendPort
 if ($tunnelUrl) {
     Write-Host "  Mini App:  $tunnelUrl" -ForegroundColor Cyan
     Write-Host "  Telegram:  bot -> Open Veluna /start"
-    Write-Host "  Keep window 'Veluna Pinggy' OPEN." -ForegroundColor Yellow
+    Write-Host "  Pinggy runs in background (logs/pinggy.log)." -ForegroundColor DarkGray
 }
 Write-Host ""
-Write-Host "  Windows opened:" -ForegroundColor DarkGray
-Write-Host "    - Veluna Backend / Frontend / Bot / Pinggy / Celery (if host)"
+Write-Host "  Services run in background (no extra CMD windows). Logs: $Root\logs\" -ForegroundColor DarkGray
+Write-Host "  To stop host services: .\scripts\stop-veluna-host.ps1" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "  Quick restart (no rebuild):" -ForegroundColor DarkGray
 Write-Host "    .\scripts\veluna-up.ps1 -SkipBuild"

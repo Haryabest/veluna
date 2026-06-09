@@ -255,6 +255,13 @@ export const shopService = {
   },
 };
 
+export const catalogService = {
+  async getVersion() {
+    const { data } = await apiClient.get<{ version: number }>("/catalog/version");
+    return data.version;
+  },
+};
+
 export interface UserBalance {
   gems: number;
   credits: number;

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError
 from app.models import ShopProductType
 from app.repositories.catalog_repository import CatalogRepository
+from app.services.catalog_version_service import bump_catalog_version
 from app.schemas.catalog import (
     AdminUserStatsResponse,
     HomeArtResponse,
@@ -137,6 +138,7 @@ class CatalogService:
             sort_order=sort_order,
             image_url=image_url,
         )
+        await bump_catalog_version()
         return ShopProductResponse.model_validate(product)
 
     async def get_product(self, product_id: UUID) -> ShopProductResponse:
@@ -150,6 +152,7 @@ class CatalogService:
         if not product:
             raise NotFoundError("ShopProduct", str(product_id))
         updated = await self._repo.update_product(product, **kwargs)
+        await bump_catalog_version()
         return ShopProductResponse.model_validate(updated)
 
     async def delete_product(self, product_id: UUID) -> None:
@@ -157,6 +160,7 @@ class CatalogService:
         if not product:
             raise NotFoundError("ShopProduct", str(product_id))
         await self._repo.delete_product(product)
+        await bump_catalog_version()
 
 
 def _slug_code(name: str) -> str:

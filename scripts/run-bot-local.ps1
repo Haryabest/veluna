@@ -1,5 +1,7 @@
 # Run Telegram bot on Windows host (not Docker).
 # Docker containers often cannot reach api.telegram.org when VPN/TUN is active.
+param([switch]$Background)
+
 $ErrorActionPreference = "Stop"
 $Root = Split-Path $PSScriptRoot -Parent
 Set-Location (Join-Path $Root "backend")
@@ -29,6 +31,14 @@ Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyC
         Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
     }
 Start-Sleep -Seconds 1
+
+if ($Background) {
+    . (Join-Path $PSScriptRoot "lib\process-utils.ps1")
+    Write-Host "Starting bot in background (logs in logs/bot.*)..."
+    Start-HiddenProcess -FilePath "$venv\Scripts\python.exe" -ArgumentList @("-m", "app.bot.main") `
+        -WorkingDirectory (Join-Path $Root "backend") -LogBaseName "bot" -Root $Root | Out-Null
+    exit 0
+}
 
 Write-Host "Starting bot on host (Ctrl+C to stop)..."
 & "$venv\Scripts\python" -m app.bot.main

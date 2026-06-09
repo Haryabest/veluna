@@ -23,10 +23,11 @@ function modelThumb(seed: string): string {
 }
 
 export const STUDIO_MODELS: StudioModel[] = [
+  // civitaiModelId = model VERSION id (not model page id) — required for Orchestration API
   { id: "nova-anime-xl", name: "Nova Anime XL", civitaiModelId: "2741698", imageUrl: modelThumb("nova-anime-xl") },
-  { id: "miaomiao", name: "MiaoMiao", civitaiModelId: "934764", imageUrl: modelThumb("miaomiao") },
-  { id: "velvet-mythic", name: "Velvet's Mythic Fantasy Styles", civitaiModelId: "599757", imageUrl: modelThumb("velvet-mythic") },
-  { id: "nova-orange-xl", name: "Nova Orange XL", civitaiModelId: "967405", imageUrl: modelThumb("nova-orange-xl") },
+  { id: "miaomiao", name: "MiaoMiao", civitaiModelId: "3004063", imageUrl: modelThumb("miaomiao") },
+  { id: "velvet-mythic", name: "PerfectDeliberate Anime", civitaiModelId: "2925672", imageUrl: modelThumb("velvet-mythic") },
+  { id: "nova-orange-xl", name: "Nova Orange XL", civitaiModelId: "2945776", imageUrl: modelThumb("nova-orange-xl") },
 ];
 
 export const STUDIO_EXTRA_MODELS: StudioModel[] = [

@@ -12,6 +12,8 @@ from app.repositories.generation_repository import PaymentRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas import TokenResponse, UserResponse
 from app.services.platform_settings_service import PlatformSettingsService
+from app.services.telegram_profile_service import pick_telegram_photo_url
+from app.services.user_ban_service import ensure_not_banned, refresh_ban_status
 
 
 class AuthService:
@@ -40,7 +42,7 @@ class AuthService:
                 username=user_data.get("username"),
                 first_name=user_data.get("first_name"),
                 last_name=user_data.get("last_name"),
-                photo_url=user_data.get("photo_url"),
+                photo_url=pick_telegram_photo_url(user_data.get("photo_url")),
                 language_code=user_data.get("language_code", "en"),
             )
             from app.models import TransactionType
@@ -54,8 +56,11 @@ class AuthService:
                 tx_type=TransactionType.BONUS,
                 description="Welcome bonus",
             )
-        elif user.is_banned:
-            raise ForbiddenError("Account is banned")
+        else:
+            await self._sync_telegram_profile(user, user_data)
+
+        user = await refresh_ban_status(user, self._users)
+        ensure_not_banned(user)
 
         username = (user_data.get("username") or user.username or "").lower()
         is_admin = telegram_id in self._settings.admin_telegram_ids_list
@@ -67,6 +72,22 @@ class AuthService:
 
         tokens = create_token_pair(user.id)
         return TokenResponse(**tokens.model_dump())
+
+    async def _sync_telegram_profile(self, user: User, user_data: dict) -> None:
+        updates: dict = {}
+
+        for field in ("username", "first_name", "last_name", "language_code"):
+            value = user_data.get(field)
+            if value is not None and getattr(user, field) != value:
+                updates[field] = value
+
+        init_photo = user_data.get("photo_url")
+        photo_url = pick_telegram_photo_url(init_photo, user.photo_url)
+        if photo_url and user.photo_url != photo_url:
+            updates["photo_url"] = photo_url
+
+        if updates:
+            await self._users.update(user, **updates)
 
     async def authenticate_dev(self) -> TokenResponse:
         """Local browser dev only — issue JWT without Telegram WebApp."""
@@ -80,8 +101,8 @@ class AuthService:
             user = await self._users.get_first_active()
         if not user:
             raise NotFoundError("User", "create a user via Telegram bot /start first")
-        if user.is_banned:
-            raise ForbiddenError("Account is banned")
+        user = await refresh_ban_status(user, self._users)
+        ensure_not_banned(user)
 
         tokens = create_token_pair(user.id)
         return TokenResponse(**tokens.model_dump())
@@ -94,6 +115,9 @@ class AuthService:
         user = await self._users.get_by_id(UUID(payload.sub))
         if not user or not user.is_active:
             raise ForbiddenError("User not found or inactive")
+
+        user = await refresh_ban_status(user, self._users)
+        ensure_not_banned(user)
 
         tokens = create_token_pair(user.id)
         return TokenResponse(**tokens.model_dump())
@@ -144,6 +168,8 @@ class AuthService:
         user = await self._users.get_by_id(user_id)
         if not user or not user.is_active:
             raise ForbiddenError("User not found or inactive")
+        user = await refresh_ban_status(user, self._users)
+        ensure_not_banned(user)
         return await self._to_user_response(user)
 
     async def _to_user_response(self, user: User) -> UserResponse:

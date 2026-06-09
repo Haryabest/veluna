@@ -3,10 +3,11 @@
 import { useTelegramAuth } from "@/hooks/use-telegram-auth";
 import { useMounted } from "@/hooks/use-mounted";
 import { Skeleton } from "@/components/shared/Skeleton";
+import { BannedScreen } from "@/features/auth/BannedScreen";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const mounted = useMounted();
-  const { isLoading } = useTelegramAuth();
+  const { isLoading, banInfo, error } = useTelegramAuth();
 
   if (!mounted || isLoading) {
     return (
@@ -16,6 +17,18 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         </div>
         <Skeleton className="h-3 w-28" />
         <p className="text-sm text-text-muted">Загрузка Veluna...</p>
+      </div>
+    );
+  }
+
+  if (banInfo) {
+    return <BannedScreen ban={banInfo} />;
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 p-6 text-center">
+        <p className="text-sm text-text-muted">{error}</p>
       </div>
     );
   }

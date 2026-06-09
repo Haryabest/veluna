@@ -1,12 +1,18 @@
-from fastapi import APIRouter, Depends, Query
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Header, Query
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_current_user_flexible
+from app.core.exceptions import NotFoundError
 from app.database.session import get_db
 from app.repositories.admin_repository import AdminRepository
 from app.repositories.generation_repository import PaymentRepository
+from app.repositories.user_repository import UserRepository
 from app.schemas import UserFinanceStatsResponse, UserResponse
 from app.schemas.admin import AdminUserStatsDetailResponse
+from app.services.telegram_profile_service import fetch_avatar_bytes, resolve_avatar_source_url
 
 router = APIRouter()
 
@@ -17,6 +23,47 @@ async def get_me(
     session: AsyncSession = Depends(get_db),
 ):
     return user
+
+
+@router.get("/me/avatar")
+async def get_my_avatar(
+    user: UserResponse = Depends(get_current_user_flexible),
+    session: AsyncSession = Depends(get_db),
+    x_telegram_init_data: str | None = Header(None, alias="X-Telegram-Init-Data"),
+):
+    """Stream Telegram avatar through same-origin proxy (Telegram iOS WebView safe)."""
+    init_photo = None
+    if x_telegram_init_data:
+        from app.core.telegram import validate_telegram_init_data
+        from app.core.config import get_settings
+
+        try:
+            parsed = validate_telegram_init_data(
+                x_telegram_init_data,
+                max_age_seconds=get_settings().telegram_init_data_max_age_seconds,
+            )
+            init_photo = (parsed.get("user") or {}).get("photo_url")
+        except Exception:
+            pass
+
+    db_user = await UserRepository(session).get_by_id(user.id)
+    if not db_user:
+        raise NotFoundError("User", str(user.id))
+
+    source = await resolve_avatar_source_url(
+        telegram_id=db_user.telegram_id,
+        photo_url=db_user.photo_url,
+        init_photo_url=init_photo,
+    )
+    if not source:
+        raise NotFoundError("Avatar", str(user.id))
+
+    data, content_type = await fetch_avatar_bytes(source)
+    return Response(
+        content=data,
+        media_type=content_type,
+        headers={"Cache-Control": "private, max-age=300"},
+    )
 
 
 @router.get("/balance")

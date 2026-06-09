@@ -36,6 +36,7 @@ from app.schemas.admin import (
     PricingConfigUpdate,
 )
 from app.services.platform_settings_service import PlatformSettingsService
+from app.services.user_ban_service import compute_banned_until
 
 
 class AdminService:
@@ -69,6 +70,8 @@ class AdminService:
         return AdminUserDetailResponse(
             **base.model_dump(),
             is_banned=user.is_banned,
+            ban_reason=user.ban_reason,
+            banned_until=user.banned_until,
             last_seen_at=user.last_seen_at,
             credits=balance.credits if balance else 0,
             total_spent=balance.total_spent if balance else 0,
@@ -125,6 +128,8 @@ class AdminService:
         return AdminUserDetailResponse(
             **base.model_dump(),
             is_banned=user.is_banned,
+            ban_reason=user.ban_reason,
+            banned_until=user.banned_until,
             last_seen_at=user.last_seen_at,
             credits=balance.credits if balance else 0,
             total_spent=balance.total_spent if balance else 0,
@@ -163,13 +168,43 @@ class AdminService:
 
         return await self.get_user(admin_id, user_id)
 
-    async def set_user_ban(self, admin_id: UUID, user_id: UUID, is_banned: bool) -> AdminUserDetailResponse:
+    async def set_user_ban(
+        self,
+        admin_id: UUID,
+        user_id: UUID,
+        is_banned: bool,
+        *,
+        reason: str | None = None,
+        duration_days: int | None = None,
+    ) -> AdminUserDetailResponse:
         await self.verify_admin(admin_id)
         user = await self._users.get_by_id(user_id)
         if not user:
             raise NotFoundError("User", str(user_id))
-        await self._users.update(user, is_banned=is_banned)
-        await self._log(admin_id, "ban" if is_banned else "unban", "user", str(user_id))
+
+        if is_banned:
+            ban_reason = (reason or "Нарушение правил сервиса").strip()
+            banned_until = compute_banned_until(duration_days)
+            await self._users.apply_ban(
+                user,
+                reason=ban_reason,
+                banned_until=banned_until,
+            )
+            await self._log(
+                admin_id,
+                "ban",
+                "user",
+                str(user_id),
+                {
+                    "reason": ban_reason,
+                    "duration_days": duration_days,
+                    "banned_until": banned_until.isoformat() if banned_until else None,
+                },
+            )
+        else:
+            await self._users.clear_ban(user)
+            await self._log(admin_id, "unban", "user", str(user_id))
+
         return await self.get_user(admin_id, user_id)
 
     async def adjust_gems(self, admin_id: UUID, user_id: UUID, amount: int, description: str) -> None:
