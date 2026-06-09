@@ -29,12 +29,41 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 /** Re-login from Telegram initData before pay / after 401. */
 export async function ensureTelegramSession(): Promise<boolean> {
   if (typeof window === "undefined") return false;
-  if (localStorage.getItem("access_token")) return true;
   try {
     const initData = getTelegramInitData();
+    // Always re-auth from initData in Mini App — fixes expired JWT and account switch on one device.
     if (initData) {
       return (await reauthFromTelegram()) !== null;
     }
+
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      try {
+        const { authService } = await import("@/services/api");
+        await authService.getMe();
+        return true;
+      } catch {
+        localStorage.removeItem("access_token");
+      }
+    }
+
+    const refreshToken = localStorage.getItem("refresh_token");
+    if (refreshToken) {
+      try {
+        const { data } = await axios.post<{ access_token: string; refresh_token: string }>(
+          `${API_URL}/auth/refresh`,
+          null,
+          { params: { refresh_token: refreshToken } }
+        );
+        localStorage.setItem("access_token", data.access_token);
+        localStorage.setItem("refresh_token", data.refresh_token);
+        return true;
+      } catch {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+      }
+    }
+
     const host = window.location.hostname;
     if (host === "localhost" || host === "127.0.0.1") {
       const { authService } = await import("@/services/api");
