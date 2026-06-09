@@ -2,17 +2,19 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query
 from fastapi.responses import Response
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_current_user_flexible
-from app.core.exceptions import NotFoundError
+from app.api.deps import get_current_user, get_current_user_flexible, security
+from app.core.exceptions import ForbiddenError, NotFoundError
 from app.database.session import get_db
 from app.repositories.admin_repository import AdminRepository
 from app.repositories.generation_repository import PaymentRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas import UserFinanceStatsResponse, UserResponse
 from app.schemas.admin import AdminUserStatsDetailResponse
-from app.services.telegram_profile_service import fetch_avatar_bytes, resolve_avatar_source_url
+from app.services.auth_service import AuthService
+from app.services.telegram_profile_service import fetch_user_avatar_bytes
 
 router = APIRouter()
 
@@ -27,11 +29,22 @@ async def get_me(
 
 @router.get("/me/avatar")
 async def get_my_avatar(
-    user: UserResponse = Depends(get_current_user_flexible),
+    access_token: str | None = Query(None),
     session: AsyncSession = Depends(get_db),
     x_telegram_init_data: str | None = Header(None, alias="X-Telegram-Init-Data"),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ):
-    """Stream Telegram avatar through same-origin proxy (Telegram iOS WebView safe)."""
+    """Stream Telegram avatar via same-origin URL (for <img src> in Mini App)."""
+    auth_service = AuthService(session)
+    token = access_token or (credentials.credentials if credentials else None)
+    try:
+        user = await auth_service.resolve_user(
+            access_token=token,
+            init_data=x_telegram_init_data,
+        )
+    except ForbiddenError as exc:
+        raise NotFoundError("Avatar", "auth") from exc
+
     init_photo = None
     if x_telegram_init_data:
         from app.core.telegram import validate_telegram_init_data
@@ -50,15 +63,15 @@ async def get_my_avatar(
     if not db_user:
         raise NotFoundError("User", str(user.id))
 
-    source = await resolve_avatar_source_url(
+    avatar = await fetch_user_avatar_bytes(
         telegram_id=db_user.telegram_id,
         photo_url=db_user.photo_url,
         init_photo_url=init_photo,
     )
-    if not source:
+    if not avatar:
         raise NotFoundError("Avatar", str(user.id))
 
-    data, content_type = await fetch_avatar_bytes(source)
+    data, content_type = avatar
     return Response(
         content=data,
         media_type=content_type,

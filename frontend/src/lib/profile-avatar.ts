@@ -1,26 +1,17 @@
 import { API_URL } from "./constants";
 import { isTelegramWebApp } from "./telegram-webapp";
 
-export const PROFILE_AVATAR_PROXY = `${API_URL}/users/me/avatar`;
-
-export function isProfileAvatarProxy(url?: string | null): boolean {
-  if (!url) return false;
-  return url.includes("/users/me/avatar");
-}
-
-export function isTelegramPhotoUrl(url?: string | null): boolean {
-  if (!url) return false;
-  return /t\.me\/i\/userpic|telegram\.(org|me)|api\.telegram\.org\/file\//i.test(url);
-}
-
-/** Same-origin proxy in Mini App — avoids iOS WebView opening t.me in Safari. */
+/** Same-origin avatar URL for <img src> (works in Telegram iOS WebView). */
 export function resolveProfileAvatarUrl(
   tgPhoto: string | null | undefined,
   ...candidates: Array<string | null | undefined>
 ): string | null {
-  if (isTelegramWebApp()) {
-    return PROFILE_AVATAR_PROXY;
+  if (typeof window !== "undefined" && isTelegramWebApp()) {
+    const token = localStorage.getItem("access_token");
+    const base = `${API_URL}/users/me/avatar`;
+    return token ? `${base}?access_token=${encodeURIComponent(token)}` : base;
   }
+
   for (const url of [tgPhoto, ...candidates]) {
     if (!url) continue;
     if (url.includes("/media/previews/avatars/") || url.includes("/media/users/")) continue;

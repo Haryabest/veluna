@@ -11,7 +11,7 @@ async function shareImageFileWithBotLink(
   imageUrl: string,
   botLink: string
 ): Promise<boolean> {
-  if (typeof navigator === "undefined" || !navigator.share) return false;
+  if (typeof navigator === "undefined" || typeof navigator.share !== "function") return false;
   try {
     const { data } = await apiClient.get<Blob>(imageUrl, { responseType: "blob" });
     const mime = data.type || "image/png";
@@ -52,7 +52,7 @@ export async function shareArtImage(imageUrl: string, generationId?: string): Pr
   const botLink = getTelegramBotLink();
 
   // 2) In Mini App: share the actual image file with the bot link as text
-  if (canShareViaTelegram() && typeof navigator !== "undefined" && navigator.share) {
+  if (canShareViaTelegram() && typeof navigator !== "undefined" && typeof navigator.share === "function") {
     const shared = await shareImageFileWithBotLink(imageUrl, botLink);
     if (shared) return true;
   }
@@ -64,7 +64,7 @@ export async function shareArtImage(imageUrl: string, generationId?: string): Pr
   }
 
   // 4) Web Share API with file attachment
-  if (typeof navigator !== "undefined" && navigator.share) {
+  if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
     const shared = await shareImageFileWithBotLink(imageUrl, botLink);
     if (shared) return true;
     try {

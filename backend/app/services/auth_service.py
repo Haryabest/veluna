@@ -12,7 +12,7 @@ from app.repositories.generation_repository import PaymentRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas import TokenResponse, UserResponse
 from app.services.platform_settings_service import PlatformSettingsService
-from app.services.telegram_profile_service import pick_telegram_photo_url
+from app.services.telegram_profile_service import determine_user_avatar_url
 from app.services.user_ban_service import ensure_not_banned, refresh_ban_status
 
 
@@ -42,7 +42,7 @@ class AuthService:
                 username=user_data.get("username"),
                 first_name=user_data.get("first_name"),
                 last_name=user_data.get("last_name"),
-                photo_url=pick_telegram_photo_url(user_data.get("photo_url")),
+                photo_url=determine_user_avatar_url(user_data.get("photo_url")),
                 language_code=user_data.get("language_code", "en"),
             )
             from app.models import TransactionType
@@ -82,7 +82,7 @@ class AuthService:
                 updates[field] = value
 
         init_photo = user_data.get("photo_url")
-        photo_url = pick_telegram_photo_url(init_photo, user.photo_url)
+        photo_url = determine_user_avatar_url(init_photo, user.photo_url)
         if photo_url and user.photo_url != photo_url:
             updates["photo_url"] = photo_url
 
