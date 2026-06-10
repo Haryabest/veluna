@@ -143,14 +143,14 @@ class CivitaiProvider(ImageGenerationProvider):
     ) -> ImageGenerationResponse:
         # SFW only; Buzz: blue → green → yellow (Civitai default, no currencies filter).
         #
-        # Note: in Orchestration API v2, "engine" is an OpenAPI discriminator on
-        # ImageGenInput — values that aren't recognised by Civitai's schema make
-        # the API reject the request with "No derived type found for discriminator".
-        # sdcpp is the only one we've verified end-to-end; other engines (comfyui,
-        # sana) need to be confirmed against current Civitai docs before using.
+        # Engines (per Civitai Orchestration v2 docs, https://developer.civitai.com/orchestration/):
+        #   - comfy   → works on blue/green/yellow. Default choice for most ecosystems.
+        #   - sdcpp   → only on yellow tier. Returns misleading "insufficientBuzz" on green.
+        #   - flux1-kontext → for the flux1 ecosystem with model = dev/pro/max tier string.
+        #
+        # Default = "comfy" so green tier tokens (the common case) actually work.
         engine = self._pick_engine(request, ecosystem)
         body: dict[str, Any] = {
-            "workflowTemplate": "txt2img",
             "allowMatureContent": False,
             "steps": [{
                 "$type": "imageGen",
@@ -294,19 +294,16 @@ class CivitaiProvider(ImageGenerationProvider):
     def _pick_engine(self, request: ImageGenerationRequest, ecosystem: str) -> str:
         """Pick a Civitai Orchestration engine.
 
-        "engine" is a discriminator in the Orchestration v2 schema, and only
-        values Civitai knows are accepted. sdcpp is the only engine we've
-        verified end-to-end; if you have a yellow-tier token and need a
-        different one, set CIVITAI_DEFAULT_ENGINE in .env (and confirm the
-        value against the current Civitai docs — see _format_v2_error logs
-        for the exact "No derived type" message when this is wrong).
+        "engine" is a discriminator in the Orchestration v2 schema; values
+        not listed in the docs trigger "No derived type found" errors.
+        See https://developer.civitai.com/orchestration/ for the full list.
+        comfy is the only engine that works across blue/green/yellow tiers.
         """
         if request.engine:
             return request.engine
 
         settings = get_settings()
-        default_engine = getattr(settings, "civitai_default_engine", "sdcpp") or "sdcpp"
-        return default_engine
+        return getattr(settings, "civitai_default_engine", "comfy") or "comfy"
 
     def _format_v2_error(
         self,
@@ -332,13 +329,16 @@ class CivitaiProvider(ImageGenerationProvider):
                 "На Civitai API токене недостаточно Buzz для генерации. "
                 "Проверьте баланс (blue/green/yellow) аккаунта Civitai для этого API токена."
             )
-            # Honest note: we don't have a verified list of engines per tier in
-            # this repo, so we just point the operator at the full body in logs.
-            if engine and engine not in {"sdcpp"}:
+            # sdcpp is yellow-only — on green it returns this misleading error.
+            if engine == "sdcpp":
                 base += (
-                    f"\nИспользуется движок «{engine}». "
-                    "Убедитесьсь, что он поддерживается вашим тарифом Civitai, "
-                    "и при необходимости задайте CIVITAI_DEFAULT_ENGINE в .env."
+                    "\nДвижок «sdcpp» входит только в yellow-тариф Civitai. "
+                    "Для green-tier установите CIVITAI_DEFAULT_ENGINE=comfy в .env."
+                )
+            elif engine and engine not in {"comfy"}:
+                base += (
+                    f"\nДвижок «{engine}» может не поддерживаться на текущем тарифе. "
+                    "Попробуйте CIVITAI_DEFAULT_ENGINE=comfy в .env."
                 )
             return base
 

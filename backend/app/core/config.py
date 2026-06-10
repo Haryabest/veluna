@@ -53,11 +53,11 @@ class Settings(BaseSettings):
     fal_api_key: str = ""
     replicate_api_token: str = ""
     civitai_api_key: str = ""
-    # Default Civitai Orchestration engine. "engine" is a discriminator in the
-    # Orchestration v2 schema — only values Civitai knows are accepted. sdcpp
-    # is the only one verified end-to-end. Override via CIVITAI_DEFAULT_ENGINE
-    # in .env if Civitai docs list another one (e.g. comfyui, sana) for your tier.
-    civitai_default_engine: str = "sdcpp"
+    # Default Civitai Orchestration engine. "comfy" works on blue/green/yellow
+    # tiers and is the safe default. "sdcpp" is yellow-only. "flux1-kontext"
+    # is a special form for the flux1 ecosystem. Override via CIVITAI_DEFAULT_ENGINE
+    # in .env. See https://developer.civitai.com/orchestration/ for the full list.
+    civitai_default_engine: str = "comfy"
 
     storage_provider: Literal["minio", "s3"] = "minio"
     minio_endpoint: str = "localhost:9000"
