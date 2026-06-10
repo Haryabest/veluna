@@ -146,8 +146,6 @@ class CivitaiProvider(ImageGenerationProvider):
         model_label: str,
         ecosystem: str,
     ) -> ImageGenerationResponse:
-        # SFW only; Buzz: blue → green → yellow (Civitai default, no currencies filter).
-        #
         # Engines (per Civitai Orchestration v2 docs, https://developer.civitai.com/orchestration/):
         #   - comfy   → works on blue/green/yellow. Default choice for most ecosystems.
         #   - sdcpp   → only on yellow tier. Returns misleading "insufficientBuzz" on green.
@@ -155,7 +153,13 @@ class CivitaiProvider(ImageGenerationProvider):
         #
         # Default = "comfy" so green tier tokens (the common case) actually work.
         engine = self._pick_engine(request, ecosystem)
+        # Per https://developer.civitai.com/orchestration/guide/submitting-work.md,
+        # the default charging order is blue → green → yellow. If your blue balance
+        # is exactly 0 but Civitai treats it as still spendable, the orchestrator
+        # refuses to escalate to green and returns "insufficientBuzz" even though
+        # green is funded. Pinning `currencies: ["green", "yellow"]` skips blue.
         body: dict[str, Any] = {
+            "currencies": ["green", "yellow"],
             "allowMatureContent": False,
             "steps": [{
                 "$type": "imageGen",
@@ -334,15 +338,14 @@ class CivitaiProvider(ImageGenerationProvider):
                 "На Civitai API токене недостаточно Buzz для генерации. "
                 "Проверьте баланс (blue/green/yellow) аккаунта Civitai для этого API токена."
             )
-            # sdcpp is yellow-only — on green it returns this misleading error.
+            base += (
+                "\nПо умолчанию Civitai списывает blue→green→yellow; "
+                "если blue=0, но не подтверждён, оркестратор отказывается "
+                "эскалировать на green. Уже отправляем currencies: [\"green\", \"yellow\"]."
+            )
             if engine == "sdcpp":
                 base += (
                     "\nДвижок «sdcpp» входит только в yellow-тариф Civitai. "
-                    "Для green-tier установите CIVITAI_DEFAULT_ENGINE=comfy в .env."
-                )
-            elif engine and engine not in {"comfy"}:
-                base += (
-                    f"\nДвижок «{engine}» может не поддерживаться на текущем тарифе. "
                     "Попробуйте CIVITAI_DEFAULT_ENGINE=comfy в .env."
                 )
             return base
