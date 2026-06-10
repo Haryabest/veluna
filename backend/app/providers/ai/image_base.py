@@ -11,6 +11,9 @@ class ImageGenerationRequest:
     num_inference_steps: int = 28
     seed: int | None = None
     model: str | None = None
+    # Civitai Orchestration engine (comfyui, sana, sdcpp, …).
+    # Auto-picked by the provider from ecosystem if not given.
+    engine: str | None = None
 
 
 @dataclass

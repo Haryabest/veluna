@@ -1,8 +1,11 @@
 import asyncio
+import logging
 from typing import Any
 import httpx
 
 from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
 from app.utils.civitai_air import (
     ecosystem_from_air,
     resolve_civitai_model_air,
@@ -139,12 +142,19 @@ class CivitaiProvider(ImageGenerationProvider):
         ecosystem: str,
     ) -> ImageGenerationResponse:
         # SFW only; Buzz: blue → green → yellow (Civitai default, no currencies filter).
+        #
+        # Engine selection matters: Civitai ties engines to subscription tiers.
+        #   - sdcpp  → only on yellow
+        #   - comfyui → blue / green / yellow (covers sdxl, sd15, illustrious, pony, flux1)
+        #   - sana   → for the "anima" ecosystem
+        # We default to comfyui so green-tier tokens (the common case) actually work.
+        engine = self._pick_engine(request, ecosystem)
         body: dict[str, Any] = {
             "allowMatureContent": False,
             "steps": [{
                 "$type": "imageGen",
                 "input": {
-                    "engine": "sdcpp",
+                    "engine": engine,
                     "ecosystem": ecosystem,
                     "operation": "createImage",
                     "model": model_urn,
@@ -171,7 +181,9 @@ class CivitaiProvider(ImageGenerationProvider):
                 timeout=120.0,
             )
             if submit_resp.status_code >= 400:
-                raise ValueError(self._format_v2_error(submit_resp))
+                raise ValueError(
+                    self._format_v2_error(submit_resp, engine=engine, ecosystem=ecosystem)
+                )
 
             workflow = submit_resp.json()
             workflow_id = workflow.get("id", "")
@@ -278,26 +290,94 @@ class CivitaiProvider(ImageGenerationProvider):
 
         return None
 
-    def _format_v2_error(self, response: httpx.Response) -> str:
+    def _pick_engine(self, request: ImageGenerationRequest, ecosystem: str) -> str:
+        """Pick a Civitai Orchestration engine compatible with the current tier.
+
+        Civitai ties engines to subscription tiers:
+          - sdcpp  → only on yellow
+          - comfyui → blue / green / yellow (covers sd15, sdxl, illustrious, pony, flux1)
+          - sana   → for the "anima" ecosystem
+
+        Callers may override via request.engine (e.g. admin / explicit yellow mode).
+        """
+        if request.engine:
+            return request.engine
+
+        if ecosystem == "anima":
+            return "sana"
+
+        settings = get_settings()
+        default_engine = getattr(settings, "civitai_default_engine", "comfyui") or "comfyui"
+        return default_engine
+
+    def _format_v2_error(
+        self,
+        response: httpx.Response,
+        *,
+        engine: str | None = None,
+        ecosystem: str | None = None,
+    ) -> str:
+        # Always log the full body for diagnostics — Civitai returns multiple shapes
+        # (sometimes `insufficientBuzz: true`, sometimes `{transactions: {…}}`,
+        # sometimes a list of strings, sometimes a bare `error` string).
+        raw_text = response.text[:1000]
+        logger.warning(
+            "Civitai v2 error response: status=%s engine=%s ecosystem=%s body=%s",
+            response.status_code,
+            engine,
+            ecosystem,
+            raw_text,
+        )
+
+        def _insufficient_buzz_hint() -> str:
+            base = (
+                "На Civitai API токене недостаточно Buzz для генерации. "
+                "Проверьте баланс (blue/green/yellow) аккаунта Civitai для этого API токена."
+            )
+            # sdcpp — самый частый виновник false-positive на green-тарифе.
+            if engine == "sdcpp":
+                base += (
+                    f"\nДвижок «sdcpp» входит только в yellow-тариф. "
+                    f"Для green-tier установите CIVITAI_DEFAULT_ENGINE=comfyui в .env "
+                    f"(для экосистемы «{ecosystem or 'sdxl'}» он подходит)."
+                )
+            elif engine and engine not in {"comfyui", "sana"}:
+                base += (
+                    f"\nДвижок «{engine}» может не входить в текущий тариф. "
+                    f"Попробуйте CIVITAI_DEFAULT_ENGINE=comfyui."
+                )
+            return base
+
         try:
             data = response.json()
         except ValueError:
-            return f"Civitai API error {response.status_code}: {response.text[:500]}"
+            return f"Civitai API error {response.status_code}: {raw_text}"
 
+        # Case 1: response is not a dict (e.g. bare string, list).
         if not isinstance(data, dict):
             text = str(data)
             if "insufficient" in text.lower() and "buzz" in text.lower():
-                return "На Civitai API токене недостаточно Buzz для генерации. Проверьте баланс (blue/green/yellow) аккаунта Civitai для этого API токена."
+                return _insufficient_buzz_hint()
             return f"Civitai API error {response.status_code}: {text[:500]}"
 
-        if data.get("transactions", {}).get("insufficientBuzz") or data.get("insufficientBuzz"):
-            return "На Civitai API токене недостаточно Buzz для генерации. Проверьте баланс (blue/green/yellow) аккаунта Civitai для этого API токена."
+        # Case 2: explicit insufficientBuzz flag (top-level or nested in transactions).
+        transactions = data.get("transactions") if isinstance(data.get("transactions"), dict) else {}
+        if transactions.get("insufficientBuzz") or data.get("insufficientBuzz"):
+            return _insufficient_buzz_hint()
 
+        # Case 3: errors array (Civitai's standard validation-error shape).
         errors = data.get("errors")
         if errors:
             return f"Civitai отклонил запрос генерации: {errors}"
 
-        title = data.get("title") or data.get("detail") or data.get("message")
+        # Case 4: bare "error"/"message" string sometimes used by the API.
+        bare = data.get("error") or data.get("message")
+        if isinstance(bare, str) and bare:
+            if "insufficient" in bare.lower() and "buzz" in bare.lower():
+                return _insufficient_buzz_hint()
+            return f"Civitai API error {response.status_code}: {bare}"
+
+        title = data.get("title") or data.get("detail")
         if title:
             return f"Civitai API error {response.status_code}: {title}"
 

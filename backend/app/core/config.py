@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     fal_api_key: str = ""
     replicate_api_token: str = ""
     civitai_api_key: str = ""
+    # Default Civitai Orchestration engine. "comfyui" works on blue/green/yellow;
+    # "sdcpp" requires yellow. Override per request via Studio advanced settings.
+    civitai_default_engine: str = "comfyui"
 
     storage_provider: Literal["minio", "s3"] = "minio"
     minio_endpoint: str = "localhost:9000"
