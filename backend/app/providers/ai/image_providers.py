@@ -108,13 +108,18 @@ class CivitaiProvider(ImageGenerationProvider):
     def __init__(self):
         settings = get_settings()
         self._api_key = settings.civitai_api_key
+        self._proxy = (settings.civitai_http_proxy or "").strip() or None
+
+    def _client(self) -> httpx.AsyncClient:
+        """Build an AsyncClient, routing through the configured proxy if any."""
+        return httpx.AsyncClient(proxy=self._proxy) if self._proxy else httpx.AsyncClient()
 
     @property
     def provider_name(self) -> str:
         return "civitai"
 
     async def generate(self, request: ImageGenerationRequest) -> ImageGenerationResponse:
-        model_urn = await resolve_civitai_model_air(request.model)
+        model_urn = await resolve_civitai_model_air(request.model, proxy=self._proxy)
         model_label = await resolve_civitai_model_label(request.model)
         resource_type = resource_type_from_air(model_urn)
         if resource_type and resource_type != "checkpoint":
@@ -174,7 +179,7 @@ class CivitaiProvider(ImageGenerationProvider):
             "Content-Type": "application/json",
         }
 
-        async with httpx.AsyncClient() as client:
+        async with self._client() as client:
             submit_resp = await client.post(
                 "https://orchestration.civitai.com/v2/consumer/workflows?wait=90&hideMatureContent=true",
                 headers=headers,

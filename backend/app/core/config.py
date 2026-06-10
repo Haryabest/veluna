@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     # is a special form for the flux1 ecosystem. Override via CIVITAI_DEFAULT_ENGINE
     # in .env. See https://developer.civitai.com/orchestration/ for the full list.
     civitai_default_engine: str = "comfy"
+    # Optional HTTP/HTTPS proxy for Civitai API calls. Use it to bypass Civitai's
+    # regional restrictions (e.g. Russian IP ranges get throttled/blocked on
+    # green/blue tiers and the API returns a misleading "insufficientBuzz").
+    # Example: http://user:pass@host:3128
+    civitai_http_proxy: str = ""
 
     storage_provider: Literal["minio", "s3"] = "minio"
     minio_endpoint: str = "localhost:9000"

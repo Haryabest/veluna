@@ -36,11 +36,14 @@ async def _get_air_for_model_version(
     return air
 
 
-async def resolve_civitai_model_air(model_id: str | None) -> str | None:
+async def resolve_civitai_model_air(model_id: str | None, *, proxy: str | None = None) -> str | None:
     """
     Orchestration requires an AIR URN (see https://developer.civitai.com/site/guide/air).
     Frontend may send either a model-version ID or a model ID. Resolve both via
     the public Site API, then pass AIR to the Orchestration API.
+
+    `proxy` (optional) — http/https proxy URL applied to both resolve calls and
+    the public Civitai Site API. Used to bypass regional throttling.
     """
     if not model_id or not str(model_id).strip():
         return None
@@ -49,8 +52,12 @@ async def resolve_civitai_model_air(model_id: str | None) -> str | None:
     if _AIR_LIKE.search(raw) or _CIVITAI_IN_URN.search(raw):
         return raw if raw.startswith("urn:") else f"urn:air:{raw.removeprefix('air:')}"
 
+    client_kwargs: dict = {}
+    if proxy:
+        client_kwargs["proxy"] = proxy
+
     if raw.isdigit():
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(**client_kwargs) as client:
             # Prefer explicit version IDs (e.g. Nova Anime XL V17 = 2741698).
             # Skip non-checkpoint version hits (e.g. model id 967405 collides with an embedding version).
             air = await _get_air_for_model_version(client, raw, require_checkpoint=True)
