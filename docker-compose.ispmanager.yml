@@ -1,0 +1,11 @@
+# ISPmanager overlay: system nginx (SSL on :443) proxies to Docker nginx on :8081.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.ispmanager.yml up -d
+#
+# ISPmanager vhost must proxy_pass http://127.0.0.1:8081 for all locations.
+
+services:
+  nginx:
+    ports:
+      - "8081:80"

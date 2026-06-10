@@ -1,0 +1,19 @@
+# Production overlay: HTTPS via Let's Encrypt.
+#
+# Usage:
+#   1. Set VELUNA_DOMAIN in .env
+#   2. sudo certbot certonly --standalone -d your-domain.com
+#   3. docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  nginx:
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      VELUNA_DOMAIN: ${VELUNA_DOMAIN}
+    volumes:
+      - ./nginx/nginx.ssl.conf.template:/etc/nginx/nginx.ssl.conf.template:ro
+      - ./nginx/docker-entrypoint-ssl.sh:/docker-entrypoint-ssl.sh:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    entrypoint: ["/bin/sh", "/docker-entrypoint-ssl.sh"]
