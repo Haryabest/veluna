@@ -7,11 +7,15 @@
 
 .EXAMPLE
   .\scripts\veluna-up.ps1 -SkipBuild -SkipTunnel   # quick restart, localhost only
+
+.EXAMPLE
+  .\scripts\veluna-up.ps1 -HostOnly   # backend/celery on host, Docker only for postgres/redis/minio
 #>
 param(
     [switch]$SkipBuild,
     [switch]$SkipTunnel,
-    [switch]$Dev
+    [switch]$Dev,
+    [switch]$HostOnly
 )
 
 $ErrorActionPreference = "Continue"
@@ -208,7 +212,7 @@ function Start-CeleryHost {
 Set-Location '$Root\backend'
 Copy-Item '..\.env' '.env' -Force
 if (-not (Test-Path '.venv\Scripts\python.exe')) { py -3.12 -m venv .venv; .\.venv\Scripts\pip install -r requirements.txt -q }
-.\.venv\Scripts\celery -A app.workers.celery_app worker -Q generation_queue -c 1 --loglevel=info -n generation@host
+.\.venv\Scripts\celery -A app.workers.celery_app worker -Q generation_queue -P solo -c 1 --loglevel=info -n generation@host
 "@
     Start-Process powershell.exe -ArgumentList "-NoExit", "-NoProfile", "-Command", $inner -WindowStyle Normal | Out-Null
 }
@@ -294,13 +298,19 @@ if (-not (Test-DockerOk)) {
 }
 
 if (Wait-Docker -Minutes 3) {
-    try {
-        $backendPort = Start-DockerStack
-        Invoke-Migrations
-        $dockerMode = $true
-        Write-Host "Backend via Docker on port $backendPort" -ForegroundColor Green
-    } catch {
-        Write-Host "Docker compose failed: $_" -ForegroundColor Yellow
+    if ($HostOnly) {
+        Write-Step "Docker infra only (postgres, redis, minio)"
+        Invoke-External { docker compose up -d postgres redis minio } | Out-Null
+        docker stop veluna-backend veluna-worker-generation 2>$null | Out-Null
+    } else {
+        try {
+            $backendPort = Start-DockerStack
+            Invoke-Migrations
+            $dockerMode = $true
+            Write-Host "Backend via Docker on port $backendPort" -ForegroundColor Green
+        } catch {
+            Write-Host "Docker compose failed: $_" -ForegroundColor Yellow
+        }
     }
 }
 

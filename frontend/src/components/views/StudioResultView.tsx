@@ -135,10 +135,6 @@ export function StudioResultView() {
           <img src={imageUrl} alt="" className="w-full object-contain" />
         </motion.div>
 
-        {data?.prompt ? (
-          <p className="mt-4 text-center text-sm text-text-secondary">{data.prompt}</p>
-        ) : null}
-
         <div className="mt-6 flex flex-col gap-3">
           <button
             type="button"

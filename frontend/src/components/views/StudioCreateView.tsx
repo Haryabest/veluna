@@ -8,7 +8,7 @@ import { AnimeGemIcon } from "@/components/icons/CurrencyIcons";
 import { useNavStore } from "@/store/nav-store";
 import { useToast } from "@/hooks/use-toast";
 import { generationService } from "@/services/api";
-import { ensureTelegramSession, getApiError } from "@/lib/api-client";
+import { ensureTelegramSession, getApiError, isLocalDevHost } from "@/lib/api-client";
 import {
   ASPECT_RATIOS,
   buildStudioPrompt,
@@ -58,7 +58,12 @@ export function StudioCreateView() {
     try {
       const authed = await ensureTelegramSession();
       if (!authed) {
-        toast("Войдите через Telegram или обновите страницу на localhost", "error");
+        toast(
+          isLocalDevHost()
+            ? "Не удалось войти. Обновите страницу или запустите бота /start"
+            : "Откройте Veluna через кнопку бота в Telegram",
+          "error"
+        );
         return;
       }
       const [w, h] = aspectId.split(":").map(Number);

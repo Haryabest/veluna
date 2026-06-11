@@ -16,7 +16,10 @@ function Stop-VelunaHostServices {
     }
 
     Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue |
-        Where-Object { $_.CommandLine -match 'app\.bot\.main|uvicorn app\.main' } |
+        Where-Object { $_.CommandLine -match 'app\.bot\.main|uvicorn app\.main|celery.*app\.workers' } |
+        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+
+    Get-CimInstance Win32_Process -Filter "Name='celery.exe'" -ErrorAction SilentlyContinue |
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 
     if (-not $KeepTunnel) {

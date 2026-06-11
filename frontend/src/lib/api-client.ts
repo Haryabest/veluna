@@ -2,6 +2,60 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { API_URL } from "./constants";
 import { translateApiError } from "./i18n";
 import { getTelegramInitData } from "./telegram-webapp";
+import { useAuthStore } from "@/store/auth-store";
+
+export function isLocalDevHost(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1";
+}
+
+function persistTokens(access: string, refresh: string) {
+  localStorage.setItem("access_token", access);
+  localStorage.setItem("refresh_token", refresh);
+  useAuthStore.getState().setTokens(access, refresh);
+}
+
+async function sessionFromExistingToken(): Promise<boolean> {
+  const token = localStorage.getItem("access_token");
+  if (!token) return false;
+  try {
+    const { authService } = await import("@/services/api");
+    await authService.getMe();
+    const refresh = localStorage.getItem("refresh_token") ?? "";
+    useAuthStore.getState().setTokens(token, refresh);
+    return true;
+  } catch {
+    localStorage.removeItem("access_token");
+    return false;
+  }
+}
+
+async function sessionFromRefresh(): Promise<boolean> {
+  const refreshToken = localStorage.getItem("refresh_token");
+  if (!refreshToken) return false;
+  try {
+    const { data } = await axios.post<{ access_token: string; refresh_token: string }>(
+      `${API_URL}/auth/refresh`,
+      null,
+      { params: { refresh_token: refreshToken } }
+    );
+    persistTokens(data.access_token, data.refresh_token);
+    return true;
+  } catch {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    return false;
+  }
+}
+
+async function sessionFromDev(): Promise<boolean> {
+  if (!isLocalDevHost()) return false;
+  const { authService } = await import("@/services/api");
+  const tokens = await authService.authenticateDev();
+  persistTokens(tokens.access_token, tokens.refresh_token);
+  return true;
+}
 
 export const apiClient = axios.create({
   baseURL: API_URL,
@@ -26,52 +80,24 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
-/** Re-login from Telegram initData before pay / after 401. */
+/** Ensure a valid API session before pay / generation. */
 export async function ensureTelegramSession(): Promise<boolean> {
   if (typeof window === "undefined") return false;
   try {
+    if (await sessionFromExistingToken()) return true;
+    if (await sessionFromRefresh()) return true;
+
     const initData = getTelegramInitData();
-    // Always re-auth from initData in Mini App — fixes expired JWT and account switch on one device.
     if (initData) {
-      return (await reauthFromTelegram()) !== null;
-    }
-
-    const token = localStorage.getItem("access_token");
-    if (token) {
       try {
-        const { authService } = await import("@/services/api");
-        await authService.getMe();
-        return true;
+        const access = await reauthFromTelegram();
+        if (access) return true;
       } catch {
-        localStorage.removeItem("access_token");
+        /* try dev / fail below */
       }
     }
 
-    const refreshToken = localStorage.getItem("refresh_token");
-    if (refreshToken) {
-      try {
-        const { data } = await axios.post<{ access_token: string; refresh_token: string }>(
-          `${API_URL}/auth/refresh`,
-          null,
-          { params: { refresh_token: refreshToken } }
-        );
-        localStorage.setItem("access_token", data.access_token);
-        localStorage.setItem("refresh_token", data.refresh_token);
-        return true;
-      } catch {
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
-      }
-    }
-
-    const host = window.location.hostname;
-    if (host === "localhost" || host === "127.0.0.1") {
-      const { authService } = await import("@/services/api");
-      const tokens = await authService.authenticateDev();
-      localStorage.setItem("access_token", tokens.access_token);
-      localStorage.setItem("refresh_token", tokens.refresh_token);
-      return true;
-    }
+    if (await sessionFromDev()) return true;
     return false;
   } catch {
     return false;
@@ -85,8 +111,7 @@ async function reauthFromTelegram(): Promise<string | null> {
     `${API_URL}/auth/telegram`,
     { init_data: initData }
   );
-  localStorage.setItem("access_token", data.access_token);
-  localStorage.setItem("refresh_token", data.refresh_token);
+  persistTokens(data.access_token, data.refresh_token);
   return data.access_token;
 }
 
@@ -123,6 +148,7 @@ apiClient.interceptors.response.use(
             });
             localStorage.setItem("access_token", data.access_token);
             localStorage.setItem("refresh_token", data.refresh_token);
+            useAuthStore.getState().setTokens(data.access_token, data.refresh_token);
             cfg.headers.Authorization = `Bearer ${data.access_token}`;
             return apiClient(cfg);
           } catch {
@@ -160,10 +186,14 @@ export function getApiError(error: unknown): ApiError {
     if (!error.response) {
       const code = (error as { code?: string }).code;
       if (code === "ECONNREFUSED" || error.message.includes("Network Error")) {
+        const viaTunnel =
+          typeof window !== "undefined" &&
+          !/localhost|127\.0\.0\.1/.test(window.location.hostname);
         return {
           code: "BACKEND_OFFLINE",
-          message:
-            "Сервер API недоступен. Запустите .\\scripts\\veluna-up.ps1, затем .\\scripts\\restart-frontend.ps1 (Docker: порт 8020).",
+          message: viaTunnel
+            ? "Сервер API недоступен. Туннель Pinggy мог истечь — на ПК: .\\scripts\\redeploy.ps1 -Quick"
+            : "Сервер API недоступен. Запустите .\\scripts\\veluna-up.ps1 -HostOnly, затем .\\scripts\\restart-frontend.ps1",
         };
       }
     }

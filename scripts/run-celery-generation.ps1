@@ -17,4 +17,4 @@ Write-Host "Celery generation worker (studio)" -ForegroundColor Cyan
 Write-Host "Queue: generation_queue" -ForegroundColor DarkGray
 Write-Host "Requires Redis on CELERY_BROKER_URL (default redis://127.0.0.1:6379/3)" -ForegroundColor Yellow
 Write-Host "Start Redis: docker compose up -d redis" -ForegroundColor Yellow
-& $celery -A app.workers.celery_app worker -Q generation_queue -c 2 --loglevel=info -n generation@host
+& $celery -A app.workers.celery_app worker -Q generation_queue -P solo -c 1 --loglevel=info -n generation@host

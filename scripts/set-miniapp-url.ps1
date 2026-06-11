@@ -23,24 +23,38 @@ foreach ($f in @(".env", "backend\.env")) {
 
 $envLocal = Join-Path $Root "frontend\.env.local"
 $backendPort = "8000"
-$dockerBackend = $false
-# Docker backend maps container :8000 -> host :8020 (ignore stale BACKEND_PORT in .env)
+
+function Test-BackendHealthy([string]$Port) {
+    try {
+        $r = Invoke-WebRequest "http://127.0.0.1:$Port/health" -UseBasicParsing -TimeoutSec 3
+        return $r.StatusCode -eq 200
+    } catch {
+        return $false
+    }
+}
+
+# Prefer whichever backend actually answers on /health (host :8000 or Docker-mapped port).
+$dockerPort = $null
 try {
     docker info 2>$null | Out-Null
     if ($LASTEXITCODE -eq 0) {
         $running = docker inspect -f "{{.State.Status}}" veluna-backend 2>$null
         if ($running -eq "running") {
-            $dockerBackend = $true
             $mapped = docker port veluna-backend 8000/tcp 2>$null
             if ($mapped -match ':(\d+)->') {
-                $backendPort = $matches[1]
+                $dockerPort = $matches[1]
             } else {
-                $backendPort = "8020"
+                $dockerPort = "8020"
             }
         }
     }
 } catch {}
-if (-not $dockerBackend) {
+
+if (Test-BackendHealthy "8000") {
+    $backendPort = "8000"
+} elseif ($dockerPort -and (Test-BackendHealthy $dockerPort)) {
+    $backendPort = $dockerPort
+} else {
     $rootEnv = Join-Path $Root ".env"
     if (Test-Path $rootEnv) {
         Get-Content $rootEnv | ForEach-Object {

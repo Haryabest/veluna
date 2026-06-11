@@ -1,18 +1,19 @@
 """Z-Image image generation via gen-api.ru.
 
-Docs (from the user's example):
+Docs: https://gen-api.ru/model/z-image/api
+Long-polling: GET https://api.gen-api.ru/api/v1/request/get/{request_id}
+
     POST https://api.gen-api.ru/api/v1/networks/z-image
-    Authorization: Bearer <token>
-    Content-Type: application/json
-    {
-        "callback_url": null,
-        "prompt": "<english prompt>"
-    }
+    {"prompt": "<prompt>"}
+    -> {"request_id": ..., "status": "processing"}
+    -> poll until status == "success", image in result[]
 The bearer token is the same GEN_API_KEY we use for chat completions.
 """
 
+import asyncio
 import base64
 import logging
+import time
 from typing import Any
 
 import httpx
@@ -30,6 +31,8 @@ logger = logging.getLogger(__name__)
 # gen-api returns an inline b64 string when b64_json is requested. We don't
 # request that, but if some other code path does, expose it as a data: URL so
 # the existing download/upload pipeline in generation_tasks.py keeps working.
+_GENAPI_POLL_BASE = "https://api.gen-api.ru/api/v1/request/get"
+_POLL_INTERVAL_SECONDS = 2.0
 _DATA_URL_PREFIX = "data:image/"
 
 
@@ -51,12 +54,14 @@ class ZImageProvider(ImageGenerationProvider):
             raise ValueError("GEN_API_KEY is empty — cannot call Z-Image")
 
         body: dict[str, Any] = {
-            "callback_url": None,
             "prompt": request.prompt,
         }
-        # gen-api does not (in the documented example) accept width/height,
-        # but accept an optional `image_size` style override. Keep it simple
-        # and only send the prompt — the model picks the aspect ratio.
+        if request.width:
+            body["width"] = request.width
+        if request.height:
+            body["height"] = request.height
+        if request.seed is not None:
+            body["seed"] = request.seed
 
         headers = {
             "Authorization": f"Bearer {self._api_key}",
@@ -75,16 +80,16 @@ class ZImageProvider(ImageGenerationProvider):
                 raise ValueError(self._format_error(response))
             data = response.json()
 
-        image_url = extract_image_url(data)
+            if data.get("status") == "processing" or not self._extract_image(data):
+                request_id = data.get("request_id")
+                if not request_id:
+                    raise ValueError("Z-Image response did not contain request_id")
+                data = await self._poll_until_ready(client, request_id, headers)
+
+        image_url = self._extract_image(data)
         if not image_url:
-            # Fall back to b64_json: some gen-api endpoints return
-            # {"choices": [{"b64_json": "..."}, ...]} or {"result": "..."}.
-            b64 = self._extract_b64(data)
-            if b64:
-                image_url = f"{_DATA_URL_PREFIX}png;base64,{b64}"
-            else:
-                logger.warning("Z-Image response had no recognisable image URL: %s", data)
-                raise ValueError("Z-Image response did not contain an image URL")
+            logger.warning("Z-Image response had no recognisable image URL: %s", data)
+            raise ValueError("Z-Image response did not contain an image URL")
 
         return ImageGenerationResponse(
             image_url=image_url,
@@ -92,7 +97,45 @@ class ZImageProvider(ImageGenerationProvider):
             metadata={
                 "model_name": self.DEFAULT_MODEL_NAME,
                 "requested_model": request.model,
+                "request_id": data.get("request_id") or data.get("id"),
             },
+        )
+
+    def _extract_image(self, data: Any) -> str | None:
+        url = extract_image_url(data)
+        if url:
+            return url
+        b64 = self._extract_b64(data)
+        if b64:
+            return f"{_DATA_URL_PREFIX}png;base64,{b64}"
+        return None
+
+    async def _poll_until_ready(
+        self,
+        client: httpx.AsyncClient,
+        request_id: int | str,
+        headers: dict[str, str],
+    ) -> dict[str, Any]:
+        deadline = time.monotonic() + self._timeout
+        poll_url = f"{_GENAPI_POLL_BASE}/{request_id}"
+
+        while time.monotonic() < deadline:
+            response = await client.get(poll_url, headers=headers, timeout=60.0)
+            if response.status_code >= 400:
+                raise ValueError(self._format_error(response))
+            data = response.json()
+            status = data.get("status")
+
+            if status == "success":
+                return data
+            if status in ("failed", "error"):
+                message = data.get("message") or data.get("error") or data
+                raise ValueError(f"Z-Image generation failed: {message}")
+
+            await asyncio.sleep(_POLL_INTERVAL_SECONDS)
+
+        raise ValueError(
+            f"Z-Image generation timed out after {int(self._timeout)}s (request_id={request_id})"
         )
 
     @staticmethod
@@ -137,10 +180,15 @@ class ZImageProvider(ImageGenerationProvider):
         try:
             data = response.json()
             if isinstance(data, dict):
+                errors = data.get("errors_validation")
+                if isinstance(errors, dict) and errors:
+                    return f"Z-Image API error {response.status_code}: {errors}"
                 for key in ("error", "message", "detail", "title"):
                     value = data.get(key)
                     if isinstance(value, str) and value:
                         return f"Z-Image API error {response.status_code}: {value}"
+                if data.get("error") is True:
+                    return f"Z-Image API error {response.status_code}: {data}"
         except ValueError:
             pass
         return f"Z-Image API error {response.status_code}: {text}"
