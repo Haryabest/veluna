@@ -7,6 +7,7 @@ from app.providers.ai.genapi_provider import GenApiProvider
 from app.providers.ai.stub_provider import StubChatProvider
 from app.providers.ai.image_base import ImageGenerationProvider
 from app.providers.ai.image_providers import CivitaiProvider, FalProvider, ReplicateProvider
+from app.providers.ai.zimage_provider import ZImageProvider
 from app.providers.storage.base import StorageProvider
 from app.providers.storage.providers import MinioStorageProvider, S3StorageProvider
 
@@ -48,6 +49,8 @@ def _image_provider_has_key(settings, name: str) -> bool:
         return bool(settings.replicate_api_token.strip())
     if name == "civitai":
         return bool(settings.civitai_api_key.strip())
+    if name == "zimage":
+        return bool(settings.gen_api_key.strip())
     return False
 
 
@@ -58,11 +61,12 @@ def get_image_provider() -> ImageGenerationProvider:
         "fal": FalProvider,
         "replicate": ReplicateProvider,
         "civitai": CivitaiProvider,
+        "zimage": ZImageProvider,
     }
     preferred = settings.image_provider
     if _image_provider_has_key(settings, preferred):
         return providers[preferred]()
-    for name in ("civitai", "fal", "replicate"):
+    for name in ("zimage", "civitai", "fal", "replicate"):
         if name != preferred and _image_provider_has_key(settings, name):
             return providers[name]()
     provider_cls = providers.get(preferred)

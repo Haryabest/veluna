@@ -97,6 +97,9 @@ services:
       APP_ENV: ${APP_ENV:-production}
       DEBUG: ${DEBUG:-false}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://127.0.0.1}
+      IMAGE_PROVIDER: ${IMAGE_PROVIDER:-zimage}
+      ZIMAGE_BASE_URL: ${ZIMAGE_BASE_URL:-https://api.gen-api.ru/api/v1/networks/z-image}
+      ZIMAGE_TIMEOUT_SECONDS: ${ZIMAGE_TIMEOUT_SECONDS:-180}
       CIVITAI_API_TOKEN: ${CIVITAI_API_KEY:-}
     depends_on:
       postgres:
@@ -127,6 +130,9 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/3
       CELERY_RESULT_BACKEND: redis://redis:6379/4
       MINIO_ENDPOINT: minio:9000
+      IMAGE_PROVIDER: ${IMAGE_PROVIDER:-zimage}
+      ZIMAGE_BASE_URL: ${ZIMAGE_BASE_URL:-https://api.gen-api.ru/api/v1/networks/z-image}
+      ZIMAGE_TIMEOUT_SECONDS: ${ZIMAGE_TIMEOUT_SECONDS:-180}
       CIVITAI_API_TOKEN: ${CIVITAI_API_KEY:-}
     depends_on:
       backend:

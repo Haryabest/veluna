@@ -9,6 +9,7 @@ import { generationService } from "@/services/api";
 import { ensureTelegramSession, getApiError } from "@/lib/api-client";
 import {
   ALL_STUDIO_MODELS,
+  buildStudioPrompt,
   findStudioModel,
   STUDIO_GENERATION_COST,
   STUDIO_MODELS,
@@ -69,10 +70,12 @@ export function ChatPhotoGenerateModal({
         return;
       }
 
+      const finalPrompt = buildStudioPrompt(selectedModel, prompt);
+
       const result = await generationService.create({
-        prompt: prompt.trim(),
+        prompt: finalPrompt,
         character_id: characterId,
-        model_id: selectedModel.civitaiModelId,
+        model_id: selectedModel.id,
         width: 768,
         height: 768,
       });
@@ -117,7 +120,8 @@ export function ChatPhotoGenerateModal({
             </div>
 
             <p className="mb-4 text-sm text-text-secondary">
-              Арт для <span className="font-semibold text-text-primary">{characterName}</span> появится в чате
+              Арт для <span className="font-semibold text-text-primary">{characterName}</span> появится в чате.
+              Стиль «{selectedModel.nameRu}» будет добавлен к описанию автоматически.
             </p>
 
             <label className="mb-2 block text-sm font-semibold text-text-primary">Опиши арт</label>
@@ -186,7 +190,7 @@ export function ChatPhotoGenerateModal({
                         selected ? "text-[#f9a8d4]" : "text-text-muted"
                       )}
                     >
-                      {model.name}
+                      {model.nameRu}
                     </span>
                   </button>
                 );

@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
 
-    image_provider: Literal["fal", "replicate", "civitai"] = "fal"
+    image_provider: Literal["fal", "replicate", "civitai", "zimage"] = "zimage"
     fal_api_key: str = ""
     replicate_api_token: str = ""
     civitai_api_key: str = ""
@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     # is a special form for the flux1 ecosystem. Override via CIVITAI_DEFAULT_ENGINE
     # in .env. See https://developer.civitai.com/orchestration/ for the full list.
     civitai_default_engine: str = "comfy"
+    # Z-Image via gen-api.ru. Uses the existing GEN_API_KEY as the bearer token.
+    # See https://gen-api.ru/model/z-image for the model page.
+    zimage_base_url: str = "https://api.gen-api.ru/api/v1/networks/z-image"
+    zimage_timeout_seconds: float = 180.0
     # Optional HTTP/HTTPS proxy for Civitai API calls. Use it to bypass Civitai's
     # regional restrictions (e.g. Russian IP ranges get throttled/blocked on
     # green/blue tiers and the API returns a misleading "insufficientBuzz").

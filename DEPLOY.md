@@ -19,7 +19,7 @@ cp .env.example .env
 - `SECRET_KEY`, `JWT_SECRET_KEY` — длинные случайные строки
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_WEBAPP_URL` — публичный HTTPS URL Mini App (например `https://your-domain.com`)
-- `GEN_API_KEY`, `CIVITAI_API_KEY` — ключи AI
+- `GEN_API_KEY` — используется и для чата, и для генерации фото через Z-Image (gen-api.ru). `CIVITAI_API_KEY` — опционально, нужен только если `IMAGE_PROVIDER=civitai`
 - `CORS_ORIGINS` — URL фронта, например `http://localhost,https://your-domain.com`
 
 Запуск:

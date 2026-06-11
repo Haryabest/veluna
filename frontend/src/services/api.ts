@@ -209,11 +209,6 @@ export const generationService = {
     return data;
   },
 
-  async translate(text: string) {
-    const { data } = await apiClient.post<{ translated: string }>("/generations/translate", { text });
-    return data.translated;
-  },
-
   async prepareShare(id: string) {
     const { data } = await apiClient.post<{ prepared_message_id: string; bot_link?: string }>(
       `/generations/${id}/share`

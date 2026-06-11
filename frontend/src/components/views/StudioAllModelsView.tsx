@@ -48,7 +48,7 @@ export function StudioAllModelsView() {
                 )}
               </div>
               <span className="line-clamp-2 text-center text-xs font-medium text-text-secondary">
-                {model.name}
+                {model.nameRu || model.name}
               </span>
             </button>
           );

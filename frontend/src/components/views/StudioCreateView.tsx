@@ -11,6 +11,7 @@ import { generationService } from "@/services/api";
 import { ensureTelegramSession, getApiError } from "@/lib/api-client";
 import {
   ASPECT_RATIOS,
+  buildStudioPrompt,
   findStudioModel,
   STUDIO_GENERATION_COST,
   STUDIO_MODELS,
@@ -52,7 +53,7 @@ export function StudioCreateView() {
       return;
     }
     setLoading(true);
-    const finalPrompt = prompt.trim();
+    const finalPrompt = buildStudioPrompt(selectedModel, prompt);
     logGeneration("start", { prompt: finalPrompt, model: selectedModel.name, aspect: aspectId });
     try {
       const authed = await ensureTelegramSession();
@@ -66,11 +67,11 @@ export function StudioCreateView() {
 
       openStudioGenerating();
 
-      logGeneration("request", { prompt: finalPrompt, model: selectedModel.civitaiModelId, width, height });
+      logGeneration("request", { prompt: finalPrompt, model: selectedModel.id, provider: selectedModel.provider, width, height });
 
       const result = await generationService.create({
         prompt: finalPrompt,
-        model_id: selectedModel.civitaiModelId,
+        model_id: selectedModel.id,
         width,
         height,
       });
@@ -110,6 +111,9 @@ export function StudioCreateView() {
             {prompt.length}/{STUDIO_PROMPT_MAX}
           </span>
         </div>
+        <p className="mt-2 text-xs text-text-muted">
+          Стиль «{selectedModel.nameRu}» будет автоматически добавлен к описанию
+        </p>
       </section>
 
       <section className="mb-6">
@@ -163,7 +167,7 @@ export function StudioCreateView() {
                     selected ? "text-[#f9a8d4]" : "text-text-muted"
                   )}
                 >
-                  {model.name}
+                  {model.nameRu}
                 </span>
               </button>
             );
