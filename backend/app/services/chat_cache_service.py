@@ -18,19 +18,19 @@ class ChatCacheService:
         self._messages_ttl = settings.chat_cache_messages_ttl
 
     @staticmethod
-    def _list_key(user_id: UUID, page: int) -> str:
-        return f"{CHAT_LIST_PREFIX}{user_id}:p{page}"
+    def _list_key(user_id: UUID, page: int, locale: str = "ru") -> str:
+        return f"{CHAT_LIST_PREFIX}{user_id}:p{page}:{locale}"
 
     @staticmethod
-    def _detail_key(chat_id: UUID) -> str:
-        return f"{CHAT_DETAIL_PREFIX}{chat_id}"
+    def _detail_key(chat_id: UUID, locale: str = "ru") -> str:
+        return f"{CHAT_DETAIL_PREFIX}{chat_id}:{locale}"
 
     @staticmethod
     def _messages_key(chat_id: UUID, user_id: UUID, limit: int) -> str:
         return f"{CHAT_MSGS_PREFIX}{chat_id}:{user_id}:l{limit}"
 
-    async def get_list(self, user_id: UUID, page: int) -> tuple[list[dict], int] | None:
-        raw = await cache.get(self._list_key(user_id, page))
+    async def get_list(self, user_id: UUID, page: int, locale: str = "ru") -> tuple[list[dict], int] | None:
+        raw = await cache.get(self._list_key(user_id, page, locale))
         if not raw or not isinstance(raw, dict):
             return None
         items = raw.get("items")
@@ -39,19 +39,19 @@ class ChatCacheService:
             return None
         return items, total
 
-    async def set_list(self, user_id: UUID, page: int, items: list[dict], total: int) -> None:
+    async def set_list(self, user_id: UUID, page: int, items: list[dict], total: int, locale: str = "ru") -> None:
         await cache.set(
-            self._list_key(user_id, page),
+            self._list_key(user_id, page, locale),
             {"items": items, "total": total},
             ttl=self._list_ttl,
         )
 
-    async def get_detail(self, chat_id: UUID) -> dict | None:
-        raw = await cache.get(self._detail_key(chat_id))
+    async def get_detail(self, chat_id: UUID, locale: str = "ru") -> dict | None:
+        raw = await cache.get(self._detail_key(chat_id, locale))
         return raw if isinstance(raw, dict) else None
 
-    async def set_detail(self, chat_id: UUID, data: dict) -> None:
-        await cache.set(self._detail_key(chat_id), data, ttl=self._detail_ttl)
+    async def set_detail(self, chat_id: UUID, data: dict, locale: str = "ru") -> None:
+        await cache.set(self._detail_key(chat_id, locale), data, ttl=self._detail_ttl)
 
     async def get_messages(self, chat_id: UUID, user_id: UUID, limit: int) -> list[dict] | None:
         raw = await cache.get(self._messages_key(chat_id, user_id, limit))
@@ -68,7 +68,7 @@ class ChatCacheService:
         await cache.delete_pattern(f"{CHAT_LIST_PREFIX}{user_id}:*")
 
     async def invalidate_chat(self, chat_id: UUID, user_id: UUID | None = None) -> None:
-        await cache.delete(self._detail_key(chat_id))
+        await cache.delete_pattern(f"{CHAT_DETAIL_PREFIX}{chat_id}:*")
         if user_id is not None:
             await cache.delete_pattern(f"{CHAT_MSGS_PREFIX}{chat_id}:{user_id}:*")
         else:

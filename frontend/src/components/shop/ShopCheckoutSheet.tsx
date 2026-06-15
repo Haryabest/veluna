@@ -12,6 +12,7 @@ import {
 } from "@/lib/shop";
 import { canPayWithTelegramStars } from "@/lib/telegram-webapp";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/use-translation";
 
 interface ShopCheckoutSheetProps {
   product: ShopProduct | null;
@@ -28,6 +29,7 @@ export function ShopCheckoutSheet({
   onPayStars,
   loading = false,
 }: ShopCheckoutSheetProps) {
+  const { t } = useTranslation();
   const starsAvailable = canPayWithTelegramStars();
   const [promo, setPromo] = useState("");
   const [promoDiscount, setPromoDiscount] = useState(0);
@@ -59,11 +61,11 @@ export function ShopCheckoutSheet({
         setPromoMessage(res.message);
       } else {
         setPromoDiscount(0);
-        setPromoMessage(res.message || "Неверный промокод");
+        setPromoMessage(res.message || t("shop.checkout.invalidPromo"));
       }
     } catch {
       setPromoDiscount(0);
-      setPromoMessage("Не удалось проверить промокод");
+      setPromoMessage(t("shop.checkout.promoCheckError"));
     } finally {
       setPromoChecking(false);
     }
@@ -102,7 +104,7 @@ export function ShopCheckoutSheet({
             <h2 className="text-lg font-bold">{product.name}</h2>
 
             <p className="mt-3 text-sm text-text-secondary">
-              Оплата Telegram Stars — списание с баланса звёзд в Telegram
+              {t("shop.checkout.starsHint")}
             </p>
 
             {!starsAvailable && (
@@ -110,7 +112,7 @@ export function ShopCheckoutSheet({
                 className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90"
                 style={{ border: `1px solid ${CHAT_BORDER}` }}
               >
-                Оплата доступна только в Telegram Mini App (кнопка меню бота).
+                {t("shop.checkout.miniAppOnly")}
               </p>
             )}
 
@@ -136,7 +138,7 @@ export function ShopCheckoutSheet({
                     className="flex items-center gap-1 rounded-xl bg-bg-elevated px-3 py-1.5"
                     style={{ border: `1px solid ${CHAT_BORDER}` }}
                   >
-                    <AnimeGemIcon className="h-4 w-4" /> {product.gems_amount} гемов
+                    <AnimeGemIcon className="h-4 w-4" /> {product.gems_amount} {t("common.gemsCount")}
                   </span>
                 )}
                 {product.credits_amount > 0 && (
@@ -144,7 +146,7 @@ export function ShopCheckoutSheet({
                     className="flex items-center gap-1 rounded-xl bg-bg-elevated px-3 py-1.5"
                     style={{ border: `1px solid ${CHAT_BORDER}` }}
                   >
-                    <AnimeHeartIcon className="h-4 w-4" /> {product.credits_amount} сердец
+                    <AnimeHeartIcon className="h-4 w-4" /> {product.credits_amount} {t("common.heartsCount")}
                   </span>
                 )}
               </div>
@@ -152,7 +154,7 @@ export function ShopCheckoutSheet({
 
             <div className="mt-4">
               <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-text-muted">
-                Промокод
+                {t("shop.checkout.promo")}
               </label>
               <div className="flex gap-2">
                 <input
@@ -194,7 +196,7 @@ export function ShopCheckoutSheet({
                 boxShadow: "0 8px 28px rgba(160, 32, 240, 0.4)",
               }}
             >
-              {loading ? "Загрузка…" : "Оплатить звёздами ⭐"}
+              {loading ? t("shop.loading") : t("shop.checkout.payStars")}
             </button>
           </motion.div>
         </>

@@ -9,6 +9,7 @@ from app.core.exceptions import ForbiddenError
 from app.database.session import get_db
 from app.schemas import UserResponse
 from app.services.auth_service import AuthService
+from app.utils.locale import AppLocale, normalize_app_locale
 
 security = HTTPBearer(auto_error=False)
 
@@ -62,3 +63,24 @@ async def get_admin_user(
         status_code=status.HTTP_403_FORBIDDEN,
         detail={"code": "FORBIDDEN", "message": "Admin access required"},
     )
+
+
+async def get_request_locale(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    x_telegram_init_data: str | None = Header(None, alias="X-Telegram-Init-Data"),
+    accept_language: str | None = Header(None, alias="Accept-Language"),
+    session: AsyncSession = Depends(get_db),
+) -> AppLocale:
+    """User language from JWT/initData, else Accept-Language, else ru."""
+    if credentials or x_telegram_init_data:
+        try:
+            user = await AuthService(session).resolve_user(
+                access_token=credentials.credentials if credentials else None,
+                init_data=x_telegram_init_data,
+            )
+            return normalize_app_locale(user.language_code)
+        except ForbiddenError:
+            pass
+    if accept_language:
+        return normalize_app_locale(accept_language.split(",")[0].strip())
+    return "ru"

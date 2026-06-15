@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models import Broadcast, BroadcastStatus, User
+from app.utils.localized_text import pick_localized
+from app.utils.locale import normalize_app_locale
 
 logger = logging.getLogger(__name__)
 
@@ -26,53 +28,56 @@ class BroadcastService:
         )
         return list(result.scalars().all())
 
-    async def _recipient_telegram_ids(self) -> list[int]:
+    async def _recipients(self) -> list[tuple[int, str]]:
         result = await self._session.execute(
-            select(User.telegram_id).where(
+            select(User.telegram_id, User.language_code).where(
                 User.is_banned == False,  # noqa: E712
                 User.is_active == True,  # noqa: E712
             )
         )
-        return [int(row[0]) for row in result.all()]
+        rows: list[tuple[int, str]] = []
+        for telegram_id, language_code in result.all():
+            rows.append((int(telegram_id), normalize_app_locale(language_code)))
+        return rows
 
     async def send_broadcast(
         self,
         message_text: str,
         admin_id: UUID | None = None,
         *,
+        message_text_alt: str | None = None,
         parse_mode: str = "HTML",
     ) -> Broadcast:
         text = message_text.strip()
+        alt = (message_text_alt or "").strip() or None
         if not text:
             from app.core.exceptions import ValidationError
 
             raise ValidationError("Текст рассылки не может быть пустым")
 
-        recipients = await self._recipient_telegram_ids()
+        recipients = await self._recipients()
         record = Broadcast(
             admin_id=admin_id,
             message_text=text,
+            message_text_alt=alt,
             status=BroadcastStatus.RUNNING.value,
             total_recipients=len(recipients),
         )
         self._session.add(record)
         await self._session.flush()
 
-        sent, failed = await self._deliver(text, recipients, parse_mode=parse_mode)
+        sent, failed = await self._deliver(text, alt, recipients, parse_mode=parse_mode)
         record.sent_count = sent
         record.failed_count = failed
-        record.status = (
-            BroadcastStatus.COMPLETED.value
-            if failed == 0
-            else BroadcastStatus.COMPLETED.value
-        )
+        record.status = BroadcastStatus.COMPLETED.value
         await self._session.flush()
         return record
 
     async def _deliver(
         self,
-        text: str,
-        telegram_ids: list[int],
+        primary: str,
+        alt: str | None,
+        recipients: list[tuple[int, str]],
         *,
         parse_mode: str,
     ) -> tuple[int, int]:
@@ -87,13 +92,14 @@ class BroadcastService:
         url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
 
         async with httpx.AsyncClient(timeout=30.0) as client:
-            for chat_id in telegram_ids:
+            for chat_id, locale in recipients:
+                body = pick_localized(primary, alt, locale)
                 try:
                     response = await client.post(
                         url,
                         json={
                             "chat_id": chat_id,
-                            "text": text,
+                            "text": body,
                             "parse_mode": parse_mode,
                         },
                     )

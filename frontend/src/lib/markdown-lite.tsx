@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 const IMAGE_RE = /!\[([^\]]*)\]\(([^)]+)\)/g;
 
 /** Minimal inline markdown: **bold**, *italic*, ![alt](url) images */
-export function renderMarkdownLite(text: string): ReactNode[] {
+export function renderMarkdownLite(text: string, photoAlt = "photo"): ReactNode[] {
   const nodes: ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -22,7 +22,7 @@ export function renderMarkdownLite(text: string): ReactNode[] {
     nodes.push(
       <span key={`img-${key++}`} className="mt-1 block">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={url} alt={alt || "фотография"} className="max-w-full rounded-xl object-contain" />
+        <img src={url} alt={alt || photoAlt} className="max-w-full rounded-xl object-contain" />
       </span>
     );
     lastIndex = match.index + match[0].length;

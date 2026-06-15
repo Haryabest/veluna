@@ -14,6 +14,7 @@ import { cn, formatGems } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { openTelegramInvoice } from "@/hooks/use-telegram-payment";
 import { canPayWithTelegramStars } from "@/lib/telegram-webapp";
+import { useTranslation } from "@/hooks/use-translation";
 
 const PRESET_AMOUNTS = [50, 100, 250, 500];
 
@@ -28,6 +29,7 @@ const CTA_GRADIENT = "linear-gradient(90deg, #9b8cff 0%, #b45cf0 45%, #9333ea 10
 export function TopUpBalanceView() {
   const goBack = useNavStore((s) => s.goBack);
   const { toast } = useToast();
+  const { t } = useTranslation();
   const starsAvailable = canPayWithTelegramStars();
 
   const [step, setStep] = useState<1 | 2>(1);
@@ -42,13 +44,13 @@ export function TopUpBalanceView() {
   const [loading, setLoading] = useState(false);
   const [paying, setPaying] = useState(false);
 
-  const currencyLabel = currency === "gems" ? "гемов" : "сердец";
+  const currencyLabel = currency === "gems" ? t("common.gemsCount") : t("common.heartsCount");
   const promoApplied = appliedPromo !== null && promoDiscount > 0;
 
   const handleApplyPromo = async () => {
     const code = promo.trim();
     if (!code) {
-      toast("Введите промокод", "warning");
+      toast(t("topup.promoEnter"), "warning");
       return;
     }
     setPromoApplying(true);
@@ -63,16 +65,16 @@ export function TopUpBalanceView() {
         setAppliedPromo(code.toUpperCase());
         setPromoDiscount(res.discount_percent);
         setPromoError("");
-        toast(`Промокод применён: скидка ${res.discount_percent}%`, "success");
+        toast(t("topup.promoAppliedDetail", { code: code.toUpperCase(), percent: res.discount_percent }), "success");
       } else {
         setAppliedPromo(null);
         setPromoDiscount(0);
-        setPromoError("Промокод не найден или недействителен");
-        toast("Промокод не найден", "error");
+        setPromoError(t("topup.promoInvalid"));
+        toast(t("topup.promoNotFound"), "error");
       }
     } catch {
-      setPromoError("Не удалось проверить промокод");
-      toast("Не удалось проверить промокод", "error");
+      setPromoError(t("topup.promoCheckError"));
+      toast(t("topup.promoCheckError"), "error");
     } finally {
       setPromoApplying(false);
     }
@@ -86,7 +88,7 @@ export function TopUpBalanceView() {
 
   const handleNext = async () => {
     if (amount < 1) {
-      toast("Укажите количество", "warning");
+      toast(t("topup.quantityRequired"), "warning");
       return;
     }
     setLoading(true);
@@ -99,7 +101,7 @@ export function TopUpBalanceView() {
       setQuote(res);
       setStep(2);
     } catch {
-      toast("Не удалось рассчитать сумму", "error");
+      toast(t("topup.quoteError"), "error");
     } finally {
       setLoading(false);
     }
@@ -109,7 +111,7 @@ export function TopUpBalanceView() {
     if (!quote) return;
 
     if (!canPayWithTelegramStars()) {
-      toast("Откройте пополнение через Telegram Mini App", "info");
+      toast(t("topup.miniAppOnly"), "info");
       return;
     }
 
@@ -125,19 +127,19 @@ export function TopUpBalanceView() {
       if (res.invoice_url) {
         const status = await openTelegramInvoice(res.invoice_url);
         if (status === "paid") {
-          toast("Оплата прошла! Баланс обновится в профиле", "success");
+          toast(t("topup.paymentSuccess"), "success");
           goBack();
         } else if (status === "cancelled") {
-          toast("Оплата отменена", "info");
+          toast(t("topup.paymentCancelled"), "info");
         } else {
-          toast("Не удалось завершить оплату Stars", "error");
+          toast(t("topup.paymentFailed"), "error");
         }
       } else {
-        toast(`К оплате: ${quote.stars_amount} ⭐ за ${amount} ${currencyLabel}`, "info");
+        toast(t("topup.paymentInfo", { stars: quote.stars_amount, amount, currency: currencyLabel }), "info");
         goBack();
       }
     } catch {
-      toast("Не удалось оформить оплату", "error");
+      toast(t("topup.checkoutError"), "error");
     } finally {
       setPaying(false);
     }
@@ -148,8 +150,8 @@ export function TopUpBalanceView() {
       <div className="mb-4 flex items-center gap-2">
         <BackButton onClick={step === 2 ? () => setStep(1) : goBack} />
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold">Пополнение</h1>
-          <p className="text-xs text-text-muted">Шаг {step} из 2</p>
+          <h1 className="text-xl font-bold">{t("topup.title")}</h1>
+          <p className="text-xs text-text-muted">{t("topup.step", { n: step })}</p>
         </div>
       </div>
 
@@ -166,7 +168,7 @@ export function TopUpBalanceView() {
             )}
             style={step === s ? { border: `1px solid rgba(199, 125, 255, 0.45)` } : undefined}
           >
-            {s === 1 ? "Сумма" : "Оплата"}
+            {s === 1 ? t("topup.stepAmount") : t("topup.stepPayment")}
           </div>
         ))}
       </div>
@@ -186,20 +188,20 @@ export function TopUpBalanceView() {
                   active={currency === "gems"}
                   onClick={() => setCurrency("gems")}
                   icon={<AnimeGemIcon className="h-6 w-6" />}
-                  label="Гемы"
+                  label={t("common.gems")}
                 />
                 <div style={chatSeparatorVerticalStyle}>
                   <CurrencyOption
                     active={currency === "credits"}
                     onClick={() => setCurrency("credits")}
                     icon={<AnimeHeartIcon className="h-6 w-6" />}
-                    label="Сердца"
+                    label={t("common.hearts")}
                   />
                 </div>
               </div>
               <Separator />
               <div className="p-4">
-              <p className="mb-3 text-sm font-semibold text-text-primary">Количество</p>
+              <p className="mb-3 text-sm font-semibold text-text-primary">{t("topup.quantity")}</p>
               <div className="flex items-center gap-3">
                 <StepperButton label="−" onClick={() => setAmount((a) => Math.max(1, a - 10))} />
                 <input
@@ -237,7 +239,7 @@ export function TopUpBalanceView() {
               </div>
               <Separator />
               <div className="p-4">
-              <p className="mb-3 text-sm font-semibold text-text-primary">Промокод</p>
+              <p className="mb-3 text-sm font-semibold text-text-primary">{t("topup.promo")}</p>
               <div className="flex gap-2">
                 <input
                   value={promo}
@@ -264,7 +266,7 @@ export function TopUpBalanceView() {
                   )}
                   style={{ border: `1px solid rgba(199, 125, 255, 0.5)` }}
                 >
-                  {promoApplying ? "…" : "Применить"}
+                  {promoApplying ? "…" : t("common.apply")}
                 </button>
               </div>
 
@@ -280,9 +282,9 @@ export function TopUpBalanceView() {
                   >
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
                     <div className="min-w-0 text-xs">
-                      <p className="font-semibold text-emerald-300">Промокод применён</p>
+                      <p className="font-semibold text-emerald-300">{t("topup.promoApplied")}</p>
                       <p className="text-emerald-200/90">
-                        {appliedPromo} — скидка {promoDiscount}%
+                        {t("topup.promoAppliedDetail", { code: appliedPromo, percent: promoDiscount })}
                       </p>
                     </div>
                   </motion.div>
@@ -304,7 +306,7 @@ export function TopUpBalanceView() {
               className="w-full rounded-2xl py-4 text-sm font-bold uppercase tracking-wide text-white shadow-glow-sm disabled:opacity-50"
               style={{ background: CTA_GRADIENT }}
             >
-              {loading ? "Считаем…" : "Далее"}
+              {loading ? t("topup.calculating") : t("common.next")}
             </button>
           </motion.div>
         ) : (
@@ -318,18 +320,18 @@ export function TopUpBalanceView() {
             {quote && (
               <ListPanel className="space-y-0 p-4 text-sm">
                 <SummaryRow
-                  label="Получите"
-                  value={`${formatGems(amount)} ${currency === "gems" ? "гемов" : "сердец"}`}
+                  label={t("topup.youGet")}
+                  value={`${formatGems(amount)} ${currency === "gems" ? t("common.gemsCount") : t("common.heartsCount")}`}
                 />
                 {(quote.discount_percent > 0 || appliedPromo) && <Separator className="my-3" />}
                 {quote.discount_percent > 0 && (
-                  <SummaryRow label="Скидка" value={`${quote.discount_percent}%`} accent />
+                  <SummaryRow label={t("topup.discount")} value={`${quote.discount_percent}%`} accent />
                 )}
                 {appliedPromo && (
-                  <SummaryRow label="Промокод" value={appliedPromo} accent />
+                  <SummaryRow label={t("topup.promo")} value={appliedPromo} accent />
                 )}
                 <Separator className="my-3" />
-                <SummaryRow label="К оплате" value={`⭐ ${quote.stars_amount}`} bold />
+                <SummaryRow label={t("topup.toPay")} value={`⭐ ${quote.stars_amount}`} bold />
                 <SummaryRow label="≈ USD" value={`$${quote.usd_amount.toFixed(2)}`} muted />
               </ListPanel>
             )}
@@ -339,12 +341,12 @@ export function TopUpBalanceView() {
                 className="rounded-xl bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200/90"
                 style={{ border: `1px solid ${CHAT_BORDER}` }}
               >
-                Оплата Telegram Stars доступна только в Mini App (кнопка бота в Telegram).
+                {t("topup.starsHint")}
               </p>
             )}
 
             <p className="text-sm text-text-secondary">
-              Списание с баланса Telegram Stars вашего аккаунта
+              {t("topup.starsCharge")}
             </p>
 
             <button
@@ -354,7 +356,7 @@ export function TopUpBalanceView() {
               className="w-full rounded-2xl py-4 text-sm font-bold uppercase tracking-wide text-white shadow-glow-sm disabled:opacity-50"
               style={{ background: CTA_GRADIENT }}
             >
-              {paying ? "Обработка…" : `Оплатить ⭐ ${quote?.stars_amount ?? 0}`}
+              {paying ? t("topup.processing") : t("topup.pay", { stars: quote?.stars_amount ?? 0 })}
             </button>
           </motion.div>
         )}

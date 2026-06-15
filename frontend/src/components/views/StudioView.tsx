@@ -10,8 +10,10 @@ import { generationService } from "@/services/api";
 import { QUERY_KEYS } from "@/lib/constants";
 import { chatBorderStyle } from "@/lib/theme";
 import { StudioArtViewer } from "@/components/studio/StudioArtViewer";
+import { useTranslation } from "@/hooks/use-translation";
 
 export function StudioView() {
+  const { t } = useTranslation();
   const screen = useNavStore((s) => s.screen);
   const tab = useNavStore((s) => s.tab);
   const openStudioCreate = useNavStore((s) => s.openStudioCreate);
@@ -63,9 +65,9 @@ export function StudioView() {
             backgroundClip: "text",
           }}
         >
-          Создавай арты
+          {t("studio.title")}
         </h1>
-        <p className="mt-1.5 text-sm text-text-secondary">и собирай свои арты</p>
+        <p className="mt-1.5 text-sm text-text-secondary">{t("studio.subtitle")}</p>
       </motion.header>
 
       <motion.div
@@ -75,10 +77,10 @@ export function StudioView() {
         className="grid grid-cols-2 gap-3"
       >
         {isLoading ? (
-          <p className="col-span-2 py-12 text-center text-sm text-text-muted">Загрузка…</p>
+          <p className="col-span-2 py-12 text-center text-sm text-text-muted">{t("common.loading")}</p>
         ) : gallery.length === 0 ? (
           <p className="col-span-2 py-12 text-center text-sm text-text-muted">
-            Пока нет артов — нажми + чтобы создать
+            {t("studio.empty")}
           </p>
         ) : (
         gallery.map((art, i) => (
@@ -91,7 +93,7 @@ export function StudioView() {
             onClick={() => setViewerArt(art)}
             className="aspect-square overflow-hidden rounded-2xl text-left active:scale-[0.98]"
             style={chatBorderStyle}
-            aria-label={art.prompt ? `Арт: ${art.prompt}` : "Открыть арт"}
+            aria-label={art.prompt ? t("studio.artLabel", { prompt: art.prompt }) : t("studio.openArt")}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={art.imageUrl} alt="" className="h-full w-full object-cover" />
@@ -105,7 +107,7 @@ export function StudioView() {
         createPortal(
           <button
             type="button"
-            aria-label="Создать арт"
+            aria-label={t("studio.createArt")}
             onClick={openStudioCreate}
             className="studio-fab-gradient pointer-events-auto fixed left-1/2 z-[60] flex h-[4.25rem] w-[4.25rem] -translate-x-1/2 items-center justify-center rounded-full text-white transition-transform active:scale-95"
             style={{

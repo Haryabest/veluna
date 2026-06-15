@@ -5,14 +5,16 @@ import { AnimeGemIcon, AnimeHeartIcon } from "@/components/icons/CurrencyIcons";
 import { chatBorderStyle, chatSeparatorStyle } from "@/lib/theme";
 import { starsPrice, usdFromStars, type ShopProduct } from "@/lib/shop";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
 const TYPE_META: Record<
   ShopProduct["product_type"],
-  { emoji: string | null; useGemIcon?: boolean; label: string }
+  { emoji: string | null; useGemIcon?: boolean; labelKey: TranslationKey }
 > = {
-  bundle: { emoji: "🎁", label: "Набор" },
-  gems: { emoji: null, useGemIcon: true, label: "Гемы" },
-  credits: { emoji: null, label: "Сердца" },
+  bundle: { emoji: "🎁", labelKey: "common.bundle" },
+  gems: { emoji: null, useGemIcon: true, labelKey: "common.gems" },
+  credits: { emoji: null, labelKey: "common.hearts" },
 };
 
 interface ShopProductCardProps {
@@ -28,6 +30,7 @@ export function ShopProductCard({
   showSeparator = true,
   onSelect,
 }: ShopProductCardProps) {
+  const { t } = useTranslation();
   const meta = TYPE_META[product.product_type];
   const stars = starsPrice(product);
   const usd = usdFromStars(stars);
@@ -69,7 +72,7 @@ export function ShopProductCard({
           )}
         </div>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted">
-          <span>{meta.label}</span>
+          <span>{t(meta.labelKey)}</span>
           {product.gems_amount > 0 && (
             <span className="inline-flex items-center gap-0.5">
               <AnimeGemIcon className="h-3 w-3" />

@@ -1,34 +1,33 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { ArtSceneBackground } from "@/components/shared/ArtSceneBackground";
-
-const STEPS = [
-  "Перевожу промпт на английский…",
-  "Отправляю запрос на CivitAI…",
-  "Модель генерирует изображение…",
-  "Сохраняю результат…",
-];
+import { useTranslation } from "@/hooks/use-translation";
 
 export function StudioGeneratingView() {
-  const stepRef = useRef(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { t } = useTranslation();
+
+  const steps = useMemo(
+    () => [
+      t("studio.generating.step1"),
+      t("studio.generating.step2"),
+      t("studio.generating.step3"),
+      t("studio.generating.step4"),
+    ],
+    [t]
+  );
+
+  const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
-    const el = document.getElementById("gen-step");
-    if (!el) return;
-    stepRef.current = 0;
-    el.textContent = STEPS[0];
-    intervalRef.current = setInterval(() => {
-      stepRef.current = (stepRef.current + 1) % STEPS.length;
-      el.textContent = STEPS[stepRef.current];
+    setStepIndex(0);
+    const interval = setInterval(() => {
+      setStepIndex((i) => (i + 1) % steps.length);
     }, 2500);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
+    return () => clearInterval(interval);
+  }, [steps]);
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6">
@@ -58,17 +57,17 @@ export function StudioGeneratingView() {
         transition={{ delay: 0.3 }}
         className="relative z-10 text-xl font-bold text-text-primary"
       >
-        Создаю арт
+        {t("studio.generating.title")}
       </motion.h2>
 
       <motion.p
-        id="gen-step"
+        key={stepIndex}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.6 }}
         className="relative z-10 mt-3 text-sm text-text-secondary"
       >
-        {STEPS[0]}
+        {steps[stepIndex]}
       </motion.p>
 
       <motion.div

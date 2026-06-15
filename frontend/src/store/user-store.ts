@@ -8,6 +8,7 @@ export interface User {
   last_name: string | null;
   photo_url: string | null;
   language_code: string;
+  locale_selected?: boolean;
   role: string;
   is_active: boolean;
   gems: number;

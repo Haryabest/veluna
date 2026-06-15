@@ -28,10 +28,12 @@ import {
 } from "@/components/chats/MessageContextMenu";
 import { useMessageLongPress } from "@/hooks/use-message-long-press";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "@/hooks/use-translation";
 import { renderMarkdownLite } from "@/lib/markdown-lite";
 import { cn } from "@/lib/utils";
 import { readMessagesCache, writeMessagesCache } from "@/lib/chat-messages-cache";
 import { buildChatMessageRows } from "@/lib/chat-dates";
+import { localeTag, type AppLocale } from "@/lib/i18n/translations";
 import { CHAT_BORDER } from "@/lib/theme";
 import { ChatDaySeparator } from "@/components/chats/ChatDaySeparator";
 import type { CharacterScenario } from "@/store/character-store";
@@ -62,11 +64,12 @@ function mapApiMessage(raw: Record<string, unknown>): ChatMessage {
   };
 }
 
-function formatTime(iso?: string) {
+function formatTime(iso: string | undefined, locale: AppLocale) {
+  const tag = localeTag(locale);
   if (!iso) {
-    return new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+    return new Date().toLocaleTimeString(tag, { hour: "2-digit", minute: "2-digit" });
   }
-  return new Date(iso).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString(tag, { hour: "2-digit", minute: "2-digit" });
 }
 
 function EmojiSmileIcon({ className }: { className?: string }) {
@@ -124,6 +127,7 @@ export function ChatDialogView() {
   const upsertChat = useChatsListStore((s) => s.upsertFromDetail);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t, locale } = useTranslation();
 
   const [input, setInput] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -142,7 +146,7 @@ export function ChatDialogView() {
   const prevAiStatusRef = useRef("idle");
 
   const { data: chatDetail, isLoading: chatLoading } = useQuery({
-    queryKey: QUERY_KEYS.chat(chatId ?? ""),
+    queryKey: [...QUERY_KEYS.chat(chatId ?? ""), locale] as const,
     queryFn: () => chatService.get(chatId!),
     enabled: !!chatId,
     refetchInterval: (query) =>
@@ -151,6 +155,12 @@ export function ChatDialogView() {
 
   const aiReplyStatus = chatDetail?.ai_reply_status ?? "idle";
   const isAiThinking = aiReplyStatus === "processing";
+
+  useEffect(() => {
+    if (chatDetail && chatId) {
+      upsertChat(chatDetail);
+    }
+  }, [chatDetail, chatId, upsertChat, locale]);
 
   const chatMeta = listChat ?? (chatDetail ? mapApiChatDetail(chatDetail) : undefined);
   const characterId = chatMeta?.characterId;
@@ -206,7 +216,7 @@ export function ChatDialogView() {
     const status = pendingGeneration.status as string;
     if (status !== "completed") {
       if (status === "failed" || status === "moderated") {
-        toast("Генерация не удалась", "error");
+        toast(t("chat.genFailed"), "error");
         setPendingGenerationId(null);
       }
       return;
@@ -225,7 +235,7 @@ export function ChatDialogView() {
         });
         void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.messages(chatId) });
       } catch (err) {
-        if (!cancelled) toast(getApiError(err).message || "Не удалось добавить арт в чат", "error");
+        if (!cancelled) toast(getApiError(err).message || t("chat.artAddError"), "error");
       } finally {
         if (!cancelled) setPendingGenerationId(null);
       }
@@ -234,7 +244,7 @@ export function ChatDialogView() {
     return () => {
       cancelled = true;
     };
-  }, [chatId, pendingGeneration, pendingGenerationId, queryClient, toast]);
+  }, [chatId, pendingGeneration, pendingGenerationId, queryClient, toast, t]);
 
   const sendMutation = useMutation({
     mutationFn: ({ content, replyToId }: { content: string; replyToId?: string }) =>
@@ -258,7 +268,7 @@ export function ChatDialogView() {
       useChatsListStore.getState().load();
     },
     onError: (err) => {
-      toast(getApiError(err).message || "Не удалось отправить сообщение", "error");
+      toast(getApiError(err).message || t("chat.sendError"), "error");
     },
   });
 
@@ -270,16 +280,16 @@ export function ChatDialogView() {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.messages(chatId) });
     },
     onError: (err) => {
-      toast(getApiError(err).message || "Не удалось удалить сообщение", "error");
+      toast(getApiError(err).message || t("chat.deleteMsgError"), "error");
     },
   });
 
   useEffect(() => {
     if (prevAiStatusRef.current === "processing" && aiReplyStatus === "failed") {
-      toast(chatDetail?.ai_reply_error || "Не удалось получить ответ персонажа", "error");
+      toast(chatDetail?.ai_reply_error || t("chat.replyError"), "error");
     }
     prevAiStatusRef.current = aiReplyStatus;
-  }, [aiReplyStatus, chatDetail?.ai_reply_error, toast]);
+  }, [aiReplyStatus, chatDetail?.ai_reply_error, toast, t]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -307,7 +317,7 @@ export function ChatDialogView() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.messages(chatId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.chat(chatId) });
     } catch (err) {
-      toast(getApiError(err).message || "Не удалось переключить сценарий", "error");
+      toast(getApiError(err).message || t("chat.scenarioError"), "error");
     } finally {
       setSwitching(false);
     }
@@ -327,7 +337,7 @@ export function ChatDialogView() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.messages(chatId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.chat(chatId) });
     } catch (err) {
-      toast(getApiError(err).message || "Не удалось переключить рассказчика", "error");
+      toast(getApiError(err).message || t("chat.narratorError"), "error");
     } finally {
       setSwitching(false);
     }
@@ -336,7 +346,7 @@ export function ChatDialogView() {
   if (!chatId || (!chatMeta && chatLoading)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-text-muted">Загрузка чата…</p>
+        <p className="text-text-muted">{t("chat.loading")}</p>
       </div>
     );
   }
@@ -344,7 +354,7 @@ export function ChatDialogView() {
   if (!chatMeta) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-text-muted">Чат не найден</p>
+        <p className="text-text-muted">{t("chat.notFound")}</p>
       </div>
     );
   }
@@ -354,7 +364,7 @@ export function ChatDialogView() {
   const narratorName = chatMeta.narratorName;
   const avatarUrl = chatMeta.avatarUrl;
   const displayMessages: ChatMessage[] = Array.isArray(messages) ? messages : [];
-  const messageRows = buildChatMessageRows(displayMessages);
+  const messageRows = buildChatMessageRows(displayMessages, locale);
 
   const openMessageMenu = useCallback((msg: ChatMessage, clientX: number, clientY: number) => {
     if (msg.role === "system") return;
@@ -367,9 +377,9 @@ export function ChatDialogView() {
     if (!selectedMessage) return;
     try {
       await navigator.clipboard.writeText(selectedMessage.content);
-      toast("Скопировано", "success");
+      toast(t("chat.copied"), "success");
     } catch {
-      toast("Не удалось скопировать", "error");
+      toast(t("chat.copyError"), "error");
     }
     setMsgMenuOpen(false);
   };
@@ -415,13 +425,13 @@ export function ChatDialogView() {
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-semibold">{characterName}</p>
           <p className="truncate text-xs text-accent-light/90">
-            {[scenarioTitle, narratorName].filter(Boolean).join(" · ") || "онлайн"}
+            {[scenarioTitle, narratorName].filter(Boolean).join(" · ") || t("common.online")}
           </p>
         </div>
         <button
           ref={menuBtnRef}
           type="button"
-          aria-label="Настройки чата"
+          aria-label={t("chat.settings")}
           aria-expanded={menuOpen}
           onClick={openScenarioMenu}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg-elevated/80 hover:text-text-primary"
@@ -478,11 +488,11 @@ export function ChatDialogView() {
             row.kind === "day" ? (
               <ChatDaySeparator key={row.id} label={row.label} />
             ) : (
-              <ChatMessageBubble key={row.id} msg={row.msg} onLongPress={openMessageMenu} />
+              <ChatMessageBubble key={row.id} msg={row.msg} locale={locale} onLongPress={openMessageMenu} />
             )
           )
         )}
-        {pendingGenerationId ? <ChatArtGeneratingBubble /> : null}
+        {pendingGenerationId ? <ChatArtGeneratingBubble label={t("chat.creatingArt")} /> : null}
         {isAiThinking && <ChatThinkingBubble />}
         <div ref={messagesEndRef} />
       </div>
@@ -499,12 +509,12 @@ export function ChatDialogView() {
             style={{ border: `1px solid ${CHAT_BORDER}` }}
           >
             <div className="min-w-0 flex-1 border-l-2 border-accent-light pl-2">
-              <p className="text-[11px] font-semibold text-accent-light">Ответ</p>
+              <p className="text-[11px] font-semibold text-accent-light">{t("chat.reply")}</p>
               <p className="truncate text-xs text-text-muted">{replyTo.content}</p>
             </div>
             <button
               type="button"
-              aria-label="Отменить ответ"
+              aria-label={t("chat.cancelReply")}
               onClick={() => setReplyTo(null)}
               className="shrink-0 rounded-full p-1 text-text-muted hover:bg-bg-elevated"
             >
@@ -517,7 +527,7 @@ export function ChatDialogView() {
           <button
             type="button"
             onClick={() => setEmojiOpen((v) => !v)}
-            aria-label="Эмодзи"
+            aria-label={t("common.emoji")}
             className={cn(
               "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors",
               emojiOpen ? "bg-accent/20 text-accent-light" : "text-text-muted hover:bg-bg-elevated"
@@ -535,7 +545,7 @@ export function ChatDialogView() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              placeholder="Сообщение"
+              placeholder={t("chat.messagePlaceholder")}
               className="min-w-0 flex-1 bg-transparent text-[16px] text-text-primary outline-none ring-0 placeholder:text-text-muted focus:outline-none focus:ring-0"
             />
           </div>
@@ -544,7 +554,7 @@ export function ChatDialogView() {
             type="button"
             onClick={handleSend}
             disabled={!hasText || sendMutation.isPending || isAiThinking}
-            aria-label="Отправить"
+            aria-label={t("chat.send")}
             className={cn(
               "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all active:scale-90",
               hasText ? "bg-accent text-text-primary shadow-[0_0_14px_rgba(160,32,240,0.45)]" : "bg-bg-elevated text-text-muted"
@@ -576,7 +586,7 @@ export function ChatDialogView() {
             />
             <div className="min-w-0 flex-1">
               <p className="text-[14px] font-bold uppercase tracking-wide text-white">
-                Сгенерировать фото
+                {t("chat.generatePhoto")}
               </p>
               <p className="mt-0.5 flex items-center gap-1.5 text-sm font-medium text-white/90">
                 5 <AnimeGemIcon className="h-4 w-4" />
@@ -610,7 +620,7 @@ export function ChatDialogView() {
   );
 }
 
-function ChatArtGeneratingBubble() {
+function ChatArtGeneratingBubble({ label }: { label: string }) {
   return (
     <div className="flex items-start">
       <div
@@ -619,7 +629,7 @@ function ChatArtGeneratingBubble() {
       >
         <span className="inline-flex items-center gap-2">
           <span className="h-2 w-2 animate-pulse rounded-full bg-pink-400" />
-          Создаю арт…
+          {label}
         </span>
       </div>
     </div>
@@ -628,11 +638,14 @@ function ChatArtGeneratingBubble() {
 
 function ChatMessageBubble({
   msg,
+  locale,
   onLongPress,
 }: {
   msg: ChatMessage;
+  locale: AppLocale;
   onLongPress: (msg: ChatMessage, x: number, y: number) => void;
 }) {
+  const { t } = useTranslation();
   const longPress = useMessageLongPress(
     (x, y) => onLongPress(msg, x, y),
     { disabled: msg.role === "system" }
@@ -680,9 +693,9 @@ function ChatMessageBubble({
             <p className="line-clamp-2">{msg.reply_preview.content}</p>
           </div>
         ) : null}
-        <span className="whitespace-pre-wrap">{renderMarkdownLite(msg.content)}</span>
+        <span className="whitespace-pre-wrap">{renderMarkdownLite(msg.content, t("common.photo"))}</span>
       </div>
-      <span className="mt-1 px-1 text-[11px] text-text-muted">{formatTime(msg.created_at)}</span>
+      <span className="mt-1 px-1 text-[11px] text-text-muted">{formatTime(msg.created_at, locale)}</span>
     </div>
   );
 }

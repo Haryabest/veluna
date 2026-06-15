@@ -1,12 +1,14 @@
 "use client";
 
 import { useTelegramAuth } from "@/hooks/use-telegram-auth";
+import { useTranslation } from "@/hooks/use-translation";
 import { useMounted } from "@/hooks/use-mounted";
 import { Skeleton } from "@/components/shared/Skeleton";
 import { BannedScreen } from "@/features/auth/BannedScreen";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const mounted = useMounted();
+  const { t } = useTranslation();
   const { isLoading, banInfo, error } = useTelegramAuth();
 
   if (!mounted || isLoading) {
@@ -16,7 +18,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           <span className="text-2xl text-gradient font-bold">V</span>
         </div>
         <Skeleton className="h-3 w-28" />
-        <p className="text-sm text-text-muted">Загрузка Veluna...</p>
+        <p className="text-sm text-text-muted">{t("auth.loading")}</p>
       </div>
     );
   }

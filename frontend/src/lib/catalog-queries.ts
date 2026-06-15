@@ -2,6 +2,14 @@ import { QUERY_KEYS } from "@/lib/constants";
 import { balanceService, characterService, shopService } from "@/services/api";
 import type { QueryClient } from "@tanstack/react-query";
 
+import { normalizeLocale, type AppLocale } from "@/lib/i18n/translations";
+import { useSettingsStore } from "@/store/settings-store";
+
+function catalogLocale(): AppLocale {
+  if (typeof window === "undefined") return "ru";
+  return normalizeLocale(useSettingsStore.getState().language);
+}
+
 /** Admin-managed catalog: always refetch when screen opens or app returns to foreground. */
 const catalogQueryDefaults = {
   staleTime: 0,
@@ -10,21 +18,25 @@ const catalogQueryDefaults = {
   retry: 2,
 };
 
-export const shopProductsQueryOptions = {
-  queryKey: QUERY_KEYS.shopProducts,
-  queryFn: () => shopService.listProducts(),
-  ...catalogQueryDefaults,
-};
+export function shopProductsQueryOptions() {
+  return {
+    queryKey: [...QUERY_KEYS.shopProducts, catalogLocale()] as const,
+    queryFn: () => shopService.listProducts(),
+    ...catalogQueryDefaults,
+  };
+}
 
-export const charactersListQueryOptions = {
-  queryKey: QUERY_KEYS.characters(1),
-  queryFn: () => characterService.list(1),
-  ...catalogQueryDefaults,
-};
+export function charactersListQueryOptions() {
+  return {
+    queryKey: [...QUERY_KEYS.characters(1), catalogLocale()] as const,
+    queryFn: () => characterService.list(1),
+    ...catalogQueryDefaults,
+  };
+}
 
 export function characterQueryOptions(characterId: string) {
   return {
-    queryKey: QUERY_KEYS.character(characterId),
+    queryKey: [...QUERY_KEYS.character(characterId), catalogLocale()] as const,
     queryFn: () => characterService.resolve(characterId),
     enabled: !!characterId,
     ...catalogQueryDefaults,
@@ -33,7 +45,7 @@ export function characterQueryOptions(characterId: string) {
 
 export function characterScenariosQueryOptions(characterId: string) {
   return {
-    queryKey: QUERY_KEYS.characterScenarios(characterId),
+    queryKey: [...QUERY_KEYS.characterScenarios(characterId), catalogLocale()] as const,
     queryFn: () => characterService.listScenarios(characterId),
     enabled: !!characterId,
     ...catalogQueryDefaults,
@@ -42,7 +54,7 @@ export function characterScenariosQueryOptions(characterId: string) {
 
 export function characterNarratorsQueryOptions(characterId: string) {
   return {
-    queryKey: QUERY_KEYS.characterNarrators(characterId),
+    queryKey: [...QUERY_KEYS.characterNarrators(characterId), catalogLocale()] as const,
     queryFn: () => characterService.listNarrators(characterId),
     enabled: !!characterId,
     ...catalogQueryDefaults,
@@ -56,8 +68,8 @@ export const balanceQueryOptions = {
 };
 
 export function prefetchCatalogQueries(queryClient: QueryClient) {
-  void queryClient.prefetchQuery(shopProductsQueryOptions);
-  void queryClient.prefetchQuery(charactersListQueryOptions);
+  void queryClient.prefetchQuery(shopProductsQueryOptions());
+  void queryClient.prefetchQuery(charactersListQueryOptions());
 }
 
 export function refreshAllCatalogQueries(queryClient: QueryClient) {

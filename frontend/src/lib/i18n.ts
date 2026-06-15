@@ -1,23 +1,35 @@
-const GENERATION_STATUS: Record<string, string> = {
-  pending: "В очереди",
-  processing: "Генерация…",
-  completed: "Готово",
-  failed: "Ошибка",
-  moderated: "Модерация",
-};
+import {
+  t,
+  normalizeLocale,
+  type AppLocale,
+  type TranslationKey,
+} from "@/lib/i18n/translations";
+import { useSettingsStore } from "@/store/settings-store";
 
-export function translateGenerationStatus(status: string): string {
-  return GENERATION_STATUS[status] ?? status;
+function currentLocale(): AppLocale {
+  if (typeof window === "undefined") return "ru";
+  return normalizeLocale(useSettingsStore.getState().language);
 }
 
-export function translateApiError(message: string): string {
-  const map: Record<string, string> = {
-    "Unknown error": "Неизвестная ошибка",
-    "Network Error": "Ошибка сети",
-    "Request failed with status code 401": "Сессия истекла",
-    "Request failed with status code 403": "Доступ запрещён",
-    "Request failed with status code 404": "Не найдено",
-    "Request failed with status code 429": "Слишком много запросов",
-  };
-  return map[message] ?? message;
+export function translateGenerationStatus(status: string, locale?: AppLocale): string {
+  const loc = locale ?? currentLocale();
+  const key = `gen.status.${status}` as TranslationKey;
+  const mapped = t(loc, key);
+  return mapped !== key ? mapped : status;
+}
+
+const API_ERROR_KEYS: Record<string, TranslationKey> = {
+  "Unknown error": "error.unknown",
+  "Network Error": "error.network",
+  "Request failed with status code 401": "error.sessionExpired",
+  "Request failed with status code 403": "error.forbidden",
+  "Request failed with status code 404": "error.notFound",
+  "Request failed with status code 429": "error.tooManyRequests",
+};
+
+export function translateApiError(message: string, locale?: AppLocale): string {
+  const loc = locale ?? currentLocale();
+  const key = API_ERROR_KEYS[message];
+  if (key) return t(loc, key);
+  return message;
 }

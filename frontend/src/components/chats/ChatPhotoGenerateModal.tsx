@@ -5,16 +5,18 @@ import { Grid3X3, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AnimeGemIcon } from "@/components/icons/CurrencyIcons";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "@/hooks/use-translation";
 import { generationService } from "@/services/api";
 import { ensureTelegramSession, getApiError } from "@/lib/api-client";
 import {
   ALL_STUDIO_MODELS,
   buildStudioPrompt,
   findStudioModel,
+  getStudioModelLabel,
+  getStudioPromptPlaceholder,
   STUDIO_GENERATION_COST,
   STUDIO_MODELS,
   STUDIO_PROMPT_MAX,
-  STUDIO_PROMPT_PLACEHOLDER,
 } from "@/lib/studio";
 import { ArtSceneBackground } from "@/components/shared/ArtSceneBackground";
 import { CHAT_BORDER } from "@/lib/theme";
@@ -40,6 +42,7 @@ export function ChatPhotoGenerateModal({
   onClose,
   onStarted,
 }: Props) {
+  const { t, locale } = useTranslation();
   const { toast } = useToast();
   const [prompt, setPrompt] = useState("");
   const [modelId, setModelId] = useState(STUDIO_MODELS[0]?.id ?? "miaomiao");
@@ -59,14 +62,14 @@ export function ChatPhotoGenerateModal({
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
-      toast("Опиши арт перед генерацией", "info");
+      toast(t("chat.photoGen.promptRequired"), "info");
       return;
     }
     setLoading(true);
     try {
       const authed = await ensureTelegramSession();
       if (!authed) {
-        toast("Войдите через Telegram", "error");
+        toast(t("chat.photoGen.loginRequired"), "error");
         return;
       }
 
@@ -83,7 +86,7 @@ export function ChatPhotoGenerateModal({
       onStarted(result.id);
       onClose();
     } catch (err: unknown) {
-      toast(getApiError(err).message || "Ошибка генерации", "error");
+      toast(getApiError(err).message || t("studio.create.error"), "error");
     } finally {
       setLoading(false);
     }
@@ -109,7 +112,7 @@ export function ChatPhotoGenerateModal({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold">Сгенерировать фото</h2>
+              <h2 className="text-lg font-bold">{t("chat.photoGen.title")}</h2>
               <button
                 type="button"
                 onClick={onClose}
@@ -120,11 +123,13 @@ export function ChatPhotoGenerateModal({
             </div>
 
             <p className="mb-4 text-sm text-text-secondary">
-              Арт для <span className="font-semibold text-text-primary">{characterName}</span> появится в чате.
-              Стиль «{selectedModel.nameRu}» будет добавлен к описанию автоматически.
+              {t("chat.photoGen.hint", {
+                name: characterName,
+                style: getStudioModelLabel(selectedModel, locale),
+              })}
             </p>
 
-            <label className="mb-2 block text-sm font-semibold text-text-primary">Опиши арт</label>
+            <label className="mb-2 block text-sm font-semibold text-text-primary">{t("chat.photoGen.promptLabel")}</label>
             <div
               className="relative mb-5 rounded-2xl bg-bg-elevated/80 px-4 py-3"
               style={{ border: `1px solid ${CHAT_BORDER}` }}
@@ -132,7 +137,7 @@ export function ChatPhotoGenerateModal({
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value.slice(0, STUDIO_PROMPT_MAX))}
-                placeholder={STUDIO_PROMPT_PLACEHOLDER}
+                placeholder={getStudioPromptPlaceholder(locale)}
                 rows={4}
                 className="w-full resize-none bg-transparent text-sm leading-relaxed text-text-primary outline-none placeholder:text-text-muted"
               />
@@ -142,14 +147,14 @@ export function ChatPhotoGenerateModal({
             </div>
 
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-text-primary">Модель</h3>
+              <h3 className="text-sm font-semibold text-text-primary">{t("common.model")}</h3>
               <button
                 type="button"
                 onClick={() => setShowAllModels((v) => !v)}
                 className="flex items-center gap-1.5 rounded-xl bg-bg-elevated/60 px-3 py-1.5 text-xs font-medium text-text-secondary"
               >
                 <Grid3X3 className="h-3.5 w-3.5" />
-                {showAllModels ? "Основные" : "Все модели"}
+                {showAllModels ? t("common.mainModels") : t("common.allModels")}
               </button>
             </div>
 
@@ -190,7 +195,7 @@ export function ChatPhotoGenerateModal({
                         selected ? "text-[#f9a8d4]" : "text-text-muted"
                       )}
                     >
-                      {model.nameRu}
+                      {getStudioModelLabel(model, locale)}
                     </span>
                   </button>
                 );
@@ -209,9 +214,9 @@ export function ChatPhotoGenerateModal({
                 background: "linear-gradient(135deg, #b45cf0 0%, #7c3aed 50%, #6d28d9 100%)",
               }}
             >
-              {loading ? "Запускаю…" : (
+              {loading ? t("chat.photoGen.generating") : (
                 <>
-                  Сгенерировать ({generationCost} <AnimeGemIcon className="h-5 w-5" />)
+                  {t("studio.create.submit")} ({generationCost} <AnimeGemIcon className="h-5 w-5" />)
                 </>
               )}
             </button>

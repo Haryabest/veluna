@@ -7,6 +7,7 @@ import { Check, Mic2, Sparkles } from "lucide-react";
 import { AnimeHeartIcon } from "@/components/icons/CurrencyIcons";
 import { CHAT_BORDER, chatSeparatorStyle } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/use-translation";
 import type { CharacterNarrator } from "@/components/views/NarratorSelectView";
 import type { CharacterScenario } from "@/store/character-store";
 
@@ -45,6 +46,8 @@ export function ChatSettingsMenu({
   onSelectScenario,
   onSelectNarrator,
 }: ChatSettingsMenuProps) {
+  const { t } = useTranslation();
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -68,7 +71,7 @@ export function ChatSettingsMenu({
         <>
           <motion.button
             type="button"
-            aria-label="Закрыть меню"
+            aria-label={t("common.closeMenu")}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -91,12 +94,12 @@ export function ChatSettingsMenu({
           >
             <p className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
               <Sparkles className="h-3.5 w-3.5 text-accent-light" aria-hidden />
-              Сценарий
+              {t("chat.scenario")}
             </p>
             {loadingScenarios ? (
-              <p className="px-4 py-4 text-center text-sm text-text-muted">Загрузка…</p>
+              <p className="px-4 py-4 text-center text-sm text-text-muted">{t("common.loading")}</p>
             ) : scenarios.length === 0 ? (
-              <p className="px-4 py-4 text-center text-sm text-text-muted">Сценариев нет</p>
+              <p className="px-4 py-4 text-center text-sm text-text-muted">{t("chat.noScenarios")}</p>
             ) : (
               scenarios.map((scenario, i) => {
                 const active = scenario.id === currentScenarioId;
@@ -125,12 +128,12 @@ export function ChatSettingsMenu({
 
             <p className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
               <Mic2 className="h-3.5 w-3.5 text-rose-300" aria-hidden />
-              Рассказчик
+              {t("chat.narrator")}
             </p>
             {loadingNarrators ? (
-              <p className="px-4 py-4 text-center text-sm text-text-muted">Загрузка…</p>
+              <p className="px-4 py-4 text-center text-sm text-text-muted">{t("common.loading")}</p>
             ) : narrators.length === 0 ? (
-              <p className="px-4 py-4 text-center text-sm text-text-muted">Рассказчиков нет</p>
+              <p className="px-4 py-4 text-center text-sm text-text-muted">{t("chat.noNarrators")}</p>
             ) : (
               narrators.map((narrator, i) => {
                 const active = narrator.id === currentNarratorId;

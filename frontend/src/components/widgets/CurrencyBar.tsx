@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useTranslation } from "@/hooks/use-translation";
 import { useOpenShop } from "@/hooks/use-catalog-navigation";
 import { useUserStore } from "@/store/user-store";
 import { AnimeGemIcon, AnimeHeartIcon } from "@/components/icons/CurrencyIcons";
@@ -12,6 +13,7 @@ interface CurrencyBarProps {
 }
 
 export function CurrencyBar({ gems: gemsProp, hearts: heartsProp }: CurrencyBarProps) {
+  const { t } = useTranslation();
   const { user } = useUserStore();
   const openShop = useOpenShop();
   const gems = gemsProp ?? user?.gems ?? 0;
@@ -27,13 +29,13 @@ export function CurrencyBar({ gems: gemsProp, hearts: heartsProp }: CurrencyBarP
         <CurrencyPill
           icon={<AnimeGemIcon className="h-[22px] w-[22px]" />}
           value={formatGems(gems)}
-          label="Гемы"
+          label={t("common.gems")}
           gradient="from-accent/20 to-accent-deep/10"
         />
         <CurrencyPill
           icon={<AnimeHeartIcon className="h-[22px] w-[22px]" />}
           value={formatGems(hearts)}
-          label="Сердца"
+          label={t("common.hearts")}
           gradient="from-fuchsia-500/15 to-accent/10"
         />
       </div>
@@ -42,7 +44,7 @@ export function CurrencyBar({ gems: gemsProp, hearts: heartsProp }: CurrencyBarP
         type="button"
         whileTap={{ scale: 0.92 }}
         onClick={openShop}
-        aria-label="Магазин"
+        aria-label={t("nav.shop")}
         className="glass-strong flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-accent/20 bg-gradient-to-br from-accent/25 to-accent-deep/20 shadow-glow-sm"
       >
         <MarketIcon />

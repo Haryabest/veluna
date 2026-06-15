@@ -13,6 +13,7 @@ import { chatBorderStyle, chatSeparatorStyle } from "@/lib/theme";
 import { truncate } from "@/lib/utils";
 import { useOpenNarrators } from "@/hooks/use-catalog-navigation";
 import type { CharacterScenario } from "@/store/character-store";
+import { useTranslation } from "@/hooks/use-translation";
 
 function scenarioDescription(scenario: CharacterScenario): string {
   const parts = [scenario.story, scenario.communication_style].filter(Boolean);
@@ -23,6 +24,7 @@ export function ScenarioSelectView() {
   const characterId = useNavStore((s) => s.characterId);
   const goBack = useNavStore((s) => s.goBack);
   const openNarrators = useOpenNarrators();
+  const { t } = useTranslation();
 
   const { character } = useCharacter(characterId);
   const resolvedCharacterId = character?.id ?? characterId;
@@ -40,7 +42,7 @@ export function ScenarioSelectView() {
         <BackButton onClick={goBack} />
         <h1 className="flex items-center gap-2 text-lg font-bold text-text-primary">
           <Sparkles className="h-5 w-5 text-accent-light" aria-hidden />
-          Выбери сценарий
+          {t("scenario.title")}
         </h1>
       </header>
 
@@ -52,9 +54,9 @@ export function ScenarioSelectView() {
         </div>
       ) : scenarios.length === 0 ? (
         <div className="rounded-2xl bg-bg-elevated px-4 py-8 text-center" style={chatBorderStyle}>
-          <p className="text-sm font-semibold text-text-primary">Сценариев пока нет</p>
+          <p className="text-sm font-semibold text-text-primary">{t("scenario.empty")}</p>
           <p className="mt-2 text-xs leading-relaxed text-text-muted">
-            Добавьте сценарий при создании персонажа в боте или в меню «Сценарии».
+            {t("scenario.emptyHint")}
           </p>
         </div>
       ) : (

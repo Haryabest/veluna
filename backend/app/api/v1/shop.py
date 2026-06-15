@@ -3,6 +3,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import security
+from app.api.deps import get_request_locale
 from app.core.exceptions import ForbiddenError
 from app.services.auth_service import AuthService
 from app.database.session import get_db
@@ -10,14 +11,18 @@ from app.schemas.catalog import ShopProductResponse
 from app.schemas.shop import CheckoutRequest, CheckoutResponse, PromoValidateRequest, PromoValidateResponse
 from app.services.catalog_service import CatalogService
 from app.services.shop_service import ShopService
+from app.utils.locale import AppLocale
 
 router = APIRouter()
 
 
 @router.get("/products", response_model=list[ShopProductResponse])
-async def list_shop_products(session: AsyncSession = Depends(get_db)):
+async def list_shop_products(
+    locale: AppLocale = Depends(get_request_locale),
+    session: AsyncSession = Depends(get_db),
+):
     service = CatalogService(session)
-    return await service.list_products_public()
+    return await service.list_products_public(locale=locale)
 
 
 @router.post("/promo/validate", response_model=PromoValidateResponse)

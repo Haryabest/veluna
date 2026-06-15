@@ -9,20 +9,25 @@ from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import MenuButtonWebApp, WebAppInfo
 
-from app.bot.handlers import admin_router, balance_router, payments_router, start_router
+from app.bot.handlers import admin_router, balance_router, locale_router, payments_router, start_router
 from app.core.config import get_settings, reload_settings
 
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 logger = logging.getLogger(__name__)
 
 
-async def _set_menu_webapp(bot: Bot, webapp_url: str) -> None:
+async def _set_menu_webapp(bot: Bot, webapp_url: str, locale: str = "en") -> None:
     if not webapp_url.startswith("https://"):
         logger.warning("Menu Web App skipped: Telegram requires HTTPS (got %s)", webapp_url)
         return
+    from app.bot.i18n import t
+
     try:
         await bot.set_chat_menu_button(
-            menu_button=MenuButtonWebApp(text="Открыть Veluna", web_app=WebAppInfo(url=webapp_url)),
+            menu_button=MenuButtonWebApp(
+                text=t("open_veluna", locale),
+                web_app=WebAppInfo(url=webapp_url),
+            ),
         )
     except (TelegramBadRequest, TelegramNetworkError) as exc:
         logger.warning("Menu Web App not set: %s", exc)
@@ -77,6 +82,7 @@ async def run_bot() -> None:
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     dp = Dispatcher(storage=MemoryStorage())
+    dp.include_router(locale_router)
     dp.include_router(start_router)
     dp.include_router(balance_router)
     dp.include_router(payments_router)
@@ -85,7 +91,7 @@ async def run_bot() -> None:
     await _wait_for_telegram_api(bot)
 
     if settings.telegram_webapp_url:
-        await _set_menu_webapp(bot, settings.telegram_webapp_url)
+        await _set_menu_webapp(bot, settings.telegram_webapp_url, locale="en")
 
     if not settings.is_production:
         asyncio.create_task(_watch_tunnel_url(bot))

@@ -6,24 +6,28 @@ import { cn } from "@/lib/utils";
 import { useMounted } from "@/hooks/use-mounted";
 import { useSetTab } from "@/hooks/use-catalog-navigation";
 import { useNavStore, type AppTab } from "@/store/nav-store";
+import { useTranslation } from "@/hooks/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
-const navItems: { tab: AppTab; label: string; Icon: LucideIcon }[] = [
-  { tab: "home", label: "Главная", Icon: Home },
-  { tab: "chats", label: "Чаты", Icon: MessageCircle },
-  { tab: "studio", label: "Студия", Icon: Palette },
-  { tab: "profile", label: "Профиль", Icon: User },
+const navItems: { tab: AppTab; labelKey: TranslationKey; Icon: LucideIcon }[] = [
+  { tab: "home", labelKey: "nav.home", Icon: Home },
+  { tab: "chats", labelKey: "nav.chats", Icon: MessageCircle },
+  { tab: "studio", labelKey: "nav.studio", Icon: Palette },
+  { tab: "profile", labelKey: "nav.profile", Icon: User },
 ];
 
 export function BottomNav() {
   const mounted = useMounted();
   const tab = useNavStore((s) => s.tab);
   const setTab = useSetTab();
+  const { t } = useTranslation();
 
   return (
     <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <div className="glass-strong pointer-events-auto flex w-full max-w-lg items-end justify-around rounded-3xl px-2 py-2.5 shadow-glow">
-        {navItems.map(({ tab: itemTab, label, Icon }) => {
+        {navItems.map(({ tab: itemTab, labelKey, Icon }) => {
           const isActive = tab === itemTab;
+          const label = t(labelKey);
 
           return (
             <button

@@ -11,10 +11,11 @@ from app.database.session import get_db
 from app.repositories.admin_repository import AdminRepository
 from app.repositories.generation_repository import PaymentRepository
 from app.repositories.user_repository import UserRepository
-from app.schemas import UserFinanceStatsResponse, UserResponse
+from app.schemas import UserFinanceStatsResponse, UserLocaleUpdate, UserResponse
 from app.schemas.admin import AdminUserStatsDetailResponse
 from app.services.auth_service import AuthService
 from app.services.telegram_profile_service import fetch_user_avatar_bytes
+from app.services.user_locale_service import UserLocaleService
 
 router = APIRouter()
 
@@ -116,6 +117,15 @@ async def list_user_transactions(
 @router.get("/profile", response_model=UserResponse)
 async def get_profile(user: UserResponse = Depends(get_current_user)):
     return user
+
+
+@router.patch("/me/locale", response_model=UserResponse)
+async def update_my_locale(
+    body: UserLocaleUpdate,
+    user: UserResponse = Depends(get_current_user_flexible),
+    session: AsyncSession = Depends(get_db),
+):
+    return await UserLocaleService(session).set_locale(user.id, body.language_code)
 
 
 @router.get("/spending", response_model=UserFinanceStatsResponse)

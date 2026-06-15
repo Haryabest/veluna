@@ -1,6 +1,25 @@
 import { apiClient } from "@/lib/api-client";
 import { getTelegramInitData } from "@/lib/telegram-webapp";
 import type { User } from "@/store/user-store";
+import { normalizeLocale, t, type AppLocale } from "@/lib/i18n/translations";
+import { useSettingsStore } from "@/store/settings-store";
+
+function historyLocale(): AppLocale {
+  if (typeof window === "undefined") return "ru";
+  return normalizeLocale(useSettingsStore.getState().language);
+}
+
+function formatTransactionDescription(raw: string, locale: AppLocale): string {
+  if (raw === "Image generation") return t(locale, "history.opGeneration");
+  if (raw.startsWith("Message to ")) {
+    return t(locale, "history.opChat", { name: raw.replace("Message to ", "") });
+  }
+  if (raw.startsWith("Narrator: ")) {
+    return t(locale, "history.opNarrator", { name: raw.replace("Narrator: ", "") });
+  }
+  if (raw === "Welcome bonus") return t(locale, "history.opWelcome");
+  return raw || t(locale, "history.opDefault");
+}
 
 export const authService = {
   async authenticateTelegram(initData: string) {
@@ -182,6 +201,11 @@ export type UserFinanceStats = {
 };
 
 export const userService = {
+  async updateLocale(language_code: "ru" | "en"): Promise<User> {
+    const { data } = await apiClient.patch<User>("/users/me/locale", { language_code });
+    return data;
+  },
+
   async getFinanceStats() {
     const { data } = await apiClient.get<UserFinanceStats>("/users/finance");
     return data;
@@ -302,13 +326,8 @@ export const balanceService = {
       }>;
     }>("/users/transactions", { params: { type, page } });
 
-    const formatDescription = (raw: string) => {
-      if (raw === "Image generation") return "Генерация изображения";
-      if (raw.startsWith("Message to ")) return `Чат с ${raw.replace("Message to ", "")}`;
-      if (raw.startsWith("Narrator: ")) return raw.replace("Narrator: ", "Рассказчик: ");
-      if (raw === "Welcome bonus") return "Приветственный бонус";
-      return raw || "Операция";
-    };
+    const locale = historyLocale();
+    const formatDescription = (raw: string) => formatTransactionDescription(raw, locale);
 
     const items: BalanceHistoryItem[] = (data.items ?? []).map((t) => {
       const raw = t as {

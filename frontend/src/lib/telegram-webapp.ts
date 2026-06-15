@@ -1,5 +1,8 @@
 "use client";
 
+import { normalizeLocale, t } from "@/lib/i18n/translations";
+import { useSettingsStore } from "@/store/settings-store";
+
 export function getTelegramWebApp(): TelegramWebAppLite | null {
   if (typeof window === "undefined") return null;
   return (window as unknown as { Telegram?: { WebApp?: TelegramWebAppLite } }).Telegram
@@ -50,6 +53,9 @@ export function getTelegramUser(): TelegramUser | null {
 }
 
 export function getTelegramDisplayName(user: TelegramUser | null): string {
-  if (!user) return "Гость";
+  if (!user) {
+    const locale = normalizeLocale(useSettingsStore.getState().language);
+    return t(locale, "profile.guest");
+  }
   return [user.first_name, user.last_name].filter(Boolean).join(" ");
 }

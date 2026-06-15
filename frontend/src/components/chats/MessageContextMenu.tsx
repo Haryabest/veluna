@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Copy, Reply, Trash2, UserX, Users } from "lucide-react";
 import { CHAT_BORDER } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/use-translation";
 
 const MENU_ICON = "h-5 w-5";
 const MENU_ICON_STROKE = 1.75;
@@ -36,6 +37,8 @@ export function MessageContextMenu({
   onDeleteSelf,
   onDeleteAll,
 }: MessageContextMenuProps) {
+  const { t } = useTranslation();
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -56,7 +59,7 @@ export function MessageContextMenu({
         <>
           <motion.button
             type="button"
-            aria-label="Закрыть меню"
+            aria-label={t("common.closeMenu")}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -77,26 +80,26 @@ export function MessageContextMenu({
             }}
           >
             <MenuItem
-              label="Копировать"
+              label={t("chat.copy")}
               icon={<Copy className={MENU_ICON} strokeWidth={MENU_ICON_STROKE} />}
               onClick={onCopy}
               showBorder
             />
             <MenuItem
-              label="Ответить"
+              label={t("chat.replyAction")}
               icon={<Reply className={MENU_ICON} strokeWidth={MENU_ICON_STROKE} />}
               onClick={onReply}
               showBorder
             />
             <MenuItem
-              label="Удалить у себя"
+              label={t("chat.deleteForMe")}
               icon={<UserX className={MENU_ICON} strokeWidth={MENU_ICON_STROKE} />}
               onClick={onDeleteSelf}
               disabled={!canDelete}
               showBorder
             />
             <MenuItem
-              label="Удалить у всех"
+              label={t("chat.deleteForAll")}
               icon={<Users className={MENU_ICON} strokeWidth={MENU_ICON_STROKE} />}
               onClick={onDeleteAll}
               variant="danger"

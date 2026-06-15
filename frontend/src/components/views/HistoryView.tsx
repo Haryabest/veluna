@@ -14,21 +14,24 @@ import { HistoryRowSkeleton } from "@/components/shared/Skeleton";
 import { AnimeGemIcon, AnimeHeartIcon } from "@/components/icons/CurrencyIcons";
 import { formatGems, cn } from "@/lib/utils";
 import { chatBorderStyle, chatSeparatorStyle } from "@/lib/theme";
+import { useTranslation } from "@/hooks/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
 type HistoryTab = "expense" | "deposit";
 
-const TABS: { id: HistoryTab; label: string }[] = [
-  { id: "expense", label: "Траты" },
-  { id: "deposit", label: "Пополнения" },
+const TAB_KEYS: { id: HistoryTab; labelKey: TranslationKey }[] = [
+  { id: "expense", labelKey: "history.expense" },
+  { id: "deposit", labelKey: "history.deposit" },
 ];
 
 export function HistoryView() {
   const mounted = useMounted();
   const goBack = useNavStore((s) => s.goBack);
+  const { t, locale } = useTranslation();
   const [tab, setTab] = useState<HistoryTab>("expense");
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: QUERY_KEYS.balanceHistory(tab),
+    queryKey: [...QUERY_KEYS.balanceHistory(tab), locale],
     queryFn: async () => {
       await ensureTelegramSession();
       return balanceService.getHistory(tab);
@@ -51,7 +54,7 @@ export function HistoryView() {
     <div className="relative mx-auto max-w-lg px-4 pb-8 pt-5">
       <div className="mb-4 flex items-center gap-2">
         <BackButton onClick={goBack} />
-        <h1 className="text-xl font-bold">История</h1>
+        <h1 className="text-xl font-bold">{t("history.title")}</h1>
       </div>
 
       {finance ? (
@@ -61,7 +64,7 @@ export function HistoryView() {
             style={chatBorderStyle}
           >
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
-              Баланс
+              {t("history.balance")}
             </p>
             <div className="flex items-center gap-4 text-sm font-semibold text-text-primary">
               <span className="inline-flex items-center gap-1.5">
@@ -80,13 +83,13 @@ export function HistoryView() {
             style={chatBorderStyle}
           >
             <FinanceStatCell
-              label="Потрачено"
+              label={t("profile.spent")}
               gems={finance.spent.gems}
               credits={finance.spent.credits}
               negative
             />
             <FinanceStatCell
-              label="Пополнено"
+              label={t("profile.deposited")}
               gems={finance.deposited.gems}
               credits={finance.deposited.credits}
             />
@@ -97,7 +100,8 @@ export function HistoryView() {
               className="rounded-2xl bg-bg-elevated/60 px-4 py-3 text-xs text-text-muted"
               style={chatBorderStyle}
             >
-              Покупок: <span className="font-semibold text-text-secondary">{finance.purchases.completed_count}</span>
+              {t("history.purchases")}{" "}
+              <span className="font-semibold text-text-secondary">{finance.purchases.completed_count}</span>
               {finance.purchases.stars_total > 0 ? (
                 <span className="ml-2">· ⭐ {formatGems(finance.purchases.stars_total)}</span>
               ) : null}
@@ -107,17 +111,17 @@ export function HistoryView() {
       ) : null}
 
       <div className="mb-4 flex gap-1 rounded-2xl bg-bg-elevated/60 p-1" style={chatBorderStyle}>
-        {TABS.map((t) => (
+        {TAB_KEYS.map((tabItem) => (
           <button
-            key={t.id}
+            key={tabItem.id}
             type="button"
-            onClick={() => setTab(t.id)}
+            onClick={() => setTab(tabItem.id)}
             className={cn(
               "relative flex-1 rounded-xl py-2.5 text-sm font-medium transition-all",
-              tab === t.id ? "text-text-primary" : "text-text-muted hover:text-text-secondary"
+              tab === tabItem.id ? "text-text-primary" : "text-text-muted hover:text-text-secondary"
             )}
           >
-            {tab === t.id &&
+            {tab === tabItem.id &&
               (mounted ? (
                 <motion.div
                   layoutId="history-tab"
@@ -131,14 +135,14 @@ export function HistoryView() {
                   style={chatBorderStyle}
                 />
               ))}
-            <span className="relative z-[1]">{t.label}</span>
+            <span className="relative z-[1]">{t(tabItem.labelKey)}</span>
           </button>
         ))}
       </div>
 
       {isError ? (
         <p className="py-12 text-center text-sm text-rose-300/90">
-          {getApiError(error).message || "Не удалось загрузить историю"}
+          {getApiError(error).message || t("history.loadError")}
         </p>
       ) : isLoading ? (
         <ListPanel>
@@ -147,7 +151,7 @@ export function HistoryView() {
           ))}
         </ListPanel>
       ) : items.length === 0 ? (
-        <p className="py-12 text-center text-sm text-text-muted">Пока нет записей</p>
+        <p className="py-12 text-center text-sm text-text-muted">{t("history.empty")}</p>
       ) : (
         <ListPanel>
           {items.map((item, i) => (
@@ -169,7 +173,7 @@ export function HistoryView() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{item.description}</p>
                 <p className="text-xs text-text-muted">
-                  {new Date(item.created_at).toLocaleDateString("ru-RU", {
+                  {new Date(item.created_at).toLocaleDateString(locale === "en" ? "en-US" : "ru-RU", {
                     day: "numeric",
                     month: "short",
                     hour: "2-digit",

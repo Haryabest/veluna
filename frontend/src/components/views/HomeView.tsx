@@ -8,17 +8,19 @@ import { CurrencyBar } from "@/components/widgets/CurrencyBar";
 import { charactersListQueryOptions, balanceQueryOptions } from "@/lib/catalog-queries";
 import type { Character } from "@/store/character-store";
 import { useCharacterStore } from "@/store/character-store";
+import { useTranslation } from "@/hooks/use-translation";
 
 function sortCharacters(list: Character[]): Character[] {
   return [...list].sort((a, b) => a.sort_order - b.sort_order);
 }
 
 export function HomeView() {
+  const { t } = useTranslation();
   const setCharacters = useCharacterStore((s) => s.setCharacters);
 
   const { data: balance } = useQuery(balanceQueryOptions);
 
-  const { data, isFetching, isError } = useQuery(charactersListQueryOptions);
+  const { data, isFetching, isError } = useQuery(charactersListQueryOptions());
 
   const characters: Character[] = useMemo(() => {
     const items = data?.items;
@@ -41,18 +43,18 @@ export function HomeView() {
       <section className="mt-5">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-text-muted">
-            Персонажи
+            {t("home.characters")}
           </h2>
           {isFetching && (
-            <span className="text-[10px] text-text-muted">обновление…</span>
+            <span className="text-[10px] text-text-muted">{t("home.refreshing")}</span>
           )}
           {isError && (
-            <span className="text-[10px] text-amber-400/90">не удалось загрузить</span>
+            <span className="text-[10px] text-amber-400/90">{t("home.loadError")}</span>
           )}
         </div>
 
         {!isFetching && characters.length === 0 ? (
-          <p className="py-12 text-center text-sm text-text-muted">Персонажи пока недоступны</p>
+          <p className="py-12 text-center text-sm text-text-muted">{t("home.empty")}</p>
         ) : isFetching && characters.length === 0 ? (
           <div className="grid grid-cols-2 gap-3">
             {Array.from({ length: 4 }).map((_, i) => (

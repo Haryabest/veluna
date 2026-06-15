@@ -1,6 +1,7 @@
 "use client";
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { useTranslation } from "@/hooks/use-translation";
 import { Button } from "./Button";
 
 interface Props {
@@ -10,6 +11,19 @@ interface Props {
 
 interface State {
   hasError: boolean;
+}
+
+function ErrorBoundaryFallback({ onRetry }: { onRetry: () => void }) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 p-6">
+      <p className="text-center text-text-secondary">{t("error.somethingWrong")}</p>
+      <Button onClick={onRetry} variant="secondary">
+        {t("common.retry")}
+      </Button>
+    </div>
+  );
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -30,12 +44,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         this.props.fallback ?? (
-          <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 p-6">
-            <p className="text-center text-text-secondary">Что-то пошло не так</p>
-            <Button onClick={() => this.setState({ hasError: false })} variant="secondary">
-              Попробовать снова
-            </Button>
-          </div>
+          <ErrorBoundaryFallback onRetry={() => this.setState({ hasError: false })} />
         )
       );
     }

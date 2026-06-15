@@ -23,6 +23,8 @@ from app.schemas import (
 )
 from app.services.chat_cache_service import chat_cache
 from app.services.chat_prompt import build_character_system_prompt
+from app.utils.localized_text import pick_localized
+from app.utils.locale import normalize_app_locale
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +55,13 @@ class ChatService:
             logger.debug("Chat cache invalidation failed for chat %s", chat_id, exc_info=True)
 
     async def get_or_create_chat(
-        self, user_id: UUID, character_id: UUID, scenario_id: UUID, narrator_id: UUID
+        self,
+        user_id: UUID,
+        character_id: UUID,
+        scenario_id: UUID,
+        narrator_id: UUID,
+        *,
+        locale: str = "ru",
     ) -> ChatResponse:
         character = await self._characters.get_by_id(character_id)
         if not character or not character.is_active:
@@ -76,11 +84,12 @@ class ChatService:
             chat = await self._chats.get_by_id(chat.id)
             await self._invalidate_chat_cache(chat.id, user_id)
 
-        return self._to_chat_response(chat, character, scenario, narrator)
+        return self._to_chat_response(chat, character, scenario, narrator, locale=locale)
 
-    async def get_chat(self, user_id: UUID, chat_id: UUID) -> ChatResponse:
+    async def get_chat(self, user_id: UUID, chat_id: UUID, *, locale: str = "ru") -> ChatResponse:
+        loc = normalize_app_locale(locale)
         try:
-            cached = await chat_cache.get_detail(chat_id)
+            cached = await chat_cache.get_detail(chat_id, loc)
             if cached:
                 return ChatResponse.model_validate(cached)
         except Exception:
@@ -94,17 +103,19 @@ class ChatService:
         narrator = chat.narrator
         if chat.narrator_id and not narrator:
             narrator = await self._narrators.get_by_id(chat.narrator_id)
-        response = self._to_chat_response(chat, character, scenario, narrator)
+        response = self._to_chat_response(chat, character, scenario, narrator, locale=loc)
         try:
-            await chat_cache.set_detail(chat_id, response.model_dump(mode="json"))
+            await chat_cache.set_detail(chat_id, response.model_dump(mode="json"), loc)
         except Exception:
             logger.debug("Chat detail cache write failed for %s", chat_id, exc_info=True)
         return response
 
-    async def switch_scenario(self, user_id: UUID, chat_id: UUID, scenario_id: UUID) -> ChatResponse:
+    async def switch_scenario(
+        self, user_id: UUID, chat_id: UUID, scenario_id: UUID, *, locale: str = "ru"
+    ) -> ChatResponse:
         chat = await self._require_user_chat(user_id, chat_id)
         if chat.scenario_id == scenario_id:
-            return await self.get_chat(user_id, chat_id)
+            return await self.get_chat(user_id, chat_id, locale=locale)
 
         scenario = await self._scenarios.get_by_id(scenario_id)
         if not scenario or scenario.character_id != chat.character_id or not scenario.is_active:
@@ -122,12 +133,14 @@ class ChatService:
         if chat.narrator_id and not narrator:
             narrator = await self._narrators.get_by_id(chat.narrator_id)
         await self._invalidate_chat_cache(chat_id, user_id)
-        return self._to_chat_response(chat, character, scenario, narrator)
+        return self._to_chat_response(chat, character, scenario, narrator, locale=locale)
 
-    async def switch_narrator(self, user_id: UUID, chat_id: UUID, narrator_id: UUID) -> ChatResponse:
+    async def switch_narrator(
+        self, user_id: UUID, chat_id: UUID, narrator_id: UUID, *, locale: str = "ru"
+    ) -> ChatResponse:
         chat = await self._require_user_chat(user_id, chat_id)
         if chat.narrator_id == narrator_id:
-            return await self.get_chat(user_id, chat_id)
+            return await self.get_chat(user_id, chat_id, locale=locale)
 
         narrator = await self._narrators.get_by_id(narrator_id)
         if not narrator or narrator.character_id != chat.character_id or not narrator.is_active:
@@ -145,7 +158,7 @@ class ChatService:
         if chat.scenario_id and not scenario:
             scenario = await self._scenarios.get_by_id(chat.scenario_id)
         await self._invalidate_chat_cache(chat_id, user_id)
-        return self._to_chat_response(chat, character, scenario, narrator)
+        return self._to_chat_response(chat, character, scenario, narrator, locale=locale)
 
     async def send_message(
         self,
@@ -328,9 +341,12 @@ class ChatService:
             created_at=message.created_at,
         )
 
-    async def list_user_chats(self, user_id: UUID, page: int = 1) -> tuple[list[ChatListResponse], int]:
+    async def list_user_chats(
+        self, user_id: UUID, page: int = 1, *, locale: str = "ru"
+    ) -> tuple[list[ChatListResponse], int]:
+        loc = normalize_app_locale(locale)
         try:
-            cached = await chat_cache.get_list(user_id, page)
+            cached = await chat_cache.get_list(user_id, page, loc)
             if cached:
                 items_raw, total = cached
                 return [ChatListResponse.model_validate(item) for item in items_raw], total
@@ -339,29 +355,34 @@ class ChatService:
 
         chats, total = await self._chats.list_user_chats(user_id, page=page)
         previews = await self._chats.batch_last_message_previews([chat.id for chat in chats], user_id)
-        items = [await self._to_list_item(chat, previews.get(chat.id)) for chat in chats]
+        items = [await self._to_list_item(chat, previews.get(chat.id), locale=loc) for chat in chats]
         try:
             await chat_cache.set_list(
                 user_id,
                 page,
                 [item.model_dump(mode="json") for item in items],
                 total,
+                loc,
             )
         except Exception:
             logger.debug("Chat list cache write failed for user %s", user_id, exc_info=True)
         return items, total
 
-    async def update_title(self, user_id: UUID, chat_id: UUID, title: str) -> ChatListResponse:
+    async def update_title(
+        self, user_id: UUID, chat_id: UUID, title: str, *, locale: str = "ru"
+    ) -> ChatListResponse:
         chat = await self._require_user_chat(user_id, chat_id)
         await self._chats.update_title(chat, title)
         await self._invalidate_chat_cache(chat_id, user_id)
-        return await self._to_list_item(chat)
+        return await self._to_list_item(chat, locale=locale)
 
-    async def set_pinned(self, user_id: UUID, chat_id: UUID, pinned: bool) -> ChatListResponse:
+    async def set_pinned(
+        self, user_id: UUID, chat_id: UUID, pinned: bool, *, locale: str = "ru"
+    ) -> ChatListResponse:
         chat = await self._require_user_chat(user_id, chat_id)
         await self._chats.set_pinned(chat, pinned)
         await self._invalidate_chat_cache(chat_id, user_id)
-        return await self._to_list_item(chat)
+        return await self._to_list_item(chat, locale=locale)
 
     async def archive_chat(self, user_id: UUID, chat_id: UUID) -> None:
         chat = await self._require_user_chat(user_id, chat_id)
@@ -379,8 +400,10 @@ class ChatService:
         character,
         scenario: CharacterScenario | None,
         narrator: CharacterNarrator | None,
+        *,
+        locale: str = "ru",
     ) -> str:
-        return build_character_system_prompt(character, scenario, narrator)
+        return build_character_system_prompt(character, scenario, narrator, locale=locale)
 
     def _display_title(
         self, chat: Chat, character_name: str, scenario_title: str | None, narrator_name: str | None
@@ -399,10 +422,12 @@ class ChatService:
         character,
         scenario: CharacterScenario | None,
         narrator: CharacterNarrator | None,
+        *,
+        locale: str = "ru",
     ) -> ChatResponse:
-        name = character.name if character else "Персонаж"
-        scenario_title = scenario.title if scenario else None
-        narrator_name = narrator.name if narrator else None
+        name = pick_localized(character.name if character else None, getattr(character, "name_alt", None), locale) if character else "Персонаж"
+        scenario_title = pick_localized(scenario.title if scenario else None, getattr(scenario, "title_alt", None), locale) if scenario else None
+        narrator_name = pick_localized(narrator.name if narrator else None, getattr(narrator, "name_alt", None), locale) if narrator else None
         return ChatResponse(
             id=chat.id,
             character_id=chat.character_id,
@@ -421,7 +446,7 @@ class ChatService:
             created_at=chat.created_at,
         )
 
-    async def _to_list_item(self, chat: Chat, preview: str | None = None) -> ChatListResponse:
+    async def _to_list_item(self, chat: Chat, preview: str | None = None, *, locale: str = "ru") -> ChatListResponse:
         character = chat.character or await self._characters.get_by_id(chat.character_id)
         scenario = chat.scenario
         if chat.scenario_id and not scenario:
@@ -429,9 +454,9 @@ class ChatService:
         narrator = chat.narrator
         if chat.narrator_id and not narrator:
             narrator = await self._narrators.get_by_id(chat.narrator_id)
-        name = character.name if character else "Персонаж"
-        scenario_title = scenario.title if scenario else None
-        narrator_name = narrator.name if narrator else None
+        name = pick_localized(character.name if character else None, getattr(character, "name_alt", None), locale) if character else "Персонаж"
+        scenario_title = pick_localized(scenario.title if scenario else None, getattr(scenario, "title_alt", None), locale) if scenario else None
+        narrator_name = pick_localized(narrator.name if narrator else None, getattr(narrator, "name_alt", None), locale) if narrator else None
         if preview is None:
             preview = await self._chats.get_last_message_preview(chat.id, chat.user_id)
         return ChatListResponse(

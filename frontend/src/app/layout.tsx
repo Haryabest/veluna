@@ -13,8 +13,8 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Veluna — AI-компаньон",
-  description: "Твоя AI waifu в Telegram",
+  title: "Veluna — AI Companion",
+  description: "Your AI companion in Telegram",
 };
 
 export const viewport: Viewport = {

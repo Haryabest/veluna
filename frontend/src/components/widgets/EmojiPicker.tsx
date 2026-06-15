@@ -3,13 +3,15 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
 import { CHAT_BORDER } from "@/lib/theme";
 
-const EMOJI_CATEGORIES: { id: string; label: string; icon: string; emojis: string[] }[] = [
+const EMOJI_CATEGORIES: { id: string; labelKey: TranslationKey; icon: string; emojis: string[] }[] = [
   {
     id: "smileys",
-    label: "Смайлы",
+    labelKey: "emoji.smiles",
     icon: "😀",
     emojis: [
       "😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "😊",
@@ -20,7 +22,7 @@ const EMOJI_CATEGORIES: { id: string; label: string; icon: string; emojis: strin
   },
   {
     id: "hearts",
-    label: "Сердца",
+    labelKey: "emoji.hearts",
     icon: "❤️",
     emojis: [
       "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔",
@@ -30,7 +32,7 @@ const EMOJI_CATEGORIES: { id: string; label: string; icon: string; emojis: strin
   },
   {
     id: "gestures",
-    label: "Жесты",
+    labelKey: "emoji.gestures",
     icon: "👋",
     emojis: [
       "👋", "🤚", "🖐️", "✋", "🖖", "👌", "🤌", "🤏", "✌️", "🤞",
@@ -40,7 +42,7 @@ const EMOJI_CATEGORIES: { id: string; label: string; icon: string; emojis: strin
   },
   {
     id: "animals",
-    label: "Животные",
+    labelKey: "emoji.animals",
     icon: "🐱",
     emojis: [
       "🐱", "🐶", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯",
@@ -57,6 +59,7 @@ interface EmojiPickerProps {
 }
 
 export function EmojiPicker({ open, onClose, onSelect }: EmojiPickerProps) {
+  const { t } = useTranslation();
   const [category, setCategory] = useState("smileys");
   const active = EMOJI_CATEGORIES.find((c) => c.id === category) ?? EMOJI_CATEGORIES[0];
 
@@ -85,7 +88,7 @@ export function EmojiPicker({ open, onClose, onSelect }: EmojiPickerProps) {
             </div>
 
             <div className="px-3 pb-2" style={{ borderBottom: `1px solid ${CHAT_BORDER}` }}>
-              <p className="text-center text-xs font-medium text-text-muted">Эмодзи</p>
+              <p className="text-center text-xs font-medium text-text-muted">{t("common.emoji")}</p>
             </div>
 
             <div className="grid max-h-[220px] grid-cols-8 gap-0.5 overflow-y-auto px-2 py-2">
@@ -107,6 +110,7 @@ export function EmojiPicker({ open, onClose, onSelect }: EmojiPickerProps) {
                 <button
                   key={cat.id}
                   type="button"
+                  aria-label={t(cat.labelKey)}
                   onClick={() => setCategory(cat.id)}
                   className={cn(
                     "flex h-10 w-10 items-center justify-center rounded-xl text-xl transition-colors",

@@ -17,14 +17,22 @@ import { usePaymentStore } from "@/store/payment-store";
 import { useUserStore } from "@/store/user-store";
 import { shopService, authService, balanceService } from "@/services/api";
 import { balanceQueryOptions, shopProductsQueryOptions } from "@/lib/catalog-queries";
-import { SHOP_TAB_LABELS, type ShopProduct, type ShopTab } from "@/lib/shop";
+import { type ShopProduct, type ShopTab } from "@/lib/shop";
 import { BackButton } from "@/components/shared/BackButton";
 import { useMounted } from "@/hooks/use-mounted";
 import { chatBorderStyle } from "@/lib/theme";
 import { formatGems } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/use-translation";
+import type { TranslationKey } from "@/lib/i18n/translations";
 
 const TABS: ShopTab[] = ["bundle", "gems", "credits"];
+
+const SHOP_TAB_KEYS: Record<ShopTab, TranslationKey> = {
+  bundle: "shop.tab.bundle",
+  gems: "shop.tab.gems",
+  credits: "shop.tab.credits",
+};
 
 export function ShopView() {
   const mounted = useMounted();
@@ -33,6 +41,7 @@ export function ShopView() {
   const { user, setUser } = useUserStore();
   const { gems, credits, setBalance } = usePaymentStore();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [tab, setTab] = useState<ShopTab>("bundle");
   const [selected, setSelected] = useState<ShopProduct | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -55,7 +64,7 @@ export function ShopView() {
     isFetching,
     isError,
     refetch: refetchProducts,
-  } = useQuery(shopProductsQueryOptions);
+  } = useQuery(shopProductsQueryOptions());
 
   const products: ShopProduct[] = useMemo(() => {
     const list = (Array.isArray(apiProducts) ? apiProducts : []) as ShopProduct[];
@@ -68,14 +77,14 @@ export function ShopView() {
     if (!selected) return;
 
     if (!canPayWithTelegramStars()) {
-      toast("Откройте магазин через Telegram (кнопка бота)", "info");
+      toast(t("shop.openViaTelegram"), "info");
       return;
     }
 
     setPaying(true);
     try {
       if (!getTelegramInitData()) {
-        toast("Откройте магазин через кнопку бота в Telegram", "info");
+        toast(t("shop.openViaBot"), "info");
         return;
       }
       await ensureTelegramSession();
@@ -83,7 +92,7 @@ export function ShopView() {
       const status = await openTelegramInvoice(checkout.invoice_url);
 
       if (status === "paid") {
-        toast("Оплата прошла! Баланс обновлён 💎", "success");
+        toast(t("shop.paymentSuccess"), "success");
         setSheetOpen(false);
         setSelected(null);
         await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.balance });
@@ -100,15 +109,12 @@ export function ShopView() {
           /* ignore */
         }
       } else if (status === "cancelled") {
-        toast("Оплата отменена", "info");
+        toast(t("shop.paymentCancelled"), "info");
       } else {
-        toast(
-          "Оплата не открылась. Откройте Mini App с телефона (не ПК) и убедитесь, что есть Stars ⭐",
-          "error"
-        );
+        toast(t("shop.paymentFailed"), "error");
       }
     } catch (err) {
-      toast(getApiError(err).message || "Не удалось начать оплату", "error");
+      toast(getApiError(err).message || t("shop.paymentStartError"), "error");
     } finally {
       setPaying(false);
     }
@@ -119,9 +125,9 @@ export function ShopView() {
       <header className="mb-4 flex items-center gap-3">
         <BackButton onClick={goBack} />
         <div>
-          <h1 className="text-xl font-bold">Магазин</h1>
+          <h1 className="text-xl font-bold">{t("shop.title")}</h1>
           <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-text-secondary">
-            <span className="font-medium text-text-muted">Баланс:</span>
+            <span className="font-medium text-text-muted">{t("shop.balance")}</span>
             <span className="inline-flex items-center gap-1 font-semibold text-text-primary">
               <AnimeGemIcon className="h-4 w-4" />
               {formatGems(gemsDisplay)}
@@ -135,17 +141,17 @@ export function ShopView() {
       </header>
 
       <div className="mb-4 flex gap-1 rounded-2xl bg-bg-elevated/60 p-1" style={chatBorderStyle}>
-        {TABS.map((t) => (
+        {TABS.map((shopTab) => (
           <button
-            key={t}
+            key={shopTab}
             type="button"
-            onClick={() => setTab(t)}
+            onClick={() => setTab(shopTab)}
             className={cn(
               "relative flex-1 rounded-xl py-2.5 text-sm font-medium transition-all",
-              tab === t ? "text-text-primary" : "text-text-muted hover:text-text-secondary"
+              tab === shopTab ? "text-text-primary" : "text-text-muted hover:text-text-secondary"
             )}
           >
-            {tab === t &&
+            {tab === shopTab &&
               (mounted ? (
                 <motion.div
                   layoutId="shop-tab"
@@ -159,34 +165,34 @@ export function ShopView() {
                   style={chatBorderStyle}
                 />
               ))}
-            <span className="relative z-[1]">{SHOP_TAB_LABELS[t]}</span>
+            <span className="relative z-[1]">{t(SHOP_TAB_KEYS[shopTab])}</span>
           </button>
         ))}
       </div>
 
       {isLoading && !apiProducts && (
-        <p className="py-8 text-center text-sm text-text-muted">Загрузка…</p>
+        <p className="py-8 text-center text-sm text-text-muted">{t("shop.loading")}</p>
       )}
 
       {isFetching && apiProducts && (
-        <p className="py-1 text-center text-xs text-text-muted">Обновление…</p>
+        <p className="py-1 text-center text-xs text-text-muted">{t("shop.refreshing")}</p>
       )}
 
       {isError && (
         <div className="py-8 text-center">
-          <p className="text-sm text-text-muted">Не удалось загрузить товары</p>
+          <p className="text-sm text-text-muted">{t("shop.loadError")}</p>
           <button
             type="button"
             onClick={() => void refetchProducts()}
             className="mt-3 text-sm font-medium text-accent-light underline"
           >
-            Повторить
+            {t("shop.retry")}
           </button>
         </div>
       )}
 
       {!isLoading && !isFetching && !isError && filtered.length === 0 && (
-        <p className="py-12 text-center text-sm text-text-muted">Товаров пока нет</p>
+        <p className="py-12 text-center text-sm text-text-muted">{t("shop.empty")}</p>
       )}
 
       {filtered.length > 0 && (

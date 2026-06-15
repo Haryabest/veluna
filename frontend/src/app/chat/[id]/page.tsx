@@ -11,9 +11,11 @@ import { Button } from "@/components/shared/Button";
 import { MessageSkeleton } from "@/components/shared/Skeleton";
 import { QUERY_KEYS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/use-translation";
 
 export default function ChatPage() {
   const { id: chatId } = useParams<{ id: string }>();
+  const { t } = useTranslation();
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -58,9 +60,9 @@ export default function ChatPage() {
   return (
     <div className="mx-auto flex h-screen max-w-lg flex-col">
       <header className="glass flex items-center justify-between border-b border-border px-4 py-3">
-        <h1 className="font-semibold">Чат</h1>
+        <h1 className="font-semibold">{t("chat.legacy.title")}</h1>
         <span className={cn("text-xs", isConnected ? "text-green-400" : "text-text-muted")}>
-          {isConnected ? "● Онлайн" : "○ Офлайн"}
+          {isConnected ? t("chat.legacy.online") : t("chat.legacy.offline")}
         </span>
       </header>
 
@@ -83,7 +85,7 @@ export default function ChatPage() {
               </motion.div>
             ))}
         {isTyping && (
-          <div className="animate-pulse text-xs text-text-muted">печатает…</div>
+          <div className="animate-pulse text-xs text-text-muted">{t("chat.legacy.typing")}</div>
         )}
         <div ref={messagesEndRef} />
       </div>
@@ -97,11 +99,11 @@ export default function ChatPage() {
               sendTyping(true);
             }}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Напиши сообщение…"
+            placeholder={t("chat.legacy.placeholder")}
             className="flex-1 rounded-xl bg-bg-elevated px-3 py-2.5 text-sm text-text-primary outline-none placeholder:text-text-muted focus:ring-1 focus:ring-accent/50"
           />
           <Button onClick={handleSend} loading={sendMutation.isPending} disabled={!input.trim()}>
-            Отправить
+            {t("chat.send")}
           </Button>
         </div>
       </div>

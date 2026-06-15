@@ -6,6 +6,8 @@ import { ModalProvider } from "@/hooks/use-modal";
 import { ToastProvider } from "@/hooks/use-toast";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { GlobalModal } from "@/components/widgets/GlobalModal";
+import { LocaleSync } from "@/components/shared/LocaleSync";
+import { LocalePickerModal } from "@/components/shared/LocalePickerModal";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -28,7 +30,9 @@ export function Providers({ children }: { children: ReactNode }) {
       <ToastProvider>
         <ModalProvider>
           <ErrorBoundary>
+            <LocaleSync />
             {children}
+            <LocalePickerModal />
             <GlobalModal />
           </ErrorBoundary>
         </ModalProvider>

@@ -5,7 +5,7 @@ function Stop-VelunaHostServices {
         [switch]$KeepTunnel
     )
 
-    foreach ($port in 3000, 3001, 8000, 8010) {
+    foreach ($port in 3000, 3001, 8000, 8010, 8011) {
         Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
             ForEach-Object {
                 $proc = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue
@@ -17,6 +17,10 @@ function Stop-VelunaHostServices {
 
     Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue |
         Where-Object { $_.CommandLine -match 'app\.bot\.main|uvicorn app\.main|celery.*app\.workers' } |
+        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+
+    Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -match 'watch-bot\.ps1' } |
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 
     Get-CimInstance Win32_Process -Filter "Name='celery.exe'" -ErrorAction SilentlyContinue |

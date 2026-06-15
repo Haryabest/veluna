@@ -5,17 +5,19 @@ import { BackButton } from "@/components/shared/BackButton";
 import { useCharacter } from "@/hooks/use-character";
 import { useOpenScenarios } from "@/hooks/use-catalog-navigation";
 import { useNavStore } from "@/store/nav-store";
+import { useTranslation } from "@/hooks/use-translation";
 
 export function CharacterDetailView() {
   const characterId = useNavStore((s) => s.characterId);
   const goBack = useNavStore((s) => s.goBack);
   const openScenarios = useOpenScenarios();
   const { character, isLoading, isError } = useCharacter(characterId);
+  const { t } = useTranslation();
 
   if (isLoading) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-4">
-        <p className="text-text-muted">Загрузка…</p>
+        <p className="text-text-muted">{t("character.loading")}</p>
       </div>
     );
   }
@@ -24,7 +26,7 @@ export function CharacterDetailView() {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-4">
         <p className="text-text-muted">
-          {isError ? "Не удалось загрузить персонажа" : "Персонаж не найден"}
+          {isError ? t("character.loadError") : t("character.notFound")}
         </p>
         <BackButton onClick={goBack} className="mt-4" />
       </div>
@@ -89,7 +91,7 @@ export function CharacterDetailView() {
         )}
 
         <section className={displayTags.length > 0 ? "mt-5" : ""}>
-          <h2 className="text-base font-bold text-text-primary">О персонаже</h2>
+          <h2 className="text-base font-bold text-text-primary">{t("character.about")}</h2>
           <p className="mt-2.5 text-[15px] leading-relaxed text-text-secondary">
             {character.description || "—"}
           </p>
@@ -105,7 +107,7 @@ export function CharacterDetailView() {
             background: "linear-gradient(90deg, #9b8cff 0%, #e879f9 50%, #9333ea 100%)",
           }}
         >
-          ✨ ИГРАТЬ
+          {t("character.play")}
         </button>
       </div>
     </div>

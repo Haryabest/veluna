@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { History } from "lucide-react";
 import { useNavStore } from "@/store/nav-store";
 import { useUserStore } from "@/store/user-store";
 import { usePaymentStore } from "@/store/payment-store";
+import { useSettingsStore } from "@/store/settings-store";
 import { balanceQueryOptions } from "@/lib/catalog-queries";
 import { QUERY_KEYS } from "@/lib/constants";
 import { authService, userService } from "@/services/api";
@@ -16,11 +16,19 @@ import { formatGems } from "@/lib/utils";
 import { useTelegramUser } from "@/hooks/use-telegram-user";
 import { ProfileAvatar } from "@/components/shared/ProfileAvatar";
 import { chatSeparatorVerticalStyle } from "@/lib/theme";
+import { useTranslation } from "@/hooks/use-translation";
+import { useToast } from "@/hooks/use-toast";
+import { onLocaleChanged } from "@/lib/locale-sync";
+import type { AppLocale } from "@/lib/i18n/translations";
 
 import { resolveProfileAvatarUrl } from "@/lib/profile-avatar";
 
 export function ProfileView() {
+  const { t, locale } = useTranslation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { user, setUser } = useUserStore();
+  const setLanguage = useSettingsStore((s) => s.setLanguage);
   const openHistory = useNavStore((s) => s.openHistory);
   const { gems, credits, setBalance } = usePaymentStore();
   const { displayName: tgName, username: tgUsername, photoUrl: tgPhoto } = useTelegramUser();
@@ -36,14 +44,25 @@ export function ProfileView() {
     if (profile) setUser(profile);
   }, [profile, setUser]);
 
+  const localeMutation = useMutation({
+    mutationFn: (next: AppLocale) => userService.updateLocale(next),
+    onSuccess: (updated) => {
+      setUser(updated);
+      setLanguage(updated.language_code);
+      onLocaleChanged(queryClient, updated.language_code as AppLocale);
+      toast(t("locale.saved"), "success");
+    },
+  });
+
+  const guestLabel = t("profile.guest");
   const displayName =
-    tgName !== "Гость"
+    tgName !== guestLabel
       ? tgName
       : profile
-        ? `${profile.first_name ?? ""}${profile.last_name ? ` ${profile.last_name}` : ""}`.trim() || "Гость"
+        ? `${profile.first_name ?? ""}${profile.last_name ? ` ${profile.last_name}` : ""}`.trim() || guestLabel
         : user
-          ? `${user.first_name ?? ""}${user.last_name ? ` ${user.last_name}` : ""}`.trim() || "Гость"
-          : "Гость";
+          ? `${user.first_name ?? ""}${user.last_name ? ` ${user.last_name}` : ""}`.trim() || guestLabel
+          : guestLabel;
   const username = tgUsername ?? profile?.username ?? user?.username;
   const photoUrl = resolveProfileAvatarUrl(tgPhoto, profile?.photo_url, user?.photo_url);
 
@@ -65,13 +84,14 @@ export function ProfileView() {
 
   const gemsDisplay = balance?.gems ?? gems;
   const creditsDisplay = balance?.credits ?? credits;
+  const currentLocale = (profile?.language_code ?? user?.language_code ?? locale) as AppLocale;
 
   return (
     <div className="mx-auto max-w-lg space-y-4 px-4 pt-6">
       <header className="flex items-center gap-4">
-        <ProfileAvatar photoUrl={photoUrl} name={displayName || "Гость"} />
+        <ProfileAvatar photoUrl={photoUrl} name={displayName || guestLabel} />
         <div>
-          <h1 className="text-xl font-bold">{displayName || "Гость"}</h1>
+          <h1 className="text-xl font-bold">{displayName || guestLabel}</h1>
           {username && <p className="text-sm text-text-muted">@{username}</p>}
         </div>
       </header>
@@ -80,13 +100,13 @@ export function ProfileView() {
         <div className="grid grid-cols-2">
           <BalanceCell
             icon={<AnimeGemIcon className="h-[22px] w-[22px]" />}
-            label="Гемы"
+            label={t("profile.gems")}
             value={formatGems(gemsDisplay)}
           />
           <div style={chatSeparatorVerticalStyle}>
             <BalanceCell
               icon={<AnimeHeartIcon className="h-[22px] w-[22px]" />}
-              label="Сердца"
+              label={t("profile.hearts")}
               value={formatGems(creditsDisplay)}
             />
           </div>
@@ -97,7 +117,7 @@ export function ProfileView() {
         <ListPanel>
           <div className="grid grid-cols-2 divide-x divide-white/5">
             <div className="px-4 py-3">
-              <p className="text-[10px] font-medium uppercase tracking-wide text-text-muted">Потрачено</p>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-text-muted">{t("profile.spent")}</p>
               <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-rose-400">
                 <span className="inline-flex items-center gap-1">
                   −{formatGems(finance.spent.gems)}
@@ -110,7 +130,7 @@ export function ProfileView() {
               </p>
             </div>
             <div className="px-4 py-3">
-              <p className="text-[10px] font-medium uppercase tracking-wide text-text-muted">Пополнено</p>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-text-muted">{t("profile.deposited")}</p>
               <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-emerald-400">
                 <span className="inline-flex items-center gap-1">
                   +{formatGems(finance.deposited.gems)}
@@ -127,18 +147,40 @@ export function ProfileView() {
       ) : null}
 
       <ListPanel>
+        <div className="px-4 py-3.5" style={chatSeparatorStyle}>
+          <p className="text-sm text-text-secondary">{t("profile.language")}</p>
+          <div className="mt-3 flex gap-2">
+            {(["ru", "en"] as const).map((code) => (
+              <button
+                key={code}
+                type="button"
+                disabled={localeMutation.isPending}
+                onClick={() => localeMutation.mutate(code)}
+                className={`flex-1 rounded-xl py-2.5 text-sm font-medium transition-colors ${
+                  currentLocale === code
+                    ? "bg-accent text-white shadow-glow"
+                    : "bg-bg-elevated text-text-secondary"
+                }`}
+              >
+                {code === "ru" ? t("profile.languageRu") : t("profile.languageEn")}
+              </button>
+            ))}
+          </div>
+        </div>
         <button
           type="button"
           onClick={openHistory}
           className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-bg-elevated/60"
         >
           <History className="h-5 w-5 text-accent-light" strokeWidth={1.75} />
-          <span className="text-sm font-medium">История</span>
+          <span className="text-sm font-medium">{t("profile.history")}</span>
         </button>
       </ListPanel>
     </div>
   );
 }
+
+const chatSeparatorStyle = { borderBottom: "1px solid rgba(255,255,255,0.06)" } as const;
 
 function BalanceCell({
   icon,

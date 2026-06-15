@@ -75,9 +75,13 @@ class BotCharacterService:
         admin_id: UUID,
         *,
         name: str,
+        name_alt: str | None = None,
         description: str,
+        description_alt: str | None = None,
         subtitle: str,
+        subtitle_alt: str | None = None,
         behavior_params: list[str],
+        behavior_params_alt: list[str] | None = None,
         avatar_url: str | None = None,
         greeting_message: str = "",
     ) -> Character:
@@ -89,18 +93,36 @@ class BotCharacterService:
         description = description.strip()
         if len(description) > DESCRIPTION_MAX_LEN:
             raise ValidationError(f"Описание не длиннее {DESCRIPTION_MAX_LEN} символов")
+        if description_alt:
+            description_alt = description_alt.strip()
+            if len(description_alt) > DESCRIPTION_MAX_LEN:
+                raise ValidationError(f"Альтернативное описание не длиннее {DESCRIPTION_MAX_LEN} символов")
         if len(behavior_params) != BEHAVIOR_PARAMS_COUNT:
             raise ValidationError(f"Нужно ровно {BEHAVIOR_PARAMS_COUNT} параметров поведения")
 
         params = [p.strip() for p in behavior_params]
         personality = build_personality_prompt(params)
 
+        alt_params: list[str] | None = None
+        if behavior_params_alt:
+            alt_params = [p.strip() for p in behavior_params_alt if p.strip()]
+            if alt_params and len(alt_params) != BEHAVIOR_PARAMS_COUNT:
+                raise ValidationError(
+                    f"Нужно ровно {BEHAVIOR_PARAMS_COUNT} альтернативных параметров или /skip"
+                )
+            if not alt_params:
+                alt_params = None
+
         character = await self._characters.create(
             name=name,
+            name_alt=(name_alt.strip() if name_alt else None) or None,
             slug=slugify_name(name),
             description=description,
+            description_alt=description_alt or None,
             subtitle=subtitle.strip() or None,
+            subtitle_alt=(subtitle_alt.strip() if subtitle_alt else None) or None,
             behavior_params=params,
+            behavior_params_alt=alt_params or [],
             tags=params,
             personality_prompt=personality,
             greeting_message=greeting_message.strip(),
@@ -127,9 +149,13 @@ class BotCharacterService:
         character_id: UUID,
         *,
         name: str | None = None,
+        name_alt: str | None = None,
         description: str | None = None,
+        description_alt: str | None = None,
         subtitle: str | None = None,
+        subtitle_alt: str | None = None,
         behavior_params: list[str] | None = None,
+        behavior_params_alt: list[str] | None = None,
         avatar_url: str | None = None,
         clear_avatar: bool = False,
     ) -> Character:
@@ -142,6 +168,8 @@ class BotCharacterService:
             if not name:
                 raise ValidationError("Имя персонажа не может быть пустым")
             updates["name"] = name
+        if name_alt is not None:
+            updates["name_alt"] = name_alt.strip() or None
         if description is not None:
             description = description.strip()
             if not description:
@@ -149,8 +177,15 @@ class BotCharacterService:
             if len(description) > DESCRIPTION_MAX_LEN:
                 raise ValidationError(f"Описание не длиннее {DESCRIPTION_MAX_LEN} символов")
             updates["description"] = description
+        if description_alt is not None:
+            alt = description_alt.strip()
+            if alt and len(alt) > DESCRIPTION_MAX_LEN:
+                raise ValidationError(f"Альтернативное описание не длиннее {DESCRIPTION_MAX_LEN} символов")
+            updates["description_alt"] = alt or None
         if subtitle is not None:
             updates["subtitle"] = subtitle.strip() or None
+        if subtitle_alt is not None:
+            updates["subtitle_alt"] = subtitle_alt.strip() or None
         if behavior_params is not None:
             if len(behavior_params) != BEHAVIOR_PARAMS_COUNT:
                 raise ValidationError(f"Нужно ровно {BEHAVIOR_PARAMS_COUNT} параметров поведения")
@@ -161,6 +196,18 @@ class BotCharacterService:
             updates["behavior_params"] = params
             updates["tags"] = params
             updates["personality_prompt"] = personality
+        if behavior_params_alt is not None:
+            if behavior_params_alt:
+                alt_params = [p.strip() for p in behavior_params_alt]
+                if len(alt_params) != BEHAVIOR_PARAMS_COUNT:
+                    raise ValidationError(
+                        f"Нужно ровно {BEHAVIOR_PARAMS_COUNT} альтернативных параметров"
+                    )
+                if any(not p for p in alt_params):
+                    raise ValidationError("Альтернативные параметры поведения не могут быть пустыми")
+                updates["behavior_params_alt"] = alt_params
+            else:
+                updates["behavior_params_alt"] = []
         if clear_avatar:
             updates["avatar_url"] = None
             updates["preview_url"] = None
@@ -190,6 +237,7 @@ class BotCharacterService:
         character_id: UUID,
         *,
         title: str,
+        title_alt: str | None = None,
         story: str,
         communication_style: str,
         opening_message: str = "",
@@ -205,6 +253,7 @@ class BotCharacterService:
         scenario = await self._scenarios.create(
             character_id=character_id,
             title=title,
+            title_alt=(title_alt.strip() if title_alt else None) or None,
             story=story.strip(),
             communication_style=communication_style.strip(),
             opening_message=opening_message.strip(),
@@ -237,6 +286,7 @@ class BotCharacterService:
         character_id: UUID,
         *,
         name: str,
+        name_alt: str | None = None,
         description: str,
         price: int = 0,
     ) -> CharacterNarrator:
@@ -251,6 +301,7 @@ class BotCharacterService:
         narrator = await self._narrators.create(
             character_id=character_id,
             name=name,
+            name_alt=(name_alt.strip() if name_alt else None) or None,
             description=description.strip(),
             price=max(0, price),
             sort_order=count,

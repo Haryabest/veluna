@@ -14,6 +14,7 @@ from app.schemas import TokenResponse, UserResponse
 from app.services.platform_settings_service import PlatformSettingsService
 from app.services.telegram_profile_service import determine_user_avatar_url
 from app.services.user_ban_service import ensure_not_banned, refresh_ban_status
+from app.utils.locale import locale_from_telegram, normalize_app_locale
 
 
 class AuthService:
@@ -43,7 +44,8 @@ class AuthService:
                 first_name=user_data.get("first_name"),
                 last_name=user_data.get("last_name"),
                 photo_url=determine_user_avatar_url(user_data.get("photo_url")),
-                language_code=user_data.get("language_code", "en"),
+                language_code=locale_from_telegram(user_data.get("language_code")),
+                locale_selected=False,
             )
             from app.models import TransactionType
             from app.repositories.generation_repository import PaymentRepository
@@ -76,10 +78,17 @@ class AuthService:
     async def _sync_telegram_profile(self, user: User, user_data: dict) -> None:
         updates: dict = {}
 
-        for field in ("username", "first_name", "last_name", "language_code"):
+        for field in ("username", "first_name", "last_name"):
             value = user_data.get(field)
             if value is not None and getattr(user, field) != value:
                 updates[field] = value
+
+        if not user.locale_selected:
+            tg_lang = user_data.get("language_code")
+            if tg_lang:
+                hint = locale_from_telegram(tg_lang)
+                if user.language_code != hint:
+                    updates["language_code"] = hint
 
         init_photo = user_data.get("photo_url")
         photo_url = determine_user_avatar_url(init_photo, user.photo_url)
@@ -181,7 +190,8 @@ class AuthService:
             first_name=user.first_name,
             last_name=user.last_name,
             photo_url=user.photo_url,
-            language_code=user.language_code,
+            language_code=normalize_app_locale(user.language_code),
+            locale_selected=user.locale_selected,
             role=user.role.value,
             is_active=user.is_active,
             gems=balance.gems if balance else 0,

@@ -3,6 +3,8 @@ import { API_URL } from "./constants";
 import { translateApiError } from "./i18n";
 import { getTelegramInitData } from "./telegram-webapp";
 import { useAuthStore } from "@/store/auth-store";
+import { normalizeLocale, t, type AppLocale } from "@/lib/i18n/translations";
+import { useSettingsStore } from "@/store/settings-store";
 
 export function isLocalDevHost(): boolean {
   if (typeof window === "undefined") return false;
@@ -76,6 +78,7 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     if (initData) {
       config.headers["X-Telegram-Init-Data"] = initData;
     }
+    config.headers["Accept-Language"] = normalizeLocale(useSettingsStore.getState().language);
   }
   return config;
 });
@@ -169,19 +172,25 @@ export interface ApiError {
   banned_until?: string | null;
 }
 
+function apiLocale(): AppLocale {
+  if (typeof window === "undefined") return "ru";
+  return normalizeLocale(useSettingsStore.getState().language);
+}
+
 export function getApiError(error: unknown): ApiError {
+  const locale = apiLocale();
   if (axios.isAxiosError(error)) {
     const detail = error.response?.data?.detail;
     if (typeof detail === "object" && detail !== null) {
       return {
         code: detail.code || "ERROR",
-        message: detail.message || "Неизвестная ошибка",
+        message: translateApiError(detail.message || t(locale, "error.unknown"), locale),
         ban_reason: detail.ban_reason ?? null,
         banned_until: detail.banned_until ?? null,
       };
     }
     if (typeof detail === "string" && detail) {
-      return { code: "ERROR", message: detail };
+      return { code: "ERROR", message: translateApiError(detail, locale) };
     }
     if (!error.response) {
       const code = (error as { code?: string }).code;
@@ -191,9 +200,7 @@ export function getApiError(error: unknown): ApiError {
           !/localhost|127\.0\.0\.1/.test(window.location.hostname);
         return {
           code: "BACKEND_OFFLINE",
-          message: viaTunnel
-            ? "Сервер API недоступен. Туннель Pinggy мог истечь — на ПК: .\\scripts\\redeploy.ps1 -Quick"
-            : "Сервер API недоступен. Запустите .\\scripts\\veluna-up.ps1 -HostOnly, затем .\\scripts\\restart-frontend.ps1",
+          message: t(locale, viaTunnel ? "error.backendTunnel" : "error.backendLocal"),
         };
       }
     }
@@ -204,11 +211,10 @@ export function getApiError(error: unknown): ApiError {
     ) {
       return {
         code: "ERROR",
-        message:
-          "Ошибка сервера генерации. Проверьте логи backend и примените миграции: .\\scripts\\veluna-up.ps1 -SkipBuild",
+        message: t(locale, "error.generationServer"),
       };
     }
-    return { code: "ERROR", message: translateApiError(error.message) };
+    return { code: "ERROR", message: translateApiError(error.message, locale) };
   }
-  return { code: "ERROR", message: "Неизвестная ошибка" };
+  return { code: "ERROR", message: t(locale, "error.unknown") };
 }

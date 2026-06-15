@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Pin, PinOff, Pencil, Trash2 } from "lucide-react";
 import { CHAT_BORDER } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/use-translation";
 
 const MENU_ICON = "h-5 w-5";
 const MENU_ICON_STROKE = 1.75;
@@ -37,6 +38,8 @@ export function ChatContextMenu({
   onRename,
   onDelete,
 }: ChatContextMenuProps) {
+  const { t } = useTranslation();
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -59,7 +62,7 @@ export function ChatContextMenu({
         <>
           <motion.button
             type="button"
-            aria-label="Закрыть меню"
+            aria-label={t("common.closeMenu")}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -80,7 +83,7 @@ export function ChatContextMenu({
             }}
           >
             <MenuItem
-              label={isPinned ? "Открепить" : "Закрепить"}
+              label={isPinned ? t("chat.unpin") : t("chat.pin")}
               icon={
                 isPinned ? (
                   <PinOff className={MENU_ICON} strokeWidth={MENU_ICON_STROKE} />
@@ -92,14 +95,14 @@ export function ChatContextMenu({
               showBorder
             />
             <MenuItem
-              label="Переименовать"
+              label={t("chat.rename")}
               icon={<Pencil className={MENU_ICON} strokeWidth={MENU_ICON_STROKE} />}
               onClick={onRename}
               disabled={isSystem}
               showBorder
             />
             <MenuItem
-              label="Удалить"
+              label={t("chat.delete")}
               icon={<Trash2 className={MENU_ICON} strokeWidth={MENU_ICON_STROKE} />}
               onClick={onDelete}
               variant="danger"

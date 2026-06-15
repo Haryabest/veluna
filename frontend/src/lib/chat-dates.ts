@@ -1,3 +1,6 @@
+import type { AppLocale } from "@/lib/i18n/translations";
+import { localeTag, t } from "@/lib/i18n/translations";
+
 function startOfLocalDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
@@ -26,8 +29,8 @@ export function shouldShowDaySeparator(
   return currKey !== prevKey;
 }
 
-/** Telegram-style day label: Сегодня / Вчера / weekday / date */
-export function formatChatDayLabel(iso: string): string {
+/** Telegram-style day label: Today / Yesterday / weekday / date */
+export function formatChatDayLabel(iso: string, locale: AppLocale = "ru"): string {
   const d = parseMessageDate(iso);
   if (!d) return "";
   const now = new Date();
@@ -35,19 +38,20 @@ export function formatChatDayLabel(iso: string): string {
     (startOfLocalDay(now).getTime() - startOfLocalDay(d).getTime()) / 86400000
   );
 
-  if (diffDays === 0) return "Сегодня";
-  if (diffDays === 1) return "Вчера";
+  if (diffDays === 0) return t(locale, "common.today");
+  if (diffDays === 1) return t(locale, "common.yesterday");
 
+  const tag = localeTag(locale);
   if (diffDays >= 2 && diffDays < 7) {
-    const weekday = d.toLocaleDateString("ru-RU", { weekday: "long" });
+    const weekday = d.toLocaleDateString(tag, { weekday: "long" });
     return weekday.charAt(0).toUpperCase() + weekday.slice(1);
   }
 
   if (d.getFullYear() === now.getFullYear()) {
-    return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+    return d.toLocaleDateString(tag, { day: "numeric", month: "long" });
   }
 
-  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+  return d.toLocaleDateString(tag, { day: "numeric", month: "long", year: "numeric" });
 }
 
 export type ChatDayRow = { kind: "day"; id: string; label: string };
@@ -55,7 +59,8 @@ export type ChatMessageRow<T> = { kind: "message"; id: string; msg: T };
 export type ChatRow<T> = ChatDayRow | ChatMessageRow<T>;
 
 export function buildChatMessageRows<T extends { id: string; created_at?: string }>(
-  messages: T[]
+  messages: T[],
+  locale: AppLocale = "ru"
 ): ChatRow<T>[] {
   const rows: ChatRow<T>[] = [];
   for (let i = 0; i < messages.length; i++) {
@@ -65,7 +70,7 @@ export function buildChatMessageRows<T extends { id: string; created_at?: string
       rows.push({
         kind: "day",
         id: `day-${getDayKey(msg.created_at)}-${i}`,
-        label: formatChatDayLabel(msg.created_at),
+        label: formatChatDayLabel(msg.created_at, locale),
       });
     }
     rows.push({ kind: "message", id: msg.id, msg });

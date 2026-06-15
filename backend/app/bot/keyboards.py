@@ -75,8 +75,15 @@ ADMIN_MENU_TEXTS = frozenset(
 )
 
 
-def main_reply_keyboard(webapp_url: str, *, include_admin: bool = False) -> ReplyKeyboardMarkup | ReplyKeyboardRemove:
-    """Persistent bottom keyboard (not tied to a single message)."""
+def main_reply_keyboard(
+    webapp_url: str,
+    locale: str = "ru",
+    *,
+    include_admin: bool = False,
+) -> ReplyKeyboardMarkup:
+    """Persistent bottom keyboard: optional admin rows + Open Veluna + switch language."""
+    from app.bot.i18n import t
+
     rows: list[list[KeyboardButton]] = []
     if include_admin:
         rows.extend(
@@ -95,8 +102,17 @@ def main_reply_keyboard(webapp_url: str, *, include_admin: bool = False) -> Repl
                 ],
             ]
         )
-    if not rows:
-        return ReplyKeyboardRemove(remove_keyboard=True)
+
+    rows.append(
+        [
+            KeyboardButton(
+                text=t("open_veluna", locale),
+                web_app=WebAppInfo(url=webapp_url),
+            )
+        ]
+    )
+    rows.append([KeyboardButton(text=t("switch_language", locale))])
+
     return ReplyKeyboardMarkup(
         keyboard=rows,
         resize_keyboard=True,
@@ -105,20 +121,43 @@ def main_reply_keyboard(webapp_url: str, *, include_admin: bool = False) -> Repl
 
 
 USER_FINANCE_CB = "user:finance"
+LANG_CB_RU = "lang:ru"
+LANG_CB_EN = "lang:en"
 
 
-def user_start_inline(webapp_url: str) -> InlineKeyboardMarkup:
+def language_choice_inline() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🇷🇺 Русский", callback_data=LANG_CB_RU),
+                InlineKeyboardButton(text="🇬🇧 English", callback_data=LANG_CB_EN),
+            ],
+        ]
+    )
+
+
+def user_start_inline(webapp_url: str, locale: str = "ru") -> InlineKeyboardMarkup:
     """Inline buttons under /start for all users."""
+    from app.bot.i18n import t
+
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Открыть Veluna",
+                    text=t("open_veluna", locale),
                     web_app=WebAppInfo(url=webapp_url),
                 )
             ],
         ]
     )
+
+
+def user_main_reply_keyboard(webapp_url: str, locale: str = "ru") -> ReplyKeyboardMarkup:
+    return main_reply_keyboard(webapp_url, locale, include_admin=False)
+
+
+def admin_main_reply_keyboard(webapp_url: str, locale: str = "ru") -> ReplyKeyboardMarkup:
+    return main_reply_keyboard(webapp_url, locale, include_admin=True)
 
 
 def user_finance_keyboard() -> InlineKeyboardMarkup:
@@ -129,13 +168,13 @@ def user_finance_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def start_keyboard(webapp_url: str, *, include_admin: bool = False) -> ReplyKeyboardMarkup:
+def start_keyboard(webapp_url: str, locale: str = "ru", *, include_admin: bool = False) -> ReplyKeyboardMarkup:
     """Alias for main menu reply keyboard."""
-    return main_reply_keyboard(webapp_url, include_admin=include_admin)
+    return main_reply_keyboard(webapp_url, locale, include_admin=include_admin)
 
 
-def admin_main_menu(webapp_url: str) -> ReplyKeyboardMarkup:
-    return main_reply_keyboard(webapp_url, include_admin=True)
+def admin_main_menu(webapp_url: str, locale: str = "ru") -> ReplyKeyboardMarkup:
+    return admin_main_reply_keyboard(webapp_url, locale)
 
 
 def back_to_admin() -> InlineKeyboardMarkup:

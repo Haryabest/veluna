@@ -7,16 +7,19 @@ import { BackButton } from "@/components/shared/BackButton";
 import { AnimeGemIcon } from "@/components/icons/CurrencyIcons";
 import { useNavStore } from "@/store/nav-store";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "@/hooks/use-translation";
 import { generationService } from "@/services/api";
 import { ensureTelegramSession, getApiError, isLocalDevHost } from "@/lib/api-client";
 import {
   ASPECT_RATIOS,
   buildStudioPrompt,
   findStudioModel,
+  getAspectRatioLabel,
+  getStudioModelLabel,
+  getStudioPromptPlaceholder,
   STUDIO_GENERATION_COST,
   STUDIO_MODELS,
   STUDIO_PROMPT_MAX,
-  STUDIO_PROMPT_PLACEHOLDER,
   type AspectRatioId,
 } from "@/lib/studio";
 import { CHAT_BORDER } from "@/lib/theme";
@@ -27,6 +30,7 @@ const SELECTED_BORDER = "2px solid #f472b6";
 const SELECTED_GLOW = "0 0 14px rgba(244, 114, 182, 0.4)";
 
 export function StudioCreateView() {
+  const { t, locale } = useTranslation();
   const goBack = useNavStore((s) => s.goBack);
   const openStudioGenerating = useNavStore((s) => s.openStudioGenerating);
   const openStudioResult = useNavStore((s) => s.openStudioResult);
@@ -49,7 +53,7 @@ export function StudioCreateView() {
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
-      toast("Опиши арт перед генерацией", "info");
+      toast(t("studio.create.promptRequired"), "info");
       return;
     }
     setLoading(true);
@@ -60,8 +64,8 @@ export function StudioCreateView() {
       if (!authed) {
         toast(
           isLocalDevHost()
-            ? "Не удалось войти. Обновите страницу или запустите бота /start"
-            : "Откройте Veluna через кнопку бота в Telegram",
+            ? t("studio.create.authFailed")
+            : t("studio.create.openViaBot"),
           "error"
         );
         return;
@@ -86,7 +90,7 @@ export function StudioCreateView() {
     } catch (err: unknown) {
       const apiErr = getApiError(err);
       logGeneration("error", { error: apiErr.message, code: apiErr.code });
-      toast(apiErr.message || "Ошибка генерации. Попробуй позже", "error");
+      toast(apiErr.message || t("studio.create.error"), "error");
     } finally {
       setLoading(false);
     }
@@ -96,11 +100,11 @@ export function StudioCreateView() {
     <div className="mx-auto max-w-lg px-4 pb-8 pt-4">
       <header className="mb-6 flex items-center gap-2">
         <BackButton onClick={goBack} />
-        <h1 className="flex-1 text-center text-lg font-bold pr-9">Создание арта</h1>
+        <h1 className="flex-1 text-center text-lg font-bold pr-9">{t("studio.create.title")}</h1>
       </header>
 
       <section className="mb-6">
-        <label className="mb-2 block text-sm font-semibold text-text-primary">Опиши арт</label>
+        <label className="mb-2 block text-sm font-semibold text-text-primary">{t("studio.create.promptLabel")}</label>
         <div
           className="relative rounded-2xl bg-bg-elevated/80 px-4 py-3"
           style={{ border: `1px solid ${CHAT_BORDER}` }}
@@ -108,7 +112,7 @@ export function StudioCreateView() {
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value.slice(0, STUDIO_PROMPT_MAX))}
-            placeholder={STUDIO_PROMPT_PLACEHOLDER}
+            placeholder={getStudioPromptPlaceholder(locale)}
             rows={5}
             className="w-full resize-none bg-transparent text-sm leading-relaxed text-text-primary outline-none placeholder:text-text-muted"
           />
@@ -117,20 +121,20 @@ export function StudioCreateView() {
           </span>
         </div>
         <p className="mt-2 text-xs text-text-muted">
-          Стиль «{selectedModel.nameRu}» будет автоматически добавлен к описанию
+          {t("studio.create.styleHint", { style: getStudioModelLabel(selectedModel, locale) })}
         </p>
       </section>
 
       <section className="mb-6">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-text-primary">Модель</h2>
+          <h2 className="text-sm font-semibold text-text-primary">{t("common.model")}</h2>
           <button
             type="button"
             onClick={openStudioAllModels}
             className="flex items-center gap-1.5 rounded-xl bg-bg-elevated/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
           >
             <Grid3X3 className="h-3.5 w-3.5" />
-            Все модели
+            {t("common.allModels")}
           </button>
         </div>
         <div className="flex gap-3 overflow-x-auto px-0.5 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -172,7 +176,7 @@ export function StudioCreateView() {
                     selected ? "text-[#f9a8d4]" : "text-text-muted"
                   )}
                 >
-                  {model.nameRu}
+                  {getStudioModelLabel(model, locale)}
                 </span>
               </button>
             );
@@ -181,7 +185,7 @@ export function StudioCreateView() {
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-3 text-sm font-semibold text-text-primary">Соотношение сторон</h2>
+        <h2 className="mb-3 text-sm font-semibold text-text-primary">{t("studio.create.aspectRatio")}</h2>
         <div className="flex flex-col gap-2.5">
           {ASPECT_RATIOS.map((ratio) => {
             const selected = aspectId === ratio.id;
@@ -216,7 +220,7 @@ export function StudioCreateView() {
                 </div>
                 <div>
                   <p className="text-sm font-bold text-text-primary">{ratio.ratioLabel}</p>
-                  <p className="text-xs text-text-muted">{ratio.label}</p>
+                  <p className="text-xs text-text-muted">{getAspectRatioLabel(ratio.id, locale)}</p>
                 </div>
               </button>
             );
@@ -234,7 +238,7 @@ export function StudioCreateView() {
           loading && "opacity-70"
         )}
       >
-        {loading ? "Генерация..." : "Сгенерировать"} ({STUDIO_GENERATION_COST}{" "}
+        {loading ? t("studio.create.generating") : t("studio.create.submit")} ({STUDIO_GENERATION_COST}{" "}
         <AnimeGemIcon className="h-5 w-5" />)
       </motion.button>
     </div>

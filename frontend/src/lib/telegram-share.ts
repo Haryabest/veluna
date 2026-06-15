@@ -1,5 +1,7 @@
 "use client";
 
+import { normalizeLocale, t } from "@/lib/i18n/translations";
+import { useSettingsStore } from "@/store/settings-store";
 import { getTelegramWebApp, isTelegramWebApp } from "@/lib/telegram-webapp";
 
 const BOT_LINK = (process.env.NEXT_PUBLIC_TELEGRAM_BOT_LINK || "").trim();
@@ -32,10 +34,15 @@ function openExternalUrl(url: string) {
   }
 }
 
+function shareArtText(): string {
+  const locale = normalizeLocale(useSettingsStore.getState().language);
+  return t(locale, "share.artText");
+}
+
 /** Opens native Telegram share: attaches image URL and includes bot link in text. */
 export function openTelegramImageShare(imageUrl: string, botLink?: string) {
   const link = botLink || getTelegramBotLink();
-  const text = link || "Смотри какой арт!";
+  const text = link || shareArtText();
   const shareUrl = `https://t.me/share/url?${new URLSearchParams({
     url: imageUrl,
     text,
@@ -46,7 +53,7 @@ export function openTelegramImageShare(imageUrl: string, botLink?: string) {
 /** Opens native Telegram chat picker with the bot link + image as attachment. */
 export function openTelegramTextShare(botLink: string, imageUrl?: string) {
   const link = botLink || getTelegramBotLink();
-  const parts = ["Смотри какой арт!"];
+  const parts = [shareArtText()];
   if (link) parts.push(link);
   if (imageUrl) parts.push(imageUrl);
   const text = parts.join("\n\n");

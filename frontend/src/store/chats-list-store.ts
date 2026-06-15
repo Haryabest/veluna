@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { chatListService, chatService } from "@/services/api";
+import { normalizeLocale, localeTag, t, type AppLocale } from "@/lib/i18n/translations";
+import { useSettingsStore } from "@/store/settings-store";
 
 const CHATS_CACHE_KEY = "veluna_chats_cache_v2";
 const CHATS_CACHE_TTL_MS = 30 * 60 * 1000;
@@ -49,29 +51,35 @@ export type ChatListItem = {
   displayName: string;
 };
 
-function formatChatTime(iso: string | null | undefined): string {
+function getLocale(): AppLocale {
+  if (typeof window === "undefined") return "ru";
+  return normalizeLocale(useSettingsStore.getState().language);
+}
+
+function formatChatTime(iso: string | null | undefined, locale: AppLocale = getLocale()): string {
   if (!iso) return "";
   const d = new Date(iso);
   const now = new Date();
+  const tag = localeTag(locale);
   const sameDay =
     d.getDate() === now.getDate() &&
     d.getMonth() === now.getMonth() &&
     d.getFullYear() === now.getFullYear();
   if (sameDay) {
-    return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleTimeString(tag, { hour: "2-digit", minute: "2-digit" });
   }
   const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
-  if (diffDays === 1) return "Вчера";
+  if (diffDays === 1) return t(locale, "common.yesterday");
   if (diffDays < 7) {
-    return d.toLocaleDateString("ru-RU", { weekday: "short" });
+    return d.toLocaleDateString(tag, { weekday: "short" });
   }
-  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+  return d.toLocaleDateString(tag, { day: "numeric", month: "short" });
 }
 
-function formatChatPreview(raw: string | null | undefined): string {
+function formatChatPreview(raw: string | null | undefined, locale: AppLocale = getLocale()): string {
   const text = (raw ?? "").trim();
-  if (!text) return "Начни диалог…";
-  if (/^!\[[^\]]*\]\([^)]+\)\s*$/.test(text)) return "фотография";
+  if (!text) return t(locale, "common.startDialog");
+  if (/^!\[[^\]]*\]\([^)]+\)\s*$/.test(text)) return t(locale, "common.photo");
   return text;
 }
 

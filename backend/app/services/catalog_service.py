@@ -110,9 +110,12 @@ class CatalogService:
         products = await self._repo.list_products()
         return [ShopProductResponse.model_validate(p) for p in products]
 
-    async def list_products_public(self) -> list[ShopProductResponse]:
+    async def list_products_public(self, *, locale: str = "ru") -> list[ShopProductResponse]:
+        from app.utils.response_localization import request_locale, shop_product_response
+
         products = await self._repo.list_products(active_only=True)
-        return [ShopProductResponse.model_validate(p) for p in products]
+        loc = request_locale(locale)
+        return [shop_product_response(p, loc) for p in products]
 
     async def create_product(
         self,
@@ -123,12 +126,14 @@ class CatalogService:
         gems_amount: int = 0,
         credits_amount: int = 0,
         *,
+        name_alt: str | None = None,
         is_active: bool = True,
         sort_order: int = 0,
         image_url: str | None = None,
     ) -> ShopProductResponse:
         product = await self._repo.create_product(
             name=name,
+            name_alt=name_alt,
             product_type=product_type,
             price=price,
             sale_price=sale_price,

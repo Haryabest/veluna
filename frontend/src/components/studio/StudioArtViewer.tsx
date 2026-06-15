@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Share2, X } from "lucide-react";
 import { BackButton } from "@/components/shared/BackButton";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "@/hooks/use-translation";
 import { getApiError } from "@/lib/api-client";
 import { shareArtImage } from "@/lib/share-art";
 import { chatBorderStyle } from "@/lib/theme";
@@ -16,6 +17,7 @@ type Props = {
 };
 
 export function StudioArtViewer({ art, onClose }: Props) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [sharing, setSharing] = useState(false);
 
@@ -25,7 +27,7 @@ export function StudioArtViewer({ art, onClose }: Props) {
     try {
       await shareArtImage(art.imageUrl, art.id);
     } catch (err) {
-      toast(getApiError(err).message || "Не удалось поделиться", "error");
+      toast(getApiError(err).message || t("studio.result.shareError"), "error");
     } finally {
       setSharing(false);
     }
@@ -42,7 +44,7 @@ export function StudioArtViewer({ art, onClose }: Props) {
         >
           <header className="relative z-10 flex shrink-0 items-center gap-2 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
             <BackButton onClick={onClose} />
-            <h1 className="flex-1 text-center text-lg font-bold pr-9">Арт</h1>
+            <h1 className="flex-1 text-center text-lg font-bold pr-9">{t("studio.viewer.title")}</h1>
           </header>
 
           <div className="relative z-10 flex flex-1 flex-col overflow-y-auto px-4 pb-8">
@@ -70,7 +72,7 @@ export function StudioArtViewer({ art, onClose }: Props) {
                 }}
               >
                 <Share2 className="h-4 w-4" />
-                {sharing ? "Открываю…" : "Поделиться"}
+                {sharing ? t("common.opening") : t("common.share")}
               </button>
               <button
                 type="button"
@@ -80,14 +82,14 @@ export function StudioArtViewer({ art, onClose }: Props) {
                   background: "linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)",
                 }}
               >
-                Закрыть
+                {t("common.close")}
               </button>
             </div>
           </div>
 
           <button
             type="button"
-            aria-label="Закрыть"
+            aria-label={t("common.close")}
             onClick={onClose}
             className="absolute right-4 top-[max(0.75rem,env(safe-area-inset-top))] z-20 flex h-9 w-9 items-center justify-center rounded-full bg-bg-elevated/80 text-text-muted md:hidden"
           >

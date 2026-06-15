@@ -28,6 +28,7 @@ class UserResponse(BaseSchema):
     last_name: str | None
     photo_url: str | None
     language_code: str
+    locale_selected: bool = False
     role: str
     is_active: bool
     gems: int = 0
@@ -37,6 +38,10 @@ class UserResponse(BaseSchema):
     @classmethod
     def _normalize_photo(cls, v: str | None) -> str | None:
         return normalize_media_url(v)
+
+
+class UserLocaleUpdate(BaseSchema):
+    language_code: str = Field(pattern="^(ru|en)$")
 
 
 class UserBalanceResponse(BaseSchema):

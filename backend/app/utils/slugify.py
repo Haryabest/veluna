@@ -12,8 +12,9 @@ def slugify_name(name: str) -> str:
     return f"{base}-{uuid.uuid4().hex[:8]}"
 
 
-def build_personality_prompt(behavior_params: list[str]) -> str:
+def build_personality_prompt(behavior_params: list[str], *, locale: str = "ru") -> str:
     lines = [p.strip() for p in behavior_params if p and str(p).strip()]
     if not lines:
         return ""
-    return "Поведение персонажа:\n" + "\n".join(f"- {line}" for line in lines)
+    header = "Character behavior:" if locale == "en" else "Поведение персонажа:"
+    return header + "\n" + "\n".join(f"- {line}" for line in lines)

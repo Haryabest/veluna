@@ -179,23 +179,24 @@ function Start-DockerStack {
 }
 
 function Start-BackendLocal {
-    Write-Step "Backend on host (port 8000)"
-    Stop-Port 8000 @("python")
+    $port = 8010
+    Write-Step "Backend on host (port $port, no reload)"
+    foreach ($p in 8000, 8010) { Stop-Port $p @("python") }
     Sync-EnvFiles
-    $run = Join-Path $Scripts "run-backend-local.ps1"
-    Start-Process powershell.exe -ArgumentList @(
-        "-NoExit", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $run
-    ) -WindowStyle Normal | Out-Null
+    . (Join-Path $Scripts "lib\process-utils.ps1")
+    Start-HiddenProcess -FilePath (Join-Path $Root "backend\.venv\Scripts\python.exe") `
+        -ArgumentList @("-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "$port") `
+        -WorkingDirectory (Join-Path $Root "backend") -LogBaseName "backend" -Root $Root | Out-Null
 
     $deadline = (Get-Date).AddSeconds(45)
     do {
         try {
-            $r = Invoke-WebRequest "http://127.0.0.1:8000/health" -UseBasicParsing -TimeoutSec 5
-            if ($r.StatusCode -eq 200) { return 8000 }
+            $r = Invoke-WebRequest "http://127.0.0.1:$port/health" -UseBasicParsing -TimeoutSec 5
+            if ($r.StatusCode -eq 200) { return $port }
         } catch {}
         Start-Sleep -Seconds 2
     } while ((Get-Date) -lt $deadline)
-    throw "Backend on :8000 did not become healthy"
+    throw "Backend on :$port did not become healthy"
 }
 
 function Start-CeleryHost {
@@ -263,21 +264,17 @@ function Test-TelegramApi {
 }
 
 function Start-Bot {
-    Write-Step "Telegram bot (host)"
+    Write-Step "Telegram bot (host, auto-restart supervisor)"
     if (-not (Test-TelegramApi)) {
         Write-Host ""
         Write-Host "WARNING: api.telegram.org is not reachable from this PC." -ForegroundColor Yellow
-        Write-Host "  Bot will retry in its window. Common fixes:" -ForegroundColor Yellow
+        Write-Host "  Bot supervisor will keep retrying. Common fixes:" -ForegroundColor Yellow
         Write-Host "    - Turn off VPN or enable split tunnel for Telegram" -ForegroundColor Yellow
         Write-Host "    - Check firewall / antivirus" -ForegroundColor Yellow
         Write-Host "    - Try another network (mobile hotspot)" -ForegroundColor Yellow
         Write-Host "  Mini App still works if you open the tunnel URL in Telegram WebView." -ForegroundColor DarkGray
         Write-Host ""
     }
-    Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue |
-        Where-Object { $_.CommandLine -match 'app\.bot\.main' } |
-        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
-    Start-Sleep -Seconds 1
     & (Join-Path $Scripts "run-bot-local.ps1") -Background
 }
 
@@ -315,15 +312,15 @@ if (Wait-Docker -Minutes 3) {
 }
 
 if (-not $dockerMode) {
-    if (-not (Test-TcpPort 5433)) {
+    if (-not (Test-TcpPort 5434)) {
         Write-Host ""
-        Write-Host "ERROR: Postgres is not on :5433 and Docker is unavailable." -ForegroundColor Red
+        Write-Host "ERROR: Postgres is not on :5434 and Docker is unavailable." -ForegroundColor Red
         Write-Host "Start Docker Desktop, wait until it is ready, then run:" -ForegroundColor Yellow
         Write-Host "  .\scripts\veluna-up.ps1" -ForegroundColor Yellow
         exit 1
     }
-    if (-not (Test-TcpPort 6379)) {
-        Write-Host "WARNING: Redis port 6379 is down - Celery/cache may fail." -ForegroundColor Yellow
+    if (-not (Test-TcpPort 6380)) {
+        Write-Host "WARNING: Redis port 6380 is down - Celery/cache may fail." -ForegroundColor Yellow
     }
     $backendPort = Start-BackendLocal
     Invoke-Migrations

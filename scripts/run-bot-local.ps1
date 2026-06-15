@@ -4,6 +4,7 @@ param([switch]$Background)
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path $PSScriptRoot -Parent
+$Scripts = $PSScriptRoot
 Set-Location (Join-Path $Root "backend")
 
 $py = $null
@@ -24,21 +25,45 @@ if (-not (Test-Path "$venv\Scripts\python.exe")) {
 
 Copy-Item (Join-Path $Root ".env") (Join-Path $PWD ".env") -Force
 
-Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -match 'app\.bot\.main' } |
-    ForEach-Object {
-        Write-Host "Stopping old bot pid=$($_.ProcessId)..."
-        Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
-    }
-Start-Sleep -Seconds 1
+function Stop-BotProcesses {
+    Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -match 'app\.bot\.main' } |
+        ForEach-Object {
+            Write-Host "Stopping bot pid=$($_.ProcessId)..."
+            Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+        }
+    Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -match 'watch-bot\.ps1' } |
+        ForEach-Object {
+            Write-Host "Stopping bot supervisor pid=$($_.ProcessId)..."
+            Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+        }
+    Start-Sleep -Seconds 2
+}
+
+function Test-BotSupervisorRunning {
+    return [bool](
+        Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+            Where-Object { $_.CommandLine -match 'watch-bot\.ps1' }
+    )
+}
+
+Stop-BotProcesses
 
 if ($Background) {
-    . (Join-Path $PSScriptRoot "lib\process-utils.ps1")
-    Write-Host "Starting bot in background (logs in logs/bot.*)..."
-    Start-HiddenProcess -FilePath "$venv\Scripts\python.exe" -ArgumentList @("-m", "app.bot.main") `
-        -WorkingDirectory (Join-Path $Root "backend") -LogBaseName "bot" -Root $Root | Out-Null
+    . (Join-Path $Scripts "lib\process-utils.ps1")
+    Write-Host "Starting bot supervisor (auto-restart, logs in logs/bot.log + logs/bot-watch.log)..."
+    Start-HiddenProcess -FilePath "powershell.exe" `
+        -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $Scripts "watch-bot.ps1")) `
+        -WorkingDirectory $Root -LogBaseName "bot-supervisor" -Root $Root | Out-Null
+    Start-Sleep -Seconds 4
+    if (Test-BotSupervisorRunning) {
+        Write-Host "Bot supervisor OK." -ForegroundColor Green
+    } else {
+        Write-Warning "Supervisor may have failed - check logs/bot-supervisor.err.log"
+    }
     exit 0
 }
 
-Write-Host "Starting bot on host (Ctrl+C to stop)..."
-& "$venv\Scripts\python" -m app.bot.main
+Write-Host "Starting bot on host with supervisor (Ctrl+C to stop)..."
+& (Join-Path $Scripts "watch-bot.ps1")

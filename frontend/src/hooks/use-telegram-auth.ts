@@ -12,9 +12,13 @@ import { prefetchCatalogQueries } from "@/lib/catalog-queries";
 
 import { getApiError } from "@/lib/api-client";
 
+import { t as translate, normalizeLocale } from "@/lib/i18n/translations";
+
 import type { BanInfo } from "@/features/auth/BannedScreen";
 
 import { useAuthStore } from "@/store/auth-store";
+
+import { useSettingsStore } from "@/store/settings-store";
 
 import { useUserStore } from "@/store/user-store";
 
@@ -48,6 +52,12 @@ function isBannedError(err: unknown): boolean {
 
   return getApiError(err).code === "ACCOUNT_BANNED";
 
+}
+
+
+
+function authLocale() {
+  return normalizeLocale(useSettingsStore.getState().language);
 }
 
 
@@ -174,7 +184,7 @@ export function useTelegramAuth() {
 
                   ? err.message
 
-                  : "Dev-вход не удался. Откройте через Telegram или /start в боте."
+                  : translate(authLocale(), "auth.devFailed")
 
               );
 
@@ -210,7 +220,7 @@ export function useTelegramAuth() {
 
         } else {
 
-          setError(getApiError(err).message || "Ошибка авторизации");
+          setError(getApiError(err).message || translate(authLocale(), "auth.error"));
 
           clearAuth();
 

@@ -22,18 +22,20 @@ foreach ($f in @(".env", "backend\.env")) {
 }
 
 $envLocal = Join-Path $Root "frontend\.env.local"
-$backendPort = "8000"
+$backendPort = "8010"
 
 function Test-BackendHealthy([string]$Port) {
     try {
-        $r = Invoke-WebRequest "http://127.0.0.1:$Port/health" -UseBasicParsing -TimeoutSec 3
-        return $r.StatusCode -eq 200
+        $health = Invoke-WebRequest "http://127.0.0.1:$Port/health" -UseBasicParsing -TimeoutSec 3
+        if ($health.StatusCode -ne 200) { return $false }
+        $chars = Invoke-WebRequest "http://127.0.0.1:$Port/api/v1/characters" -UseBasicParsing -TimeoutSec 5
+        return $chars.StatusCode -eq 200
     } catch {
         return $false
     }
 }
 
-# Prefer whichever backend actually answers on /health (host :8000 or Docker-mapped port).
+# Host-only Veluna uses :8010 (avoids zombie listeners on :8000 from uvicorn --reload).
 $dockerPort = $null
 try {
     docker info 2>$null | Out-Null
@@ -50,10 +52,12 @@ try {
     }
 } catch {}
 
-if (Test-BackendHealthy "8000") {
-    $backendPort = "8000"
+if (Test-BackendHealthy "8010") {
+    $backendPort = "8010"
 } elseif ($dockerPort -and (Test-BackendHealthy $dockerPort)) {
     $backendPort = $dockerPort
+} elseif (Test-BackendHealthy "8000") {
+    $backendPort = "8000"
 } else {
     $rootEnv = Join-Path $Root ".env"
     if (Test-Path $rootEnv) {
@@ -85,13 +89,15 @@ if (-not $SkipMenuButton) {
         $body = @{
             menu_button = @{
                 type    = "web_app"
-                text    = "Открыть Veluna"
+                text    = "Open Veluna"
                 web_app = @{ url = $Url }
             }
-        } | ConvertTo-Json -Depth 5 -Compress
+        }
+        $jsonBody = $body | ConvertTo-Json -Depth 5 -Compress
+        $utf8Body = [System.Text.Encoding]::UTF8.GetBytes($jsonBody)
         try {
             Invoke-RestMethod -Uri "https://api.telegram.org/bot$token/setChatMenuButton" `
-                -Method Post -ContentType "application/json; charset=utf-8" -Body $body | Out-Null
+                -Method Post -ContentType "application/json; charset=utf-8" -Body $utf8Body | Out-Null
             Write-Host "Telegram Menu Button updated automatically." -ForegroundColor Green
         } catch {
             Write-Warning "Could not set Menu Button via API: $_"

@@ -1,11 +1,18 @@
 import { generationService } from "@/services/api";
 import { apiClient, ensureTelegramSession } from "@/lib/api-client";
+import { normalizeLocale, t } from "@/lib/i18n/translations";
+import { useSettingsStore } from "@/store/settings-store";
 import {
   canShareViaTelegram,
   getTelegramBotLink,
   openTelegramTextShare,
   sharePreparedTelegramMessage,
 } from "@/lib/telegram-share";
+
+function shareArtText(): string {
+  const locale = normalizeLocale(useSettingsStore.getState().language);
+  return t(locale, "share.artText");
+}
 
 async function shareImageFileWithBotLink(
   imageUrl: string,
@@ -21,7 +28,7 @@ async function shareImageFileWithBotLink(
         ? "webp"
         : "png";
     const file = new File([data], `veluna-art.${ext}`, { type: mime });
-    const text = botLink || "Смотри какой арт!";
+    const text = botLink || shareArtText();
     // navigator.canShare requires navigator.share to support `files`
     if (typeof navigator.canShare === "function" && !navigator.canShare({ files: [file] })) {
       return false;
@@ -70,7 +77,7 @@ export async function shareArtImage(imageUrl: string, generationId?: string): Pr
     try {
       await navigator.share({
         title: "Veluna",
-        text: botLink || "Смотри какой арт!",
+        text: botLink || shareArtText(),
       });
       return true;
     } catch {

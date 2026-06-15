@@ -16,6 +16,7 @@ import { chatService } from "@/services/api";
 import { getApiError } from "@/lib/api-client";
 import { chatBorderStyle, chatSeparatorStyle } from "@/lib/theme";
 import { truncate } from "@/lib/utils";
+import { useTranslation } from "@/hooks/use-translation";
 
 export type CharacterNarrator = {
   id: string;
@@ -34,6 +35,7 @@ export function NarratorSelectView() {
   const loadChats = useChatsListStore((s) => s.load);
   const upsertChat = useChatsListStore((s) => s.upsertFromDetail);
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [starting, setStarting] = useState(false);
 
   const { character } = useCharacter(characterId);
@@ -49,7 +51,7 @@ export function NarratorSelectView() {
       await loadChats();
       openChat(chat.id);
     } catch (err) {
-      toast(getApiError(err).message || "Не удалось открыть чат", "error");
+      toast(getApiError(err).message || t("narrator.openError"), "error");
     } finally {
       setStarting(false);
     }
@@ -66,7 +68,7 @@ export function NarratorSelectView() {
         <BackButton onClick={goBack} />
         <h1 className="flex items-center gap-2 text-lg font-bold text-text-primary">
           <Mic2 className="h-5 w-5 text-accent-light" aria-hidden />
-          Рассказчики
+          {t("narrator.title")}
         </h1>
       </header>
 
@@ -78,9 +80,9 @@ export function NarratorSelectView() {
         </div>
       ) : narrators.length === 0 ? (
         <div className="rounded-2xl bg-bg-elevated px-4 py-8 text-center" style={chatBorderStyle}>
-          <p className="text-sm font-semibold text-text-primary">Рассказчиков пока нет</p>
+          <p className="text-sm font-semibold text-text-primary">{t("narrator.empty")}</p>
           <p className="mt-2 text-xs leading-relaxed text-text-muted">
-            Добавьте рассказчиков в админке бота для этого персонажа.
+            {t("narrator.emptyHint")}
           </p>
         </div>
       ) : (

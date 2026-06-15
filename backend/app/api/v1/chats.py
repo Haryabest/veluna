@@ -22,8 +22,13 @@ from app.schemas import (
     UserResponse,
 )
 from app.services.chat_service import ChatService
+from app.utils.locale import normalize_app_locale
 
 router = APIRouter()
+
+
+def _user_locale(user: UserResponse) -> str:
+    return normalize_app_locale(user.language_code)
 
 
 @router.get("", response_model=PaginatedResponse)
@@ -33,7 +38,7 @@ async def list_chats(
     session: AsyncSession = Depends(get_db),
 ):
     service = ChatService(session)
-    chats, total = await service.list_user_chats(user.id, page=page)
+    chats, total = await service.list_user_chats(user.id, page=page, locale=_user_locale(user))
     page_size = 20
     return PaginatedResponse(
         items=chats,
@@ -52,7 +57,7 @@ async def create_chat(
 ):
     service = ChatService(session)
     return await service.get_or_create_chat(
-        user.id, data.character_id, data.scenario_id, data.narrator_id
+        user.id, data.character_id, data.scenario_id, data.narrator_id, locale=_user_locale(user)
     )
 
 
@@ -63,7 +68,7 @@ async def get_chat(
     session: AsyncSession = Depends(get_db),
 ):
     service = ChatService(session)
-    return await service.get_chat(user.id, chat_id)
+    return await service.get_chat(user.id, chat_id, locale=_user_locale(user))
 
 
 @router.patch("/{chat_id}/scenario", response_model=ChatResponse)
@@ -74,7 +79,9 @@ async def switch_chat_scenario(
     session: AsyncSession = Depends(get_db),
 ):
     service = ChatService(session)
-    return await service.switch_scenario(user.id, chat_id, data.scenario_id)
+    return await service.switch_scenario(
+        user.id, chat_id, data.scenario_id, locale=_user_locale(user)
+    )
 
 
 @router.patch("/{chat_id}/narrator", response_model=ChatResponse)
@@ -85,7 +92,9 @@ async def switch_chat_narrator(
     session: AsyncSession = Depends(get_db),
 ):
     service = ChatService(session)
-    return await service.switch_narrator(user.id, chat_id, data.narrator_id)
+    return await service.switch_narrator(
+        user.id, chat_id, data.narrator_id, locale=_user_locale(user)
+    )
 
 
 @router.patch("/{chat_id}", response_model=ChatListResponse)
@@ -96,7 +105,7 @@ async def update_chat(
     session: AsyncSession = Depends(get_db),
 ):
     service = ChatService(session)
-    item = await service.update_title(user.id, chat_id, data.title)
+    item = await service.update_title(user.id, chat_id, data.title, locale=_user_locale(user))
     return item
 
 
@@ -108,7 +117,7 @@ async def pin_chat(
     session: AsyncSession = Depends(get_db),
 ):
     service = ChatService(session)
-    return await service.set_pinned(user.id, chat_id, data.pinned)
+    return await service.set_pinned(user.id, chat_id, data.pinned, locale=_user_locale(user))
 
 
 @router.delete("/{chat_id}")

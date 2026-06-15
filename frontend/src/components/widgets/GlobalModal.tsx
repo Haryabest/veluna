@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { useModal } from "@/hooks/use-modal";
+import { useTranslation } from "@/hooks/use-translation";
 import { Button } from "@/components/shared/Button";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function GlobalModal() {
   const { modal, closeModal } = useModal();
+  const { t } = useTranslation();
   const [confirming, setConfirming] = useState(false);
 
   const handleConfirm = async () => {
@@ -41,11 +43,11 @@ export function GlobalModal() {
             <div className="mb-6 text-sm text-text-secondary">{modal.content}</div>
             <div className="flex justify-end gap-3">
               <Button variant="ghost" onClick={closeModal} disabled={confirming}>
-                Отмена
+                {t("common.cancel")}
               </Button>
               {modal.onConfirm && (
                 <Button onClick={handleConfirm} loading={confirming} disabled={confirming}>
-                  Подтвердить
+                  {t("common.confirm")}
                 </Button>
               )}
             </div>

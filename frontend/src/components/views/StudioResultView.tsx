@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -7,6 +7,7 @@ import { Share2, Sparkles } from "lucide-react";
 import { BackButton } from "@/components/shared/BackButton";
 import { useNavStore } from "@/store/nav-store";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "@/hooks/use-translation";
 import { generationService } from "@/services/api";
 import { getApiError } from "@/lib/api-client";
 import { QUERY_KEYS } from "@/lib/constants";
@@ -24,6 +25,7 @@ function isInProgress(status: string | undefined) {
 }
 
 export function StudioResultView() {
+  const { t, locale } = useTranslation();
   const generationId = useNavStore((s) => s.generationId);
   const goBack = useNavStore((s) => s.goBack);
   const goToStudio = useNavStore((s) => s.goToStudio);
@@ -33,7 +35,7 @@ export function StudioResultView() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [...QUERY_KEYS.generations, generationId] as const,
     queryFn: () => {
-      if (!generationId) throw new Error("Нет id генерации");
+      if (!generationId) throw new Error(t("studio.result.noId"));
       logGeneration("poll", { id: generationId });
       return generationService.getById(generationId);
     },
@@ -61,7 +63,7 @@ export function StudioResultView() {
 
   const handleShare = useCallback(async () => {
     if (!imageUrl || !generationId) {
-      toast("Изображение ещё не готово", "info");
+      toast(t("studio.result.notReady"), "info");
       return;
     }
 
@@ -72,36 +74,41 @@ export function StudioResultView() {
     } catch (err: unknown) {
       const msg = getApiError(err).message;
       logGeneration("error", { action: "share", error: msg });
-      toast(msg || "Не удалось поделиться", "error");
+      toast(msg || t("studio.result.shareError"), "error");
     } finally {
       setSharing(false);
     }
-  }, [generationId, imageUrl, toast]);
+  }, [generationId, imageUrl, t, toast]);
 
   if (!generationId) {
     return (
       <div className="mx-auto max-w-lg px-4 pb-8 pt-4">
         <header className="mb-6 flex items-center gap-2">
           <BackButton onClick={goBack} />
-          <h1 className="flex-1 text-center text-lg font-bold pr-9">Результат</h1>
+          <h1 className="flex-1 text-center text-lg font-bold pr-9">{t("studio.result.title")}</h1>
         </header>
-        <p className="text-center text-sm text-text-secondary">Генерация не найдена</p>
+        <p className="text-center text-sm text-text-secondary">{t("studio.result.notFound")}</p>
       </div>
     );
   }
 
   if (isLoading && !data) {
-    return <ResultLoader subtitle="Загрузка…" generating={false} />;
+    return <ResultLoader subtitle={t("common.loading")} generating={false} />;
   }
 
   if (isError) {
-    const msg = getApiError(error).message || "Ошибка загрузки результата";
+    const msg = getApiError(error).message || t("studio.result.loadError");
     logGeneration("error", { id: generationId, error: msg });
     return <ResultError message={msg} onBack={goBack} />;
   }
 
   if (isInProgress(status)) {
-    return <ResultLoader subtitle={translateGenerationStatus(status ?? "processing")} generating />;
+    return (
+      <ResultLoader
+        subtitle={translateGenerationStatus(status ?? "processing", locale)}
+        generating
+      />
+    );
   }
 
   if (status === "failed" || status === "moderated") {
@@ -109,8 +116,8 @@ export function StudioResultView() {
       <ResultError
         message={
           status === "moderated"
-            ? "Изображение не прошло модерацию"
-            : data?.error_message || "Генерация не удалась. Попробуй снова"
+            ? t("studio.result.moderated")
+            : data?.error_message || t("studio.result.failed")
         }
         onBack={goBack}
       />
@@ -122,7 +129,7 @@ export function StudioResultView() {
       <div className="mx-auto max-w-lg px-4 pb-8 pt-4">
         <header className="mb-6 flex items-center gap-2">
           <BackButton onClick={goBack} />
-          <h1 className="flex-1 text-center text-lg font-bold pr-9">Готово</h1>
+          <h1 className="flex-1 text-center text-lg font-bold pr-9">{t("studio.result.done")}</h1>
         </header>
 
         <motion.div
@@ -149,7 +156,7 @@ export function StudioResultView() {
             }}
           >
             <Share2 className="h-4 w-4" />
-            {sharing ? "Открываю…" : "Поделиться"}
+            {sharing ? t("common.opening") : t("common.share")}
           </button>
           <button
             type="button"
@@ -157,17 +164,24 @@ export function StudioResultView() {
             className="w-full rounded-2xl bg-bg-elevated/80 py-3.5 text-sm font-semibold text-text-primary transition-colors hover:bg-bg-elevated"
             style={chatBorderStyle}
           >
-            Вернуться в студию
+            {t("studio.result.backToStudio")}
           </button>
         </div>
       </div>
     );
   }
 
-  return <ResultLoader subtitle={translateGenerationStatus(status ?? "pending")} generating />;
+  return (
+    <ResultLoader
+      subtitle={translateGenerationStatus(status ?? "pending", locale)}
+      generating
+    />
+  );
 }
 
 function ResultLoader({ subtitle, generating = false }: { subtitle: string; generating?: boolean }) {
+  const { t } = useTranslation();
+
   return (
     <div className="relative flex min-h-[70vh] flex-col items-center justify-center overflow-hidden px-6">
       {generating ? <ArtSceneBackground /> : null}
@@ -185,7 +199,7 @@ function ResultLoader({ subtitle, generating = false }: { subtitle: string; gene
         </motion.div>
       </motion.div>
       <p className="relative z-10 text-lg font-bold text-text-primary">
-        {generating ? "Создаю арт" : "Загрузка"}
+        {generating ? t("studio.generating.title") : t("common.loading")}
       </p>
       <p className="relative z-10 mt-2 text-sm text-text-secondary">{subtitle}</p>
       <div className="relative z-10 mt-8 flex gap-1.5">
@@ -203,11 +217,13 @@ function ResultLoader({ subtitle, generating = false }: { subtitle: string; gene
 }
 
 function ResultError({ message, onBack }: { message: string; onBack: () => void }) {
+  const { t } = useTranslation();
+
   return (
     <div className="mx-auto max-w-lg px-4 pb-8 pt-4">
       <header className="mb-6 flex items-center gap-2">
         <BackButton onClick={onBack} />
-        <h1 className="flex-1 text-center text-lg font-bold pr-9">Ошибка</h1>
+        <h1 className="flex-1 text-center text-lg font-bold pr-9">{t("studio.result.error")}</h1>
       </header>
       <div
         className="rounded-2xl bg-bg-elevated/80 px-4 py-8 text-center"

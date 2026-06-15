@@ -3,8 +3,10 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { characterQueryOptions } from "@/lib/catalog-queries";
+import { QUERY_KEYS } from "@/lib/constants";
 import type { Character } from "@/store/character-store";
 import { useCharacterStore } from "@/store/character-store";
+import { useTranslation } from "@/hooks/use-translation";
 
 export function useCharacter(characterId: string | null) {
   const setCharacters = useCharacterStore((s) => s.setCharacters);
@@ -12,7 +14,12 @@ export function useCharacter(characterId: string | null) {
     characterId ? s.characters.find((c) => c.id === characterId) : undefined
   );
 
-  const query = useQuery(characterQueryOptions(characterId ?? ""));
+  const { locale } = useTranslation();
+
+  const query = useQuery({
+    ...characterQueryOptions(characterId ?? ""),
+    queryKey: [...QUERY_KEYS.character(characterId ?? ""), locale] as const,
+  });
 
   const character: Character | null | undefined =
     query.isSuccess && query.data

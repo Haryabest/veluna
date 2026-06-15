@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from aiogram import Bot, F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
@@ -33,10 +34,21 @@ from app.bot.utils import upload_telegram_photo
 from app.core.exceptions import NotFoundError, ValidationError
 from app.repositories.user_repository import UserRepository
 from app.services.bot_character_service import BEHAVIOR_PARAMS_COUNT, BotCharacterService
+from app.utils.localized_text import alt_behavior_prompt, alt_field_prompt, alt_text_prompt
 
 router = Router(name="admin_characters")
 router.message.filter(AdminFilter())
 router.callback_query.filter(AdminFilter())
+
+
+async def _wizard_reply(message: Message, text: str, *, cancel_target: str = "adm:chars") -> None:
+    """Send wizard step; fall back to plain text if HTML parse fails."""
+    markup = cancel_kb(cancel_target)
+    try:
+        await message.answer(text, reply_markup=markup)
+    except TelegramBadRequest:
+        plain = text.replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", "")
+        await message.answer(plain, reply_markup=markup)
 
 
 async def _admin_id(telegram_id: int) -> UUID | None:
@@ -179,7 +191,7 @@ async def admin_char_new_reply(message: Message, state: FSMContext) -> None:
     await state.update_data(behavior_params=[])
     await message.answer(
         "<b>Создание персонажа</b>\n\n"
-        "1/6 Введите <b>имя</b> (например: Акира):",
+        "1/10 Введите <b>имя</b> (например: Акира или Alzur):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -228,7 +240,7 @@ async def admin_char_add_start(callback: CallbackQuery, state: FSMContext) -> No
     await state.update_data(behavior_params=[])
     await callback.message.edit_text(
         "<b>Создание персонажа</b>\n\n"
-        "1/6 Введите <b>имя</b> (например: Акира):",
+        "1/10 Введите <b>имя</b> (например: Акира или Alzur):",
         reply_markup=cancel_kb("adm:chars"),
     )
     await callback.answer()
@@ -241,9 +253,29 @@ async def admin_char_name(message: Message, state: FSMContext) -> None:
         await message.answer("Имя не может быть пустым.")
         return
     await state.update_data(name=name)
+    await state.set_state(AdminCharacterStates.name_alt)
+    await message.answer(
+        f"2/10 {alt_field_prompt(name, ru_label='название', en_label='name')}",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.name_alt, Command("skip"))
+async def admin_char_name_alt_skip(message: Message, state: FSMContext) -> None:
+    await state.update_data(name_alt="")
     await state.set_state(AdminCharacterStates.description)
     await message.answer(
-        "2/6 <b>Описание</b> персонажа (до 500 символов):",
+        "3/10 <b>Описание</b> персонажа (до 500 символов):",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.name_alt)
+async def admin_char_name_alt(message: Message, state: FSMContext) -> None:
+    await state.update_data(name_alt=(message.text or "").strip())
+    await state.set_state(AdminCharacterStates.description)
+    await message.answer(
+        "3/10 <b>Описание</b> персонажа (до 500 символов):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -258,9 +290,34 @@ async def admin_char_description(message: Message, state: FSMContext) -> None:
         await message.answer(f"Слишком длинно: {len(desc)}/500. Сократите текст.")
         return
     await state.update_data(description=desc)
+    await state.set_state(AdminCharacterStates.description_alt)
+    await _wizard_reply(
+        message,
+        f"4/10 {alt_text_prompt(desc, field_ru='описание', field_en='description')}",
+    )
+
+
+@router.message(AdminCharacterStates.description_alt, Command("skip"))
+async def admin_char_description_alt_skip(message: Message, state: FSMContext) -> None:
+    await state.update_data(description_alt="")
     await state.set_state(AdminCharacterStates.subtitle)
     await message.answer(
-        "3/6 <b>Подпись под именем</b> (например: «Милая девочка»):\n"
+        "5/10 <b>Подпись под именем</b> (например: «Милая девочка»):\n"
+        "<i>Отображается под именем на карточке.</i>",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.description_alt)
+async def admin_char_description_alt(message: Message, state: FSMContext) -> None:
+    alt = (message.text or "").strip()
+    if len(alt) > 500:
+        await message.answer(f"Слишком длинно: {len(alt)}/500. Сократите текст.")
+        return
+    await state.update_data(description_alt=alt)
+    await state.set_state(AdminCharacterStates.subtitle)
+    await message.answer(
+        "5/10 <b>Подпись под именем</b> (например: «Милая девочка»):\n"
         "<i>Отображается под именем на карточке.</i>",
         reply_markup=cancel_kb("adm:chars"),
     )
@@ -268,12 +325,63 @@ async def admin_char_description(message: Message, state: FSMContext) -> None:
 
 @router.message(AdminCharacterStates.subtitle)
 async def admin_char_subtitle(message: Message, state: FSMContext) -> None:
-    await state.update_data(subtitle=(message.text or "").strip())
+    subtitle = (message.text or "").strip()
+    await state.update_data(subtitle=subtitle)
+    await state.set_state(AdminCharacterStates.subtitle_alt)
+    if subtitle:
+        await _wizard_reply(
+            message,
+            f"6/10 {alt_text_prompt(subtitle, field_ru='подпись', field_en='subtitle')}",
+        )
+    else:
+        await state.update_data(subtitle_alt="")
+        await state.update_data(behavior_param_index=1)
+        await state.set_state(AdminCharacterStates.behavior_param)
+        await message.answer(
+            f"7/10 <b>Параметр поведения 1/{BEHAVIOR_PARAMS_COUNT}</b>\n"
+            "Краткая черта для нейросети (тон, характер, стиль речи):",
+            reply_markup=cancel_kb("adm:chars"),
+        )
+
+
+@router.message(AdminCharacterStates.subtitle_alt, Command("skip"))
+async def admin_char_subtitle_alt_skip(message: Message, state: FSMContext) -> None:
+    await state.update_data(subtitle_alt="")
+    await _start_behavior_params(message, state)
+
+
+@router.message(AdminCharacterStates.subtitle_alt)
+async def admin_char_subtitle_alt(message: Message, state: FSMContext) -> None:
+    await state.update_data(subtitle_alt=(message.text or "").strip())
+    await _start_behavior_params(message, state)
+
+
+async def _start_behavior_params(message: Message, state: FSMContext) -> None:
     await state.update_data(behavior_param_index=1)
     await state.set_state(AdminCharacterStates.behavior_param)
     await message.answer(
-        f"4/6 <b>Параметр поведения 1/{BEHAVIOR_PARAMS_COUNT}</b>\n"
+        f"7/10 <b>Параметр поведения 1/{BEHAVIOR_PARAMS_COUNT}</b>\n"
         "Краткая черта для нейросети (тон, характер, стиль речи):",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+async def _start_behavior_params_alt(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    params = data.get("behavior_params") or []
+    preview = params[0] if params else ""
+    await state.update_data(behavior_param_alt_index=1, behavior_params_alt=[])
+    await state.set_state(AdminCharacterStates.behavior_param_alt)
+    await _wizard_reply(
+        message,
+        f"8/10 {alt_behavior_prompt(index=1, total=BEHAVIOR_PARAMS_COUNT, primary=preview)}",
+    )
+
+
+async def _go_to_photo_step(message: Message, state: FSMContext) -> None:
+    await state.set_state(AdminCharacterStates.photo)
+    await message.answer(
+        "Отправьте <b>фото</b> персонажа (или /skip):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -291,25 +399,62 @@ async def admin_char_behavior_param(message: Message, state: FSMContext) -> None
     await state.update_data(behavior_params=params)
     edit_char_id = data.get("edit_character_id")
     if idx >= BEHAVIOR_PARAMS_COUNT:
+        await _start_behavior_params_alt(message, state)
+        return
+    next_idx = idx + 1
+    await state.update_data(behavior_param_index=next_idx)
+    await message.answer(
+        f"7/10 <b>Параметр поведения {next_idx}/{BEHAVIOR_PARAMS_COUNT}</b>:",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.behavior_param_alt, Command("skip"))
+async def admin_char_behavior_param_alt_skip(message: Message, state: FSMContext) -> None:
+    await state.update_data(behavior_params_alt=[])
+    data = await state.get_data()
+    if data.get("edit_character_id"):
+        await _apply_character_update(
+            message,
+            state,
+            UUID(data["edit_character_id"]),
+            behavior_params=data.get("behavior_params", []),
+            behavior_params_alt=[],
+        )
+        return
+    await _go_to_photo_step(message, state)
+
+
+@router.message(AdminCharacterStates.behavior_param_alt)
+async def admin_char_behavior_param_alt(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    idx = int(data.get("behavior_param_alt_index", 1))
+    params: list[str] = list(data.get("behavior_params_alt", []))
+    text = (message.text or "").strip()
+    if not text:
+        await message.answer("Параметр не может быть пустым.")
+        return
+    params.append(text)
+    await state.update_data(behavior_params_alt=params)
+    edit_char_id = data.get("edit_character_id")
+    if idx >= BEHAVIOR_PARAMS_COUNT:
         if edit_char_id:
             await _apply_character_update(
                 message,
                 state,
                 UUID(edit_char_id),
-                behavior_params=params,
+                behavior_params=data.get("behavior_params", []),
+                behavior_params_alt=params,
             )
             return
-        await state.set_state(AdminCharacterStates.photo)
-        await message.answer(
-            "5/6 Отправьте <b>фото</b> персонажа (или /skip):",
-            reply_markup=cancel_kb("adm:chars"),
-        )
+        await _go_to_photo_step(message, state)
         return
     next_idx = idx + 1
-    await state.update_data(behavior_param_index=next_idx)
-    await message.answer(
-        f"4/6 <b>Параметр поведения {next_idx}/{BEHAVIOR_PARAMS_COUNT}</b>:",
-        reply_markup=cancel_kb("adm:chars"),
+    primary = (data.get("behavior_params") or [])[next_idx - 1] if data.get("behavior_params") else ""
+    await state.update_data(behavior_param_alt_index=next_idx)
+    await _wizard_reply(
+        message,
+        alt_behavior_prompt(index=next_idx, total=BEHAVIOR_PARAMS_COUNT, primary=primary),
     )
 
 
@@ -333,7 +478,7 @@ async def _start_scenario_wizard(message: Message, state: FSMContext, char_id: U
     await state.set_state(AdminCharacterStates.scenario_title)
     await message.answer(
         f"<b>Персонаж сохранён.</b> Сценарий <b>{scenario_num}</b>\n\n"
-        "1/4 <b>Название</b> сценария (как в Mini App, например: «Новое знакомство»):",
+        "1/5 <b>Название</b> сценария (как в Mini App, например: «Новое знакомство»):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -349,9 +494,13 @@ async def _save_new_character(message: Message, state: FSMContext, avatar_url: s
             ch = await BotCharacterService(session).create_character(
                 admin_id,
                 name=data["name"],
+                name_alt=data.get("name_alt") or None,
                 description=data["description"],
+                description_alt=data.get("description_alt") or None,
                 subtitle=data.get("subtitle", ""),
+                subtitle_alt=data.get("subtitle_alt") or None,
                 behavior_params=data.get("behavior_params", []),
+                behavior_params_alt=data.get("behavior_params_alt") or None,
                 avatar_url=avatar_url,
             )
     except ValidationError as exc:
@@ -376,9 +525,29 @@ async def admin_char_create_scenario_title(message: Message, state: FSMContext) 
         await message.answer("Название сценария обязательно.")
         return
     await state.update_data(scenario_title=title)
+    await state.set_state(AdminCharacterStates.scenario_title_alt)
+    await message.answer(
+        f"2/5 {alt_field_prompt(title, ru_label='название', en_label='title')}",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.scenario_title_alt, Command("skip"))
+async def admin_char_create_scenario_title_alt_skip(message: Message, state: FSMContext) -> None:
+    await state.update_data(scenario_title_alt="")
     await state.set_state(AdminCharacterStates.scenario_story)
     await message.answer(
-        "2/4 <b>История / контекст</b> сценария:",
+        "3/5 <b>История / контекст</b> сценария:",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.scenario_title_alt)
+async def admin_char_create_scenario_title_alt(message: Message, state: FSMContext) -> None:
+    await state.update_data(scenario_title_alt=(message.text or "").strip())
+    await state.set_state(AdminCharacterStates.scenario_story)
+    await message.answer(
+        "3/5 <b>История / контекст</b> сценария:",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -388,7 +557,7 @@ async def admin_char_create_scenario_story(message: Message, state: FSMContext) 
     await state.update_data(scenario_story=(message.text or "").strip())
     await state.set_state(AdminCharacterStates.scenario_communication)
     await message.answer(
-        "3/4 <b>Тип общения</b> в диалоге (флирт, дружеский, таинственный…):",
+        "4/5 <b>Тип общения</b> в диалоге (флирт, дружеский, таинственный…):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -398,7 +567,7 @@ async def admin_char_create_scenario_communication(message: Message, state: FSMC
     await state.update_data(scenario_communication=(message.text or "").strip())
     await state.set_state(AdminCharacterStates.scenario_opening)
     await message.answer(
-        "4/4 <b>Стартовое сообщение</b> персонажа (или /skip):",
+        "5/5 <b>Стартовое сообщение</b> персонажа (или /skip):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -427,6 +596,7 @@ async def _finish_scenario_during_create(
                 admin_id,
                 char_id,
                 title=data["scenario_title"],
+                title_alt=data.get("scenario_title_alt") or None,
                 story=data.get("scenario_story", ""),
                 communication_style=data.get("scenario_communication", ""),
                 opening_message=opening_message,
@@ -452,7 +622,7 @@ async def _start_narrator_wizard(message: Message, state: FSMContext, char_id: U
     await state.set_state(AdminCharacterStates.narrator_name)
     await message.answer(
         f"<b>Рассказчик {narrator_num}</b>\n\n"
-        "1/3 <b>Название</b> (например: «Классический», «Мистический»):",
+        "1/4 <b>Название</b> (например: «Классический», «Mystic»):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -479,9 +649,29 @@ async def admin_char_create_narrator_name(message: Message, state: FSMContext) -
         await message.answer("Название рассказчика обязательно.")
         return
     await state.update_data(narrator_name=name)
+    await state.set_state(AdminCharacterStates.narrator_name_alt)
+    await message.answer(
+        f"2/4 {alt_field_prompt(name, ru_label='название', en_label='name')}",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.narrator_name_alt, Command("skip"))
+async def admin_char_create_narrator_name_alt_skip(message: Message, state: FSMContext) -> None:
+    await state.update_data(narrator_name_alt="")
     await state.set_state(AdminCharacterStates.narrator_description)
     await message.answer(
-        "2/3 <b>Описание</b> рассказчика:",
+        "3/4 <b>Описание</b> рассказчика:",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.narrator_name_alt)
+async def admin_char_create_narrator_name_alt(message: Message, state: FSMContext) -> None:
+    await state.update_data(narrator_name_alt=(message.text or "").strip())
+    await state.set_state(AdminCharacterStates.narrator_description)
+    await message.answer(
+        "3/4 <b>Описание</b> рассказчика:",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -491,7 +681,7 @@ async def admin_char_create_narrator_description(message: Message, state: FSMCon
     await state.update_data(narrator_description=(message.text or "").strip())
     await state.set_state(AdminCharacterStates.narrator_price)
     await message.answer(
-        "3/3 <b>Цена в сердцах</b> за сообщение (число, 0 = 1 сердце):",
+        "4/4 <b>Цена в сердцах</b> за сообщение (число, 0 = 1 сердце):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -517,6 +707,7 @@ async def _finish_narrator_during_create(message: Message, state: FSMContext, pr
                 admin_id,
                 char_id,
                 name=data["narrator_name"],
+                name_alt=data.get("narrator_name_alt") or None,
                 description=data.get("narrator_description", ""),
                 price=price,
             )
@@ -754,7 +945,37 @@ async def admin_char_edit_name_save(message: Message, state: FSMContext) -> None
         await message.answer("Имя не может быть пустым.")
         return
     data = await state.get_data()
-    await _apply_character_update(message, state, UUID(data["edit_character_id"]), name=name)
+    char_id = data["edit_character_id"]
+    await state.update_data(pending_name=name)
+    await state.set_state(AdminCharacterStates.edit_name_alt)
+    await message.answer(
+        alt_field_prompt(name, ru_label="название", en_label="name"),
+        reply_markup=cancel_kb(f"adm:char:edit:{char_id}"),
+    )
+
+
+@router.message(AdminCharacterStates.edit_name_alt, Command("skip"))
+async def admin_char_edit_name_alt_skip(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    await _apply_character_update(
+        message,
+        state,
+        UUID(data["edit_character_id"]),
+        name=data["pending_name"],
+        name_alt=None,
+    )
+
+
+@router.message(AdminCharacterStates.edit_name_alt)
+async def admin_char_edit_name_alt_save(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    await _apply_character_update(
+        message,
+        state,
+        UUID(data["edit_character_id"]),
+        name=data["pending_name"],
+        name_alt=(message.text or "").strip() or None,
+    )
 
 
 @router.callback_query(F.data.startswith("adm:char:edit:desc:"))
@@ -779,7 +1000,42 @@ async def admin_char_edit_desc_save(message: Message, state: FSMContext) -> None
         await message.answer(f"Слишком длинно: {len(desc)}/500.")
         return
     data = await state.get_data()
-    await _apply_character_update(message, state, UUID(data["edit_character_id"]), description=desc)
+    char_id = data["edit_character_id"]
+    await state.update_data(pending_description=desc)
+    await state.set_state(AdminCharacterStates.edit_description_alt)
+    await _wizard_reply(
+        message,
+        alt_text_prompt(desc, field_ru="описание", field_en="description"),
+        cancel_target=f"adm:char:edit:{char_id}",
+    )
+
+
+@router.message(AdminCharacterStates.edit_description_alt, Command("skip"))
+async def admin_char_edit_desc_alt_skip(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    await _apply_character_update(
+        message,
+        state,
+        UUID(data["edit_character_id"]),
+        description=data["pending_description"],
+        description_alt=None,
+    )
+
+
+@router.message(AdminCharacterStates.edit_description_alt)
+async def admin_char_edit_desc_alt_save(message: Message, state: FSMContext) -> None:
+    alt = (message.text or "").strip()
+    if len(alt) > 500:
+        await message.answer(f"Слишком длинно: {len(alt)}/500.")
+        return
+    data = await state.get_data()
+    await _apply_character_update(
+        message,
+        state,
+        UUID(data["edit_character_id"]),
+        description=data["pending_description"],
+        description_alt=alt or None,
+    )
 
 
 @router.callback_query(F.data.startswith("adm:char:edit:subtitle:"))
@@ -799,7 +1055,47 @@ async def admin_char_edit_subtitle_save(message: Message, state: FSMContext) -> 
     raw = (message.text or "").strip()
     subtitle = "" if raw in {"-", "—", "нет", "убрать"} else raw
     data = await state.get_data()
-    await _apply_character_update(message, state, UUID(data["edit_character_id"]), subtitle=subtitle)
+    char_id = data["edit_character_id"]
+    if not subtitle:
+        await _apply_character_update(
+            message,
+            state,
+            UUID(char_id),
+            subtitle="",
+            subtitle_alt=None,
+        )
+        return
+    await state.update_data(pending_subtitle=subtitle)
+    await state.set_state(AdminCharacterStates.edit_subtitle_alt)
+    await _wizard_reply(
+        message,
+        alt_text_prompt(subtitle, field_ru="подпись", field_en="subtitle"),
+        cancel_target=f"adm:char:edit:{char_id}",
+    )
+
+
+@router.message(AdminCharacterStates.edit_subtitle_alt, Command("skip"))
+async def admin_char_edit_subtitle_alt_skip(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    await _apply_character_update(
+        message,
+        state,
+        UUID(data["edit_character_id"]),
+        subtitle=data["pending_subtitle"],
+        subtitle_alt=None,
+    )
+
+
+@router.message(AdminCharacterStates.edit_subtitle_alt)
+async def admin_char_edit_subtitle_alt_save(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    await _apply_character_update(
+        message,
+        state,
+        UUID(data["edit_character_id"]),
+        subtitle=data["pending_subtitle"],
+        subtitle_alt=(message.text or "").strip() or None,
+    )
 
 
 @router.callback_query(F.data.startswith("adm:char:edit:behavior:"))
@@ -1081,6 +1377,7 @@ async def admin_narrator_price(message: Message, state: FSMContext) -> None:
                 admin_id,
                 char_id,
                 name=data["narrator_name"],
+                name_alt=data.get("narrator_name_alt") or None,
                 description=data.get("narrator_description", ""),
                 price=price,
             )

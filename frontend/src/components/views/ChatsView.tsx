@@ -10,6 +10,7 @@ import { useChatsListStore } from "@/store/chats-list-store";
 import { useLongPress } from "@/hooks/use-long-press";
 import { useModal } from "@/hooks/use-modal";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "@/hooks/use-translation";
 import { getApiError } from "@/lib/api-client";
 import {
   ChatContextMenu,
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 import type { ChatListItem } from "@/store/chats-list-store";
 
 export function ChatsView() {
+  const { t, locale } = useTranslation();
   const openChat = useNavStore((s) => s.openChat);
   const { toast } = useToast();
   const { openModal, closeModal } = useModal();
@@ -34,7 +36,7 @@ export function ChatsView() {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, locale]);
 
   const menuChat = chats.find((c) => c.id === menuChatId);
 
@@ -55,9 +57,9 @@ export function ChatsView() {
     closeMenu();
     try {
       await pinChat(menuChatId);
-      toast(wasPinned ? "Чат откреплён" : "Чат закреплён", "success");
+      toast(wasPinned ? t("chat.unpinned") : t("chat.pinned"), "success");
     } catch (err) {
-      toast(getApiError(err).message || "Не удалось изменить закрепление", "error");
+      toast(getApiError(err).message || t("chat.pinError"), "error");
     }
   };
 
@@ -69,7 +71,7 @@ export function ChatsView() {
 
     openModal({
       type: "custom",
-      title: "Переименовать чат",
+      title: t("chat.renameTitle"),
       content: (
         <RenameChatForm
           defaultValue={currentName}
@@ -77,9 +79,9 @@ export function ChatsView() {
             try {
               await renameChat(chatId, title);
               closeModal();
-              toast("Чат переименован", "success");
+              toast(t("chat.renamed"), "success");
             } catch (err) {
-              toast(getApiError(err).message || "Не удалось переименовать", "error");
+              toast(getApiError(err).message || t("chat.renameError"), "error");
               throw err;
             }
           }}
@@ -95,19 +97,14 @@ export function ChatsView() {
 
     openModal({
       type: "confirm",
-      title: "Удалить чат?",
-      content: (
-        <p>
-          Диалог с <span className="font-semibold text-text-primary">{menuChat.displayName}</span>{" "}
-          будет удалён. Это действие нельзя отменить.
-        </p>
-      ),
+      title: t("chat.deleteTitle"),
+      content: <p>{t("chat.deleteBody", { name: menuChat.displayName })}</p>,
       onConfirm: async () => {
         try {
           await removeChat(chatId);
-          toast("Чат удалён", "success");
+          toast(t("chat.deleted"), "success");
         } catch (err) {
-          toast(getApiError(err).message || "Не удалось удалить чат", "error");
+          toast(getApiError(err).message || t("chat.deleteError"), "error");
           throw err;
         }
       },
@@ -117,7 +114,7 @@ export function ChatsView() {
   return (
     <div className="mx-auto max-w-lg px-4 pt-5">
       <header className="mb-4">
-        <h1 className="text-2xl font-bold">Чаты</h1>
+        <h1 className="text-2xl font-bold">{t("chat.title")}</h1>
       </header>
 
       {loading ? (
@@ -127,7 +124,7 @@ export function ChatsView() {
           ))}
         </ListPanel>
       ) : chats.length === 0 ? (
-        <p className="py-12 text-center text-sm text-text-muted">Нет чатов</p>
+        <p className="py-12 text-center text-sm text-text-muted">{t("chat.empty")}</p>
       ) : (
         <ListPanel>
           {chats.map((chat, i) => (
@@ -167,6 +164,7 @@ function ChatRow({
   onOpen: () => void;
   onLongPress: (el: HTMLElement) => void;
 }) {
+  const { t } = useTranslation();
   const {
     isHolding,
     isTriggered,
@@ -256,7 +254,7 @@ function ChatRow({
         {chat.isPinned && (
           <span
             className="absolute -left-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[9px]"
-            aria-label="Закреплён"
+            aria-label={t("common.pinned")}
           >
             📌
           </span>
@@ -287,6 +285,7 @@ function RenameChatForm({
   defaultValue: string;
   onSubmit: (title: string) => void | Promise<void>;
 }) {
+  const { t } = useTranslation();
   const [value, setValue] = useState(defaultValue);
   const [loading, setLoading] = useState(false);
 
@@ -308,14 +307,14 @@ function RenameChatForm({
         autoFocus
         className="w-full rounded-xl border border-accent/20 bg-bg-elevated px-3 py-2.5 text-sm text-text-primary outline-none focus:border-accent/50"
         style={{ borderColor: "rgba(90, 50, 130, 0.45)" }}
-        placeholder="Название чата"
+        placeholder={t("chat.namePlaceholder")}
       />
       <button
         type="submit"
         disabled={!value.trim() || loading}
         className="w-full rounded-xl bg-accent py-2.5 text-sm font-semibold text-text-primary disabled:opacity-50"
       >
-        {loading ? "Сохранение…" : "Сохранить"}
+        {loading ? t("common.saving") : t("common.save")}
       </button>
     </form>
   );

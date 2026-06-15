@@ -41,7 +41,9 @@ def process_ai_response(self, chat_id: str, user_message_id: str, user_id: str):
         from app.repositories.character_scenario_repository import CharacterScenarioRepository
         from app.repositories.chat_repository import ChatRepository
         from app.repositories.generation_repository import PaymentRepository
+        from app.repositories.user_repository import UserRepository
         from app.services.chat_service import ChatService
+        from app.utils.locale import normalize_app_locale
 
         settings = get_settings()
         engine = create_async_engine(settings.database_url)
@@ -80,6 +82,10 @@ def process_ai_response(self, chat_id: str, user_message_id: str, user_id: str):
             if chat.narrator_id and not narrator:
                 narrator = await narrators.get_by_id(chat.narrator_id)
 
+            user_repo = UserRepository(session)
+            user = await user_repo.get_by_id(UUID(user_id))
+            user_locale = normalize_app_locale(user.language_code if user else "ru")
+
             try:
                 history = await chats.get_messages(UUID(chat_id), UUID(user_id), limit=ChatService.MAX_CONTEXT_MESSAGES)
                 ai_messages = [
@@ -91,7 +97,9 @@ def process_ai_response(self, chat_id: str, user_message_id: str, user_id: str):
                 response = await ai.complete(
                     ChatCompletionRequest(
                         messages=ai_messages,
-                        system_prompt=ChatService(session)._build_system_prompt(character, scenario, narrator),
+                        system_prompt=ChatService(session)._build_system_prompt(
+                            character, scenario, narrator, locale=user_locale
+                        ),
                     )
                 )
 

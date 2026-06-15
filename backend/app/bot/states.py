@@ -3,19 +3,28 @@ from aiogram.fsm.state import State, StatesGroup
 
 class AdminCharacterStates(StatesGroup):
     name = State()
+    name_alt = State()
     description = State()
+    description_alt = State()
     subtitle = State()
+    subtitle_alt = State()
     behavior_param = State()
+    behavior_param_alt = State()
     photo = State()
     edit_name = State()
+    edit_name_alt = State()
     edit_description = State()
+    edit_description_alt = State()
     edit_subtitle = State()
+    edit_subtitle_alt = State()
     edit_photo = State()
     scenario_title = State()
+    scenario_title_alt = State()
     scenario_story = State()
     scenario_communication = State()
     scenario_opening = State()
     narrator_name = State()
+    narrator_name_alt = State()
     narrator_description = State()
     narrator_price = State()
 
@@ -46,6 +55,7 @@ class AdminPromoStates(StatesGroup):
 
 class AdminBroadcastStates(StatesGroup):
     message = State()
+    message_alt = State()
     confirm = State()
 
 
@@ -64,6 +74,7 @@ class AdminTopupStates(StatesGroup):
 
 class AdminProductStates(StatesGroup):
     name = State()
+    name_alt = State()
     product_type = State()
     price = State()
     sale_price = State()

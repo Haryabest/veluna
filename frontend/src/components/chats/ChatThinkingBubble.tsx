@@ -2,8 +2,11 @@
 
 import { motion } from "framer-motion";
 import { CHAT_BORDER } from "@/lib/theme";
+import { useTranslation } from "@/hooks/use-translation";
 
 export function ChatThinkingBubble() {
+  const { t } = useTranslation();
+
   return (
     <div className="flex flex-col items-start">
       <div
@@ -13,7 +16,7 @@ export function ChatThinkingBubble() {
           background: "rgba(26, 18, 40, 0.72)",
         }}
       >
-        <span className="text-text-muted">Думает</span>
+        <span className="text-text-muted">{t("chat.thinking")}</span>
         <span className="flex items-center gap-1" aria-hidden>
           {[0, 1, 2].map((i) => (
             <motion.span

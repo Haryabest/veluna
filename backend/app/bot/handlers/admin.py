@@ -43,6 +43,7 @@ from app.bot.utils import upload_telegram_photo
 from app.core.config import get_settings
 from app.models import Purchase, PurchaseStatus, ShopProductType, Transaction, TransactionType, User
 from app.services.catalog_service import CatalogService
+from app.utils.localized_text import alt_field_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -65,12 +66,12 @@ def _fmt_minutes(total_minutes: int) -> str:
     return f"{hours} ч {minutes} мин"
 
 
-def _admin_start_markup():
+def _admin_start_markup(locale: str = "ru"):
     settings = get_settings()
     url = settings.telegram_webapp_url
     if url.startswith("https://"):
-        return main_reply_keyboard(url, include_admin=True)
-    return admin_main_menu(url)
+        return main_reply_keyboard(url.rstrip("/"), locale, include_admin=True)
+    return admin_main_menu(url, locale)
 
 
 async def _reply_kb_for(user) -> ReplyKeyboardMarkup | None:
@@ -78,7 +79,13 @@ async def _reply_kb_for(user) -> ReplyKeyboardMarkup | None:
     url = settings.telegram_webapp_url
     if not url.startswith("https://"):
         return None
-    return main_reply_keyboard(url, include_admin=await is_bot_admin(user))
+    async with bot_session() as session:
+        from app.repositories.user_repository import UserRepository
+        from app.bot.i18n import user_locale
+
+        db_user = await UserRepository(session).get_by_telegram_id(user.id)
+        loc = user_locale(db_user)
+    return main_reply_keyboard(url.rstrip("/"), loc, include_admin=await is_bot_admin(user))
 
 
 def _admin_start_text() -> str:
@@ -94,7 +101,14 @@ def _admin_start_text() -> str:
 async def admin_menu(event: Message | CallbackQuery, state: FSMContext) -> None:
     await state.clear()
     text = _admin_start_text()
-    markup = _admin_start_markup()
+    from app.bot.i18n import user_locale
+    from app.repositories.user_repository import UserRepository
+
+    tg_user = event.from_user
+    async with bot_session() as session:
+        db_user = await UserRepository(session).get_by_telegram_id(tg_user.id)
+    loc = user_locale(db_user)
+    markup = _admin_start_markup(loc)
     if isinstance(event, CallbackQuery):
         await event.message.answer(text, reply_markup=markup)
         await event.answer()
@@ -562,10 +576,39 @@ async def admin_broadcast_preview(message: Message, state: FSMContext) -> None:
         await message.answer("Текст не может быть пустым.")
         return
     await state.update_data(broadcast_text=text)
-    await state.set_state(AdminBroadcastStates.confirm)
-    preview = text if len(text) <= 500 else text[:500] + "…"
+    await state.set_state(AdminBroadcastStates.message_alt)
     await message.answer(
-        f"<b>Предпросмотр рассылки</b>\n\n{preview}\n\nОтправить всем пользователям?",
+        f"{alt_field_prompt(text[:80], ru_label='текст рассылки', en_label='broadcast text')}\n"
+        "<i>HTML поддерживается в обоих вариантах.</i>",
+        reply_markup=cancel_kb("adm:menu"),
+    )
+
+
+@router.message(AdminBroadcastStates.message_alt, Command("skip"))
+async def admin_broadcast_alt_skip(message: Message, state: FSMContext) -> None:
+    await state.update_data(broadcast_text_alt="")
+    await _show_broadcast_confirm(message, state)
+
+
+@router.message(AdminBroadcastStates.message_alt)
+async def admin_broadcast_alt(message: Message, state: FSMContext) -> None:
+    alt = (message.text or message.caption or "").strip()
+    await state.update_data(broadcast_text_alt=alt)
+    await _show_broadcast_confirm(message, state)
+
+
+async def _show_broadcast_confirm(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    text = data.get("broadcast_text", "")
+    alt = (data.get("broadcast_text_alt") or "").strip()
+    await state.set_state(AdminBroadcastStates.confirm)
+    preview = text if len(text) <= 400 else text[:400] + "…"
+    alt_block = ""
+    if alt:
+        alt_preview = alt if len(alt) <= 400 else alt[:400] + "…"
+        alt_block = f"\n\n<b>EN / alt:</b>\n{alt_preview}"
+    await message.answer(
+        f"<b>Предпросмотр рассылки</b>\n\n{preview}{alt_block}\n\nОтправить всем пользователям?",
         reply_markup=broadcast_confirm_kb(),
     )
 
@@ -581,6 +624,7 @@ async def admin_broadcast_cancel(callback: CallbackQuery, state: FSMContext) -> 
 async def admin_broadcast_run(callback: CallbackQuery, state: FSMContext, bot: Bot) -> None:
     data = await state.get_data()
     text = data.get("broadcast_text", "")
+    text_alt = (data.get("broadcast_text_alt") or "").strip() or None
     await state.clear()
     await callback.message.edit_text("⏳ Рассылка запущена…")
     await callback.answer()
@@ -592,7 +636,9 @@ async def admin_broadcast_run(callback: CallbackQuery, state: FSMContext, bot: B
         user = await UserRepository(session).get_by_telegram_id(callback.from_user.id)
         if user:
             admin_user_id = user.id
-        record = await BroadcastService(session).send_broadcast(text, admin_id=admin_user_id)
+        record = await BroadcastService(session).send_broadcast(
+            text, admin_id=admin_user_id, message_text_alt=text_alt
+        )
 
     await callback.message.answer(
         "<b>Рассылка завершена</b>\n\n"
@@ -837,7 +883,25 @@ async def admin_product_add_start(callback: CallbackQuery, state: FSMContext) ->
 
 @router.message(AdminProductStates.name)
 async def admin_product_name(message: Message, state: FSMContext) -> None:
-    await state.update_data(product_name=message.text.strip())
+    name = (message.text or "").strip()
+    await state.update_data(product_name=name)
+    await state.set_state(AdminProductStates.name_alt)
+    await message.answer(
+        alt_field_prompt(name, ru_label="название", en_label="name"),
+        reply_markup=cancel_kb("adm:products"),
+    )
+
+
+@router.message(AdminProductStates.name_alt, Command("skip"))
+async def admin_product_name_alt_skip(message: Message, state: FSMContext) -> None:
+    await state.update_data(product_name_alt="")
+    await state.set_state(AdminProductStates.product_type)
+    await message.answer("Выберите <b>тип товара</b>:", reply_markup=product_type_keyboard())
+
+
+@router.message(AdminProductStates.name_alt)
+async def admin_product_name_alt(message: Message, state: FSMContext) -> None:
+    await state.update_data(product_name_alt=(message.text or "").strip())
     await state.set_state(AdminProductStates.product_type)
     await message.answer("Выберите <b>тип товара</b>:", reply_markup=product_type_keyboard())
 
@@ -987,6 +1051,7 @@ async def _save_product(message: Message, state: FSMContext, image_url: str | No
     async with bot_session() as session:
         product = await CatalogService(session).create_product(
             name=data["product_name"],
+            name_alt=data.get("product_name_alt") or None,
             product_type=ShopProductType(data["product_type"]),
             price=data["price"],
             sale_price=data.get("sale_price"),
@@ -1101,8 +1166,14 @@ async def admin_product_delete(callback: CallbackQuery, state: FSMContext) -> No
 
 @router.message(Command("cancel"), StateFilter("*"))
 async def admin_cancel(message: Message, state: FSMContext) -> None:
+    from app.bot.i18n import user_locale
+    from app.repositories.user_repository import UserRepository
+
     await state.clear()
-    await message.answer("Действие отменено.", reply_markup=_admin_start_markup())
+    async with bot_session() as session:
+        db_user = await UserRepository(session).get_by_telegram_id(message.from_user.id)
+    loc = user_locale(db_user)
+    await message.answer("Действие отменено.", reply_markup=_admin_start_markup(loc))
 
 
 from app.bot.handlers.admin_characters import router as admin_characters_router

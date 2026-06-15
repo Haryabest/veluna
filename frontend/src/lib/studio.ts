@@ -1,3 +1,6 @@
+import type { AppLocale } from "@/lib/i18n/translations";
+import { t } from "@/lib/i18n/translations";
+
 export interface StudioArtItem {
   id: string;
   imageUrl: string;
@@ -231,3 +234,38 @@ export const STUDIO_GENERATION_COST = 5;
 
 export const STUDIO_PROMPT_PLACEHOLDER =
   "Опиши, что должно быть на арте. Например: девушка с розовыми волосами в неоновом городе под дождём";
+
+export const ANIME_STYLE_DESCRIPTIONS_EN: Record<string, string> = {
+  "cyberpunk-neon": "Neon lights, cyber details and futuristic techwear",
+  "ghibli-magic": "Warm hand-drawn look inspired by Studio Ghibli",
+  "dark-fantasy": "Gothic shadows and dark magical atmosphere",
+  "kawaii-pastel": "Pastel colors, big eyes and cozy everyday vibes",
+  "mecha-scifi": "Pilot suit, mecha armor and giant robots",
+  "chibi-pop": "Mini character for stickers and pop art",
+  "vintage-80s": "VHS tape and old cel-animation from the 80s",
+  "genshin-celshade": "Modern game art with crisp cel-shading",
+  "vaporwave-lofi": "Pink-purple vaporwave and chill vibes",
+  "shojo-romance": "Shojo romance with petals and sparkles",
+};
+
+export function getStudioModelLabel(model: StudioModel, locale: AppLocale): string {
+  return locale === "ru" ? model.nameRu : model.name;
+}
+
+export function getStudioModelDescription(model: StudioModel, locale: AppLocale): string {
+  if (locale === "en") return ANIME_STYLE_DESCRIPTIONS_EN[model.id] ?? "";
+  return model.descriptionRu;
+}
+
+export function getAspectRatioLabel(id: AspectRatioId, locale: AppLocale): string {
+  const keys: Record<AspectRatioId, "studio.aspect.square" | "studio.aspect.portrait" | "studio.aspect.landscape"> = {
+    "1:1": "studio.aspect.square",
+    "2:3": "studio.aspect.portrait",
+    "3:2": "studio.aspect.landscape",
+  };
+  return t(locale, keys[id]);
+}
+
+export function getStudioPromptPlaceholder(locale: AppLocale): string {
+  return t(locale, "studio.promptPlaceholder");
+}

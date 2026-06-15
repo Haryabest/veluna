@@ -55,15 +55,22 @@ BOT_USERS_PAGE_SIZE = 8
 
 async def _send_admin_menu_to(telegram_id: int, bot) -> None:
     """Push admin reply keyboard after role=admin is granted in DB."""
+    from app.bot.i18n import user_locale
+
     url = get_settings().telegram_webapp_url
     if not url.startswith("https://"):
         return
+    async with bot_session() as session:
+        from app.repositories.user_repository import UserRepository
+
+        db_user = await UserRepository(session).get_by_telegram_id(telegram_id)
+    loc = user_locale(db_user)
     try:
         await bot.send_message(
             telegram_id,
             "<b>Вам выдана роль администратора.</b>\n\n"
             "Кнопки управления внизу: статистика, персонажи, рассылка, промокоды, товары.",
-            reply_markup=main_reply_keyboard(url, include_admin=True),
+            reply_markup=main_reply_keyboard(url.rstrip("/"), loc, include_admin=True),
         )
     except Exception:
         pass
@@ -598,6 +605,10 @@ async def _apply_user_update(
 @router.message(F.text == ADMIN_MENU_TEXT_BACK_ADMIN)
 async def admin_users_back_main(message: Message, state: FSMContext) -> None:
     from app.bot.handlers.admin import _admin_start_markup, _admin_start_text
+    from app.bot.i18n import user_locale
 
     await state.clear()
-    await message.answer(_admin_start_text(), reply_markup=_admin_start_markup())
+    async with bot_session() as session:
+        db_user = await UserRepository(session).get_by_telegram_id(message.from_user.id)
+    loc = user_locale(db_user)
+    await message.answer(_admin_start_text(), reply_markup=_admin_start_markup(loc))
