@@ -52,14 +52,27 @@ async def _admin_id(telegram_id: int) -> UUID | None:
     return None
 
 
+def _optional_text(message: Message) -> str:
+    text = (message.text or "").strip()
+    return "" if text.lower() == "/skip" else text
+
+
 def _format_character(ch) -> str:
     params = ch.behavior_params or []
     params_text = "\n".join(f"  {i + 1}. {p}" for i, p in enumerate(params)) or "  —"
+    name_en = f"\nАнгл. имя: <b>{ch.name_en}</b>" if getattr(ch, "name_en", None) else ""
     subtitle = f"\nПодпись: <b>{ch.subtitle}</b>" if ch.subtitle else ""
+    subtitle_en = f"\nАнгл. подпись: <b>{ch.subtitle_en}</b>" if getattr(ch, "subtitle_en", None) else ""
+    description_en = (
+        f"\n\n<b>Описание EN</b>:\n{ch.description_en}\n\n"
+        if getattr(ch, "description_en", None)
+        else ""
+    )
     photo = f"\nФото: {ch.avatar_url}" if ch.avatar_url else "\nФото: нет"
     return (
-        f"<b>{ch.name}</b>{subtitle}\n\n"
+        f"<b>{ch.name}</b>{name_en}{subtitle}{subtitle_en}\n\n"
         f"<b>Описание</b> ({len(ch.description)}/{500}):\n{ch.description}\n\n"
+        f"{description_en}"
         f"<b>Параметры поведения</b> (для нейросети):\n{params_text}\n\n"
         f"<b>System prompt:</b>\n<code>{(ch.personality_prompt or '—')[:800]}</code>"
         f"{photo}"
@@ -68,11 +81,24 @@ def _format_character(ch) -> str:
 
 def _format_scenario(sc) -> str:
     photo = f"\n\nФото: {sc.image_url}" if sc.image_url else "\n\nФото: нет"
+    title_en = f"\nАнгл. название: <b>{sc.title_en}</b>" if getattr(sc, "title_en", None) else ""
+    story_en = f"\n\n<b>История / контекст EN</b>\n{sc.story_en}" if getattr(sc, "story_en", None) else ""
+    communication_en = (
+        f"\n\n<b>Тип общения EN</b>\n{sc.communication_style_en}"
+        if getattr(sc, "communication_style_en", None)
+        else ""
+    )
+    opening_en = (
+        f"\n\n<b>Стартовое сообщение EN</b>\n{sc.opening_message_en}"
+        if getattr(sc, "opening_message_en", None)
+        else ""
+    )
     return (
-        f"<b>{sc.title}</b>\n\n"
+        f"<b>{sc.title}</b>{title_en}\n\n"
         f"<b>История / контекст</b>\n{sc.story or '—'}\n\n"
         f"<b>Тип общения в диалоге</b>\n{sc.communication_style or '—'}\n\n"
         f"<b>Стартовое сообщение</b>\n{sc.opening_message or '—'}"
+        f"{story_en}{communication_en}{opening_en}"
         f"{photo}"
     )
 
@@ -179,7 +205,7 @@ async def admin_char_new_reply(message: Message, state: FSMContext) -> None:
     await state.update_data(behavior_params=[])
     await message.answer(
         "<b>Создание персонажа</b>\n\n"
-        "1/6 Введите <b>имя</b> (например: Акира):",
+        "1/8 Введите <b>имя</b> на русском (например: Акира):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -228,7 +254,7 @@ async def admin_char_add_start(callback: CallbackQuery, state: FSMContext) -> No
     await state.update_data(behavior_params=[])
     await callback.message.edit_text(
         "<b>Создание персонажа</b>\n\n"
-        "1/6 Введите <b>имя</b> (например: Акира):",
+        "1/8 Введите <b>имя</b> на русском (например: Акира):",
         reply_markup=cancel_kb("adm:chars"),
     )
     await callback.answer()
@@ -241,9 +267,21 @@ async def admin_char_name(message: Message, state: FSMContext) -> None:
         await message.answer("Имя не может быть пустым.")
         return
     await state.update_data(name=name)
+    await state.set_state(AdminCharacterStates.name_en)
+    await message.answer(
+        "2/8 <b>Альтернативное имя на английском</b> (для второго языка интерфейса).\n"
+        "/skip — пропустить:",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.name_en)
+async def admin_char_name_en(message: Message, state: FSMContext) -> None:
+    name_en = _optional_text(message)
+    await state.update_data(name_en=name_en)
     await state.set_state(AdminCharacterStates.description)
     await message.answer(
-        "2/6 <b>Описание</b> персонажа (до 500 символов):",
+        "3/8 <b>Описание</b> персонажа на русском (до 500 символов):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -258,9 +296,24 @@ async def admin_char_description(message: Message, state: FSMContext) -> None:
         await message.answer(f"Слишком длинно: {len(desc)}/500. Сократите текст.")
         return
     await state.update_data(description=desc)
+    await state.set_state(AdminCharacterStates.description_en)
+    await message.answer(
+        "4/8 <b>Альтернативное описание на английском</b> (до 500 символов).\n"
+        "/skip — пропустить:",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.description_en)
+async def admin_char_description_en(message: Message, state: FSMContext) -> None:
+    desc_en = _optional_text(message)
+    if len(desc_en) > 500:
+        await message.answer(f"Слишком длинно: {len(desc_en)}/500. Сократите текст.")
+        return
+    await state.update_data(description_en=desc_en)
     await state.set_state(AdminCharacterStates.subtitle)
     await message.answer(
-        "3/6 <b>Подпись под именем</b> (например: «Милая девочка»):\n"
+        "5/8 <b>Подпись под именем</b> на русском (например: «Милая девочка»):\n"
         "<i>Отображается под именем на карточке.</i>",
         reply_markup=cancel_kb("adm:chars"),
     )
@@ -269,10 +322,20 @@ async def admin_char_description(message: Message, state: FSMContext) -> None:
 @router.message(AdminCharacterStates.subtitle)
 async def admin_char_subtitle(message: Message, state: FSMContext) -> None:
     await state.update_data(subtitle=(message.text or "").strip())
+    await state.set_state(AdminCharacterStates.subtitle_en)
+    await message.answer(
+        "6/8 <b>Альтернативная подпись на английском</b>.\n/skip — пропустить:",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.subtitle_en)
+async def admin_char_subtitle_en(message: Message, state: FSMContext) -> None:
+    await state.update_data(subtitle_en=_optional_text(message))
     await state.update_data(behavior_param_index=1)
     await state.set_state(AdminCharacterStates.behavior_param)
     await message.answer(
-        f"4/6 <b>Параметр поведения 1/{BEHAVIOR_PARAMS_COUNT}</b>\n"
+        f"7/8 <b>Параметр поведения 1/{BEHAVIOR_PARAMS_COUNT}</b>\n"
         "Краткая черта для нейросети (тон, характер, стиль речи):",
         reply_markup=cancel_kb("adm:chars"),
     )
@@ -301,14 +364,14 @@ async def admin_char_behavior_param(message: Message, state: FSMContext) -> None
             return
         await state.set_state(AdminCharacterStates.photo)
         await message.answer(
-            "5/6 Отправьте <b>фото</b> персонажа (или /skip):",
+            "8/8 Отправьте <b>фото</b> персонажа (или /skip):",
             reply_markup=cancel_kb("adm:chars"),
         )
         return
     next_idx = idx + 1
     await state.update_data(behavior_param_index=next_idx)
     await message.answer(
-        f"4/6 <b>Параметр поведения {next_idx}/{BEHAVIOR_PARAMS_COUNT}</b>:",
+        f"7/8 <b>Параметр поведения {next_idx}/{BEHAVIOR_PARAMS_COUNT}</b>:",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -333,7 +396,7 @@ async def _start_scenario_wizard(message: Message, state: FSMContext, char_id: U
     await state.set_state(AdminCharacterStates.scenario_title)
     await message.answer(
         f"<b>Персонаж сохранён.</b> Сценарий <b>{scenario_num}</b>\n\n"
-        "1/4 <b>Название</b> сценария (как в Mini App, например: «Новое знакомство»):",
+        "1/8 <b>Название</b> сценария на русском (например: «Новое знакомство»):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -349,8 +412,11 @@ async def _save_new_character(message: Message, state: FSMContext, avatar_url: s
             ch = await BotCharacterService(session).create_character(
                 admin_id,
                 name=data["name"],
+                name_en=data["name_en"],
                 description=data["description"],
+                description_en=data.get("description_en", ""),
                 subtitle=data.get("subtitle", ""),
+                subtitle_en=data.get("subtitle_en", ""),
                 behavior_params=data.get("behavior_params", []),
                 avatar_url=avatar_url,
             )
@@ -376,9 +442,20 @@ async def admin_char_create_scenario_title(message: Message, state: FSMContext) 
         await message.answer("Название сценария обязательно.")
         return
     await state.update_data(scenario_title=title)
+    await state.set_state(AdminCharacterStates.scenario_title_en)
+    await message.answer(
+        "2/8 <b>Альтернативное название на английском</b>.\n/skip — пропустить:",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.scenario_title_en)
+async def admin_char_create_scenario_title_en(message: Message, state: FSMContext) -> None:
+    title_en = _optional_text(message)
+    await state.update_data(scenario_title_en=title_en)
     await state.set_state(AdminCharacterStates.scenario_story)
     await message.answer(
-        "2/4 <b>История / контекст</b> сценария:",
+        "3/8 <b>История / контекст</b> сценария на русском:",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -386,9 +463,19 @@ async def admin_char_create_scenario_title(message: Message, state: FSMContext) 
 @router.message(AdminCharacterStates.scenario_story)
 async def admin_char_create_scenario_story(message: Message, state: FSMContext) -> None:
     await state.update_data(scenario_story=(message.text or "").strip())
+    await state.set_state(AdminCharacterStates.scenario_story_en)
+    await message.answer(
+        "4/8 <b>Альтернативная история / контекст на английском</b>.\n/skip — пропустить:",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.scenario_story_en)
+async def admin_char_create_scenario_story_en(message: Message, state: FSMContext) -> None:
+    await state.update_data(scenario_story_en=_optional_text(message))
     await state.set_state(AdminCharacterStates.scenario_communication)
     await message.answer(
-        "3/4 <b>Тип общения</b> в диалоге (флирт, дружеский, таинственный…):",
+        "5/8 <b>Тип общения</b> в диалоге на русском (флирт, дружеский, таинственный…):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -396,25 +483,61 @@ async def admin_char_create_scenario_story(message: Message, state: FSMContext) 
 @router.message(AdminCharacterStates.scenario_communication)
 async def admin_char_create_scenario_communication(message: Message, state: FSMContext) -> None:
     await state.update_data(scenario_communication=(message.text or "").strip())
+    await state.set_state(AdminCharacterStates.scenario_communication_en)
+    await message.answer(
+        "6/8 <b>Альтернативный тип общения на английском</b>.\n/skip — пропустить:",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.scenario_communication_en)
+async def admin_char_create_scenario_communication_en(message: Message, state: FSMContext) -> None:
+    await state.update_data(scenario_communication_en=_optional_text(message))
     await state.set_state(AdminCharacterStates.scenario_opening)
     await message.answer(
-        "4/4 <b>Стартовое сообщение</b> персонажа (или /skip):",
+        "7/8 <b>Стартовое сообщение</b> персонажа на русском (или /skip):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
 
 @router.message(AdminCharacterStates.scenario_opening, Command("skip"))
 async def admin_char_create_scenario_opening_skip(message: Message, state: FSMContext) -> None:
-    await _finish_scenario_during_create(message, state, opening_message="")
+    await _ask_scenario_opening_en_during_create(message, state, opening_message="")
 
 
 @router.message(AdminCharacterStates.scenario_opening)
 async def admin_char_create_scenario_opening(message: Message, state: FSMContext) -> None:
-    await _finish_scenario_during_create(message, state, opening_message=(message.text or "").strip())
+    await _ask_scenario_opening_en_during_create(
+        message,
+        state,
+        opening_message=(message.text or "").strip(),
+    )
+
+
+async def _ask_scenario_opening_en_during_create(
+    message: Message,
+    state: FSMContext,
+    opening_message: str,
+) -> None:
+    await state.update_data(scenario_opening=opening_message)
+    await state.set_state(AdminCharacterStates.scenario_opening_en)
+    await message.answer(
+        "8/8 <b>Альтернативное стартовое сообщение на английском</b>.\n/skip — пропустить:",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.scenario_opening_en)
+async def admin_char_create_scenario_opening_en(message: Message, state: FSMContext) -> None:
+    await _finish_scenario_during_create(
+        message,
+        state,
+        opening_message_en=_optional_text(message),
+    )
 
 
 async def _finish_scenario_during_create(
-    message: Message, state: FSMContext, opening_message: str
+    message: Message, state: FSMContext, opening_message_en: str
 ) -> None:
     data = await state.get_data()
     admin_id = await _admin_id(message.from_user.id)
@@ -427,9 +550,13 @@ async def _finish_scenario_during_create(
                 admin_id,
                 char_id,
                 title=data["scenario_title"],
+                title_en=data["scenario_title_en"],
                 story=data.get("scenario_story", ""),
+                story_en=data.get("scenario_story_en", ""),
                 communication_style=data.get("scenario_communication", ""),
-                opening_message=opening_message,
+                communication_style_en=data.get("scenario_communication_en", ""),
+                opening_message=data.get("scenario_opening", ""),
+                opening_message_en=opening_message_en,
             )
             count = len(await BotCharacterService(session).list_scenarios(char_id))
     except ValidationError as exc:
@@ -452,7 +579,7 @@ async def _start_narrator_wizard(message: Message, state: FSMContext, char_id: U
     await state.set_state(AdminCharacterStates.narrator_name)
     await message.answer(
         f"<b>Рассказчик {narrator_num}</b>\n\n"
-        "1/3 <b>Название</b> (например: «Классический», «Мистический»):",
+        "1/5 <b>Название</b> на русском (например: «Классический», «Мистический»):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -479,9 +606,20 @@ async def admin_char_create_narrator_name(message: Message, state: FSMContext) -
         await message.answer("Название рассказчика обязательно.")
         return
     await state.update_data(narrator_name=name)
+    await state.set_state(AdminCharacterStates.narrator_name_en)
+    await message.answer(
+        "2/5 <b>Альтернативное имя на английском</b>.\n/skip — пропустить:",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.narrator_name_en)
+async def admin_char_create_narrator_name_en(message: Message, state: FSMContext) -> None:
+    name_en = _optional_text(message)
+    await state.update_data(narrator_name_en=name_en)
     await state.set_state(AdminCharacterStates.narrator_description)
     await message.answer(
-        "2/3 <b>Описание</b> рассказчика:",
+        "3/5 <b>Описание</b> рассказчика на русском:",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -489,9 +627,19 @@ async def admin_char_create_narrator_name(message: Message, state: FSMContext) -
 @router.message(AdminCharacterStates.narrator_description)
 async def admin_char_create_narrator_description(message: Message, state: FSMContext) -> None:
     await state.update_data(narrator_description=(message.text or "").strip())
+    await state.set_state(AdminCharacterStates.narrator_description_en)
+    await message.answer(
+        "4/5 <b>Альтернативное описание на английском</b>.\n/skip — пропустить:",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.narrator_description_en)
+async def admin_char_create_narrator_description_en(message: Message, state: FSMContext) -> None:
+    await state.update_data(narrator_description_en=_optional_text(message))
     await state.set_state(AdminCharacterStates.narrator_price)
     await message.answer(
-        "3/3 <b>Цена в сердцах</b> за сообщение (число, 0 = 1 сердце):",
+        "5/5 <b>Цена в сердцах</b> за сообщение (число, 0 = 1 сердце):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -517,7 +665,9 @@ async def _finish_narrator_during_create(message: Message, state: FSMContext, pr
                 admin_id,
                 char_id,
                 name=data["narrator_name"],
+                name_en=data["narrator_name_en"],
                 description=data.get("narrator_description", ""),
+                description_en=data.get("narrator_description_en", ""),
                 price=price,
             )
             count = len(await BotCharacterService(session).list_narrators(char_id))
@@ -872,7 +1022,7 @@ async def admin_scenario_add_start(callback: CallbackQuery, state: FSMContext) -
     await state.set_state(AdminScenarioStates.title)
     await state.update_data(scenario_character_id=char_id)
     await callback.message.edit_text(
-        "<b>Новый сценарий</b>\n\n1/4 <b>Название</b> сценария:",
+        "<b>Новый сценарий</b>\n\n1/8 <b>Название</b> сценария на русском:",
         reply_markup=cancel_kb(f"adm:char:scenarios:{char_id}"),
     )
     await callback.answer()
@@ -885,10 +1035,22 @@ async def admin_scenario_title(message: Message, state: FSMContext) -> None:
         await message.answer("Название обязательно.")
         return
     await state.update_data(scenario_title=title)
+    await state.set_state(AdminScenarioStates.title_en)
+    data = await state.get_data()
+    await message.answer(
+        "2/8 <b>Альтернативное название на английском</b>.\n/skip — пропустить:",
+        reply_markup=cancel_kb(f"adm:char:scenarios:{data['scenario_character_id']}"),
+    )
+
+
+@router.message(AdminScenarioStates.title_en)
+async def admin_scenario_title_en(message: Message, state: FSMContext) -> None:
+    title_en = _optional_text(message)
+    await state.update_data(scenario_title_en=title_en)
     await state.set_state(AdminScenarioStates.story)
     data = await state.get_data()
     await message.answer(
-        "2/4 <b>История / контекст</b> сценария (что произошло, сеттинг):",
+        "3/8 <b>История / контекст</b> сценария на русском (что произошло, сеттинг):",
         reply_markup=cancel_kb(f"adm:char:scenarios:{data['scenario_character_id']}"),
     )
 
@@ -896,10 +1058,21 @@ async def admin_scenario_title(message: Message, state: FSMContext) -> None:
 @router.message(AdminScenarioStates.story)
 async def admin_scenario_story(message: Message, state: FSMContext) -> None:
     await state.update_data(scenario_story=(message.text or "").strip())
+    await state.set_state(AdminScenarioStates.story_en)
+    data = await state.get_data()
+    await message.answer(
+        "4/8 <b>Альтернативная история / контекст на английском</b>.\n/skip — пропустить:",
+        reply_markup=cancel_kb(f"adm:char:scenarios:{data['scenario_character_id']}"),
+    )
+
+
+@router.message(AdminScenarioStates.story_en)
+async def admin_scenario_story_en(message: Message, state: FSMContext) -> None:
+    await state.update_data(scenario_story_en=_optional_text(message))
     await state.set_state(AdminScenarioStates.communication_style)
     data = await state.get_data()
     await message.answer(
-        "3/4 <b>Тип общения</b> в этом диалоге\n"
+        "5/8 <b>Тип общения</b> в этом диалоге на русском\n"
         "(формальный, флирт, дружеский, таинственный и т.д.):",
         reply_markup=cancel_kb(f"adm:char:scenarios:{data['scenario_character_id']}"),
     )
@@ -908,25 +1081,55 @@ async def admin_scenario_story(message: Message, state: FSMContext) -> None:
 @router.message(AdminScenarioStates.communication_style)
 async def admin_scenario_communication(message: Message, state: FSMContext) -> None:
     await state.update_data(scenario_communication=(message.text or "").strip())
+    await state.set_state(AdminScenarioStates.communication_style_en)
+    data = await state.get_data()
+    await message.answer(
+        "6/8 <b>Альтернативный тип общения на английском</b>.\n/skip — пропустить:",
+        reply_markup=cancel_kb(f"adm:char:scenarios:{data['scenario_character_id']}"),
+    )
+
+
+@router.message(AdminScenarioStates.communication_style_en)
+async def admin_scenario_communication_en(message: Message, state: FSMContext) -> None:
+    await state.update_data(scenario_communication_en=_optional_text(message))
     await state.set_state(AdminScenarioStates.opening_message)
     data = await state.get_data()
     await message.answer(
-        "4/4 <b>Стартовое сообщение</b> персонажа в сценарии (или /skip):",
+        "7/8 <b>Стартовое сообщение</b> персонажа в сценарии на русском (или /skip):",
         reply_markup=cancel_kb(f"adm:char:scenarios:{data['scenario_character_id']}"),
     )
 
 
 @router.message(AdminScenarioStates.opening_message, Command("skip"))
 async def admin_scenario_opening_skip(message: Message, state: FSMContext) -> None:
-    await _save_new_scenario(message, state, opening_message="")
+    await _ask_scenario_opening_en(message, state, opening_message="")
 
 
 @router.message(AdminScenarioStates.opening_message)
 async def admin_scenario_opening(message: Message, state: FSMContext) -> None:
-    await _save_new_scenario(message, state, opening_message=(message.text or "").strip())
+    await _ask_scenario_opening_en(message, state, opening_message=(message.text or "").strip())
 
 
-async def _save_new_scenario(message: Message, state: FSMContext, opening_message: str) -> None:
+async def _ask_scenario_opening_en(
+    message: Message,
+    state: FSMContext,
+    opening_message: str,
+) -> None:
+    data = await state.get_data()
+    await state.update_data(scenario_opening=opening_message)
+    await state.set_state(AdminScenarioStates.opening_message_en)
+    await message.answer(
+        "8/8 <b>Альтернативное стартовое сообщение на английском</b>.\n/skip — пропустить:",
+        reply_markup=cancel_kb(f"adm:char:scenarios:{data['scenario_character_id']}"),
+    )
+
+
+@router.message(AdminScenarioStates.opening_message_en)
+async def admin_scenario_opening_en(message: Message, state: FSMContext) -> None:
+    await _save_new_scenario(message, state, opening_message_en=_optional_text(message))
+
+
+async def _save_new_scenario(message: Message, state: FSMContext, opening_message_en: str) -> None:
     data = await state.get_data()
     admin_id = await _admin_id(message.from_user.id)
     char_id = UUID(data["scenario_character_id"])
@@ -938,9 +1141,13 @@ async def _save_new_scenario(message: Message, state: FSMContext, opening_messag
                 admin_id,
                 char_id,
                 title=data["scenario_title"],
+                title_en=data["scenario_title_en"],
                 story=data.get("scenario_story", ""),
+                story_en=data.get("scenario_story_en", ""),
                 communication_style=data.get("scenario_communication", ""),
-                opening_message=opening_message,
+                communication_style_en=data.get("scenario_communication_en", ""),
+                opening_message=data.get("scenario_opening", ""),
+                opening_message_en=opening_message_en,
             )
     except ValidationError as exc:
         await message.answer(str(exc.message))
@@ -1003,10 +1210,17 @@ async def admin_scenario_delete(callback: CallbackQuery, state: FSMContext) -> N
 def _format_narrator(narrator) -> str:
     photo = f"\nФото: {narrator.image_url}" if narrator.image_url else "\nФото: нет"
     cost = narrator.price if narrator.price > 0 else 1
+    name_en = f"\nАнгл. имя: <b>{narrator.name_en}</b>" if getattr(narrator, "name_en", None) else ""
+    description_en = (
+        f"\n\n<b>Описание EN</b>\n{narrator.description_en}"
+        if getattr(narrator, "description_en", None)
+        else ""
+    )
     return (
-        f"<b>{narrator.name}</b>\n"
+        f"<b>{narrator.name}</b>{name_en}\n"
         f"Цена за сообщение: <b>{cost}</b> ❤️\n\n"
         f"{(narrator.description or '—').strip()}"
+        f"{description_en}"
         f"{photo}"
     )
 
@@ -1031,7 +1245,7 @@ async def admin_narrator_add_start(callback: CallbackQuery, state: FSMContext) -
     await state.set_state(AdminNarratorStates.name)
     await state.update_data(narrator_character_id=char_id)
     await callback.message.edit_text(
-        "<b>Новый рассказчик</b>\n\n1/3 <b>Название</b>:",
+        "<b>Новый рассказчик</b>\n\n1/5 <b>Название</b> на русском:",
         reply_markup=cancel_kb(f"adm:char:narrators:{char_id}"),
     )
     await callback.answer()
@@ -1044,10 +1258,22 @@ async def admin_narrator_name(message: Message, state: FSMContext) -> None:
         await message.answer("Название обязательно.")
         return
     await state.update_data(narrator_name=name)
+    await state.set_state(AdminNarratorStates.name_en)
+    data = await state.get_data()
+    await message.answer(
+        "2/5 <b>Альтернативное имя на английском</b>.\n/skip — пропустить:",
+        reply_markup=cancel_kb(f"adm:char:narrators:{data['narrator_character_id']}"),
+    )
+
+
+@router.message(AdminNarratorStates.name_en)
+async def admin_narrator_name_en(message: Message, state: FSMContext) -> None:
+    name_en = _optional_text(message)
+    await state.update_data(narrator_name_en=name_en)
     await state.set_state(AdminNarratorStates.description)
     data = await state.get_data()
     await message.answer(
-        "2/3 <b>Описание</b> рассказчика:",
+        "3/5 <b>Описание</b> рассказчика на русском:",
         reply_markup=cancel_kb(f"adm:char:narrators:{data['narrator_character_id']}"),
     )
 
@@ -1055,10 +1281,21 @@ async def admin_narrator_name(message: Message, state: FSMContext) -> None:
 @router.message(AdminNarratorStates.description)
 async def admin_narrator_description(message: Message, state: FSMContext) -> None:
     await state.update_data(narrator_description=(message.text or "").strip())
+    await state.set_state(AdminNarratorStates.description_en)
+    data = await state.get_data()
+    await message.answer(
+        "4/5 <b>Альтернативное описание на английском</b>.\n/skip — пропустить:",
+        reply_markup=cancel_kb(f"adm:char:narrators:{data['narrator_character_id']}"),
+    )
+
+
+@router.message(AdminNarratorStates.description_en)
+async def admin_narrator_description_en(message: Message, state: FSMContext) -> None:
+    await state.update_data(narrator_description_en=_optional_text(message))
     await state.set_state(AdminNarratorStates.price)
     data = await state.get_data()
     await message.answer(
-        "3/3 <b>Цена в сердцах</b> (число, 0 = бесплатно):",
+        "5/5 <b>Цена в сердцах</b> (число, 0 = бесплатно):",
         reply_markup=cancel_kb(f"adm:char:narrators:{data['narrator_character_id']}"),
     )
 
@@ -1081,7 +1318,9 @@ async def admin_narrator_price(message: Message, state: FSMContext) -> None:
                 admin_id,
                 char_id,
                 name=data["narrator_name"],
+                name_en=data["narrator_name_en"],
                 description=data.get("narrator_description", ""),
+                description_en=data.get("narrator_description_en", ""),
                 price=price,
             )
     except ValidationError as exc:

@@ -75,8 +75,11 @@ class BotCharacterService:
         admin_id: UUID,
         *,
         name: str,
+        name_en: str | None = None,
         description: str,
+        description_en: str | None = None,
         subtitle: str,
+        subtitle_en: str | None = None,
         behavior_params: list[str],
         avatar_url: str | None = None,
         greeting_message: str = "",
@@ -86,9 +89,13 @@ class BotCharacterService:
         name = name.strip()
         if not name:
             raise ValidationError("Имя персонажа не может быть пустым")
+        name_en = name_en.strip() if name_en else None
         description = description.strip()
+        description_en = description_en.strip() if description_en else None
         if len(description) > DESCRIPTION_MAX_LEN:
             raise ValidationError(f"Описание не длиннее {DESCRIPTION_MAX_LEN} символов")
+        if description_en and len(description_en) > DESCRIPTION_MAX_LEN:
+            raise ValidationError(f"Английское описание не длиннее {DESCRIPTION_MAX_LEN} символов")
         if len(behavior_params) != BEHAVIOR_PARAMS_COUNT:
             raise ValidationError(f"Нужно ровно {BEHAVIOR_PARAMS_COUNT} параметров поведения")
 
@@ -97,9 +104,12 @@ class BotCharacterService:
 
         character = await self._characters.create(
             name=name,
+            name_en=name_en,
             slug=slugify_name(name),
             description=description,
+            description_en=description_en,
             subtitle=subtitle.strip() or None,
+            subtitle_en=subtitle_en.strip() if subtitle_en else None,
             behavior_params=params,
             tags=params,
             personality_prompt=personality,
@@ -127,8 +137,11 @@ class BotCharacterService:
         character_id: UUID,
         *,
         name: str | None = None,
+        name_en: str | None = None,
         description: str | None = None,
+        description_en: str | None = None,
         subtitle: str | None = None,
+        subtitle_en: str | None = None,
         behavior_params: list[str] | None = None,
         avatar_url: str | None = None,
         clear_avatar: bool = False,
@@ -142,6 +155,8 @@ class BotCharacterService:
             if not name:
                 raise ValidationError("Имя персонажа не может быть пустым")
             updates["name"] = name
+        if name_en is not None:
+            updates["name_en"] = name_en.strip() or None
         if description is not None:
             description = description.strip()
             if not description:
@@ -149,8 +164,15 @@ class BotCharacterService:
             if len(description) > DESCRIPTION_MAX_LEN:
                 raise ValidationError(f"Описание не длиннее {DESCRIPTION_MAX_LEN} символов")
             updates["description"] = description
+        if description_en is not None:
+            description_en = description_en.strip()
+            if description_en and len(description_en) > DESCRIPTION_MAX_LEN:
+                raise ValidationError(f"Английское описание не длиннее {DESCRIPTION_MAX_LEN} символов")
+            updates["description_en"] = description_en or None
         if subtitle is not None:
             updates["subtitle"] = subtitle.strip() or None
+        if subtitle_en is not None:
+            updates["subtitle_en"] = subtitle_en.strip() or None
         if behavior_params is not None:
             if len(behavior_params) != BEHAVIOR_PARAMS_COUNT:
                 raise ValidationError(f"Нужно ровно {BEHAVIOR_PARAMS_COUNT} параметров поведения")
@@ -190,9 +212,13 @@ class BotCharacterService:
         character_id: UUID,
         *,
         title: str,
+        title_en: str | None = None,
         story: str,
+        story_en: str | None = None,
         communication_style: str,
+        communication_style_en: str | None = None,
         opening_message: str = "",
+        opening_message_en: str | None = None,
     ) -> CharacterScenario:
         await self._admin.verify_admin(admin_id)
         await self.get_character(character_id)
@@ -200,14 +226,19 @@ class BotCharacterService:
         title = title.strip()
         if not title:
             raise ValidationError("Название сценария обязательно")
+        title_en = title_en.strip() if title_en else None
 
         count = await self._scenarios.count_for_character(character_id)
         scenario = await self._scenarios.create(
             character_id=character_id,
             title=title,
+            title_en=title_en,
             story=story.strip(),
+            story_en=story_en.strip() if story_en else None,
             communication_style=communication_style.strip(),
+            communication_style_en=communication_style_en.strip() if communication_style_en else None,
             opening_message=opening_message.strip(),
+            opening_message_en=opening_message_en.strip() if opening_message_en else None,
             sort_order=count,
         )
         await self._admin._log(
@@ -237,7 +268,9 @@ class BotCharacterService:
         character_id: UUID,
         *,
         name: str,
+        name_en: str | None = None,
         description: str,
+        description_en: str | None = None,
         price: int = 0,
     ) -> CharacterNarrator:
         await self._admin.verify_admin(admin_id)
@@ -246,12 +279,15 @@ class BotCharacterService:
         name = name.strip()
         if not name:
             raise ValidationError("Название рассказчика обязательно")
+        name_en = name_en.strip() if name_en else None
 
         count = await self._narrators.count_for_character(character_id)
         narrator = await self._narrators.create(
             character_id=character_id,
             name=name,
+            name_en=name_en,
             description=description.strip(),
+            description_en=description_en.strip() if description_en else None,
             price=max(0, price),
             sort_order=count,
         )

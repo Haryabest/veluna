@@ -21,7 +21,9 @@ export type CharacterNarrator = {
   id: string;
   character_id: string;
   name: string;
+  name_en?: string | null;
   description: string;
+  description_en?: string | null;
   price: number;
   sort_order: number;
 };

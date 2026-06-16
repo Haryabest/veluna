@@ -47,8 +47,11 @@ class UserBalanceResponse(BaseSchema):
 
 class CharacterCreate(BaseSchema):
     name: str = Field(min_length=1, max_length=255)
+    name_en: str | None = Field(default=None, max_length=255)
     slug: str = Field(min_length=1, max_length=255)
     description: str = ""
+    description_en: str | None = None
+    subtitle_en: str | None = Field(default=None, max_length=255)
     personality_prompt: str = ""
     greeting_message: str = ""
     tags: list[str] = []
@@ -61,7 +64,10 @@ class CharacterCreate(BaseSchema):
 
 class CharacterUpdate(BaseSchema):
     name: str | None = None
+    name_en: str | None = Field(default=None, max_length=255)
     description: str | None = None
+    description_en: str | None = None
+    subtitle_en: str | None = Field(default=None, max_length=255)
     personality_prompt: str | None = None
     greeting_message: str | None = None
     tags: list[str] | None = None
@@ -77,9 +83,12 @@ class CharacterUpdate(BaseSchema):
 class CharacterResponse(BaseSchema):
     id: UUID
     name: str
+    name_en: str | None = None
     slug: str
     subtitle: str | None = None
+    subtitle_en: str | None = None
     description: str
+    description_en: str | None = None
     greeting_message: str
     avatar_url: str | None
     preview_url: str | None
@@ -105,9 +114,13 @@ class CharacterScenarioResponse(BaseSchema):
     id: UUID
     character_id: UUID
     title: str
+    title_en: str | None = None
     story: str
+    story_en: str | None = None
     communication_style: str
+    communication_style_en: str | None = None
     opening_message: str
+    opening_message_en: str | None = None
     image_url: str | None = None
     sort_order: int
 
@@ -121,7 +134,9 @@ class CharacterNarratorResponse(BaseSchema):
     id: UUID
     character_id: UUID
     name: str
+    name_en: str | None = None
     description: str
+    description_en: str | None = None
     price: int
     image_url: str | None = None
     sort_order: int
