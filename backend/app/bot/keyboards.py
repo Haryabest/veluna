@@ -595,8 +595,49 @@ def char_create_narrator_kb(character_id: str, *, can_finish: bool) -> InlineKey
     return builder.as_markup()
 
 
+def scenario_edit_menu(scenario_id: str) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(
+            text="✏️ Название",
+            callback_data=f"adm:scen:edit:title:{scenario_id}",
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="✏️ История / контекст",
+            callback_data=f"adm:scen:edit:story:{scenario_id}",
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="✏️ Тип общения",
+            callback_data=f"adm:scen:edit:comm:{scenario_id}",
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="✏️ Стартовое сообщение",
+            callback_data=f"adm:scen:edit:opening:{scenario_id}",
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="« Назад",
+            callback_data=f"adm:scen:view:{scenario_id}",
+        )
+    )
+    return builder.as_markup()
+
+
 def scenario_item_menu(scenario_id: str, character_id: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(
+            text="✏️ Редактировать",
+            callback_data=f"adm:scen:edit:{scenario_id}",
+        )
+    )
     builder.row(
         InlineKeyboardButton(
             text="🖼 Фото",

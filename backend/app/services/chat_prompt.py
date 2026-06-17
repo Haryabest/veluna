@@ -156,7 +156,11 @@ def _narrator_block(narrator: Any | None, loc: AppLocale) -> list[str]:
         getattr(narrator, "name_alt", None),
         loc,
     ) or ("Narrator" if loc == "en" else "Рассказчик")
-    desc = getattr(narrator, "description", "") or ""
+    desc = pick_localized(
+        getattr(narrator, "description", None),
+        getattr(narrator, "description_alt", None),
+        loc,
+    )
     if loc == "en":
         block = [f"## Narrator voice «{name}»"]
         if desc.strip():
@@ -184,18 +188,34 @@ def _scenario_block(scenario: Any | None, loc: AppLocale) -> list[str]:
     ) or ("Scenario" if loc == "en" else "Сценарий")
     if loc == "en":
         block = [f"## Active scenario «{title}»"]
-        story = getattr(scenario, "story", "") or ""
+        story = pick_localized(
+            getattr(scenario, "story", None),
+            getattr(scenario, "story_alt", None),
+            loc,
+        )
         if story.strip():
             block.append(f"**Story:** {story.strip()}")
-        style = getattr(scenario, "communication_style", "") or ""
+        style = pick_localized(
+            getattr(scenario, "communication_style", None),
+            getattr(scenario, "communication_style_alt", None),
+            loc,
+        )
         if style.strip():
             block.append(f"**Communication style in this scenario:** {style.strip()}")
         return block
     block = [f"## Активный сценарий «{title}»"]
-    story = getattr(scenario, "story", "") or ""
+    story = pick_localized(
+        getattr(scenario, "story", None),
+        getattr(scenario, "story_alt", None),
+        loc,
+    )
     if story.strip():
         block.append(f"**Сюжет:** {story.strip()}")
-    style = getattr(scenario, "communication_style", "") or ""
+    style = pick_localized(
+        getattr(scenario, "communication_style", None),
+        getattr(scenario, "communication_style_alt", None),
+        loc,
+    )
     if style.strip():
         block.append(f"**Стиль общения в сценарии:** {style.strip()}")
     return block

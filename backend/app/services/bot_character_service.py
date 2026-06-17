@@ -239,7 +239,9 @@ class BotCharacterService:
         title: str,
         title_alt: str | None = None,
         story: str,
+        story_alt: str | None = None,
         communication_style: str,
+        communication_style_alt: str | None = None,
         opening_message: str = "",
     ) -> CharacterScenario:
         await self._admin.verify_admin(admin_id)
@@ -255,7 +257,12 @@ class BotCharacterService:
             title=title,
             title_alt=(title_alt.strip() if title_alt else None) or None,
             story=story.strip(),
+            story_alt=(story_alt.strip() if story_alt else None) or None,
             communication_style=communication_style.strip(),
+            communication_style_alt=(
+                communication_style_alt.strip() if communication_style_alt else None
+            )
+            or None,
             opening_message=opening_message.strip(),
             sort_order=count,
         )
@@ -268,6 +275,8 @@ class BotCharacterService:
         )
         await self._touch_catalog()
         return scenario
+
+    async def deactivate_scenario(self, admin_id: UUID, scenario_id: UUID) -> None:
         await self._admin.verify_admin(admin_id)
         scenario = await self._scenarios.get_by_id(scenario_id)
         if not scenario:
@@ -288,6 +297,7 @@ class BotCharacterService:
         name: str,
         name_alt: str | None = None,
         description: str,
+        description_alt: str | None = None,
         price: int = 0,
     ) -> CharacterNarrator:
         await self._admin.verify_admin(admin_id)
@@ -303,6 +313,7 @@ class BotCharacterService:
             name=name,
             name_alt=(name_alt.strip() if name_alt else None) or None,
             description=description.strip(),
+            description_alt=(description_alt.strip() if description_alt else None) or None,
             price=max(0, price),
             sort_order=count,
         )
@@ -347,6 +358,13 @@ class BotCharacterService:
         admin_id: UUID,
         scenario_id: UUID,
         *,
+        title: str | None = None,
+        title_alt: str | None = None,
+        story: str | None = None,
+        story_alt: str | None = None,
+        communication_style: str | None = None,
+        communication_style_alt: str | None = None,
+        opening_message: str | None = None,
         image_url: str | None = None,
         clear_image: bool = False,
     ) -> CharacterScenario:
@@ -355,6 +373,23 @@ class BotCharacterService:
         if not scenario:
             raise NotFoundError("Scenario", str(scenario_id))
         updates: dict = {}
+        if title is not None:
+            title = title.strip()
+            if not title:
+                raise ValidationError("Название сценария обязательно")
+            updates["title"] = title
+        if title_alt is not None:
+            updates["title_alt"] = title_alt.strip() or None
+        if story is not None:
+            updates["story"] = story.strip()
+        if story_alt is not None:
+            updates["story_alt"] = story_alt.strip() or None
+        if communication_style is not None:
+            updates["communication_style"] = communication_style.strip()
+        if communication_style_alt is not None:
+            updates["communication_style_alt"] = communication_style_alt.strip() or None
+        if opening_message is not None:
+            updates["opening_message"] = opening_message.strip()
         if clear_image:
             updates["image_url"] = None
         elif image_url is not None:

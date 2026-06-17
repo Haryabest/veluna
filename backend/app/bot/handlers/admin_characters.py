@@ -25,6 +25,7 @@ from app.bot.keyboards import (
     characters_menu,
     characters_submenu_keyboard,
     scenario_item_menu,
+    scenario_edit_menu,
     scenarios_menu,
     narrators_menu,
     narrator_item_menu,
@@ -478,7 +479,7 @@ async def _start_scenario_wizard(message: Message, state: FSMContext, char_id: U
     await state.set_state(AdminCharacterStates.scenario_title)
     await message.answer(
         f"<b>Персонаж сохранён.</b> Сценарий <b>{scenario_num}</b>\n\n"
-        "1/5 <b>Название</b> сценария (как в Mini App, например: «Новое знакомство»):",
+        "1/7 <b>Название</b> сценария (как в Mini App, например: «Новое знакомство»):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -527,7 +528,7 @@ async def admin_char_create_scenario_title(message: Message, state: FSMContext) 
     await state.update_data(scenario_title=title)
     await state.set_state(AdminCharacterStates.scenario_title_alt)
     await message.answer(
-        f"2/5 {alt_field_prompt(title, ru_label='название', en_label='title')}",
+        f"2/7 {alt_field_prompt(title, ru_label='название', en_label='title')}",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -537,7 +538,7 @@ async def admin_char_create_scenario_title_alt_skip(message: Message, state: FSM
     await state.update_data(scenario_title_alt="")
     await state.set_state(AdminCharacterStates.scenario_story)
     await message.answer(
-        "3/5 <b>История / контекст</b> сценария:",
+        "3/7 <b>История / контекст</b> сценария:",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -547,27 +548,71 @@ async def admin_char_create_scenario_title_alt(message: Message, state: FSMConte
     await state.update_data(scenario_title_alt=(message.text or "").strip())
     await state.set_state(AdminCharacterStates.scenario_story)
     await message.answer(
-        "3/5 <b>История / контекст</b> сценария:",
+        "3/7 <b>История / контекст</b> сценария:",
         reply_markup=cancel_kb("adm:chars"),
     )
 
 
 @router.message(AdminCharacterStates.scenario_story)
 async def admin_char_create_scenario_story(message: Message, state: FSMContext) -> None:
-    await state.update_data(scenario_story=(message.text or "").strip())
+    story = (message.text or "").strip()
+    await state.update_data(scenario_story=story)
+    await state.set_state(AdminCharacterStates.scenario_story_alt)
+    await _wizard_reply(
+        message,
+        f"4/7 {alt_text_prompt(story, field_ru='история / контекст', field_en='story / context')}",
+        cancel_target="adm:chars",
+    )
+
+
+@router.message(AdminCharacterStates.scenario_story_alt, Command("skip"))
+async def admin_char_create_scenario_story_alt_skip(message: Message, state: FSMContext) -> None:
+    await state.update_data(scenario_story_alt="")
     await state.set_state(AdminCharacterStates.scenario_communication)
     await message.answer(
-        "4/5 <b>Тип общения</b> в диалоге (флирт, дружеский, таинственный…):",
+        "5/7 <b>Тип общения</b> в диалоге (флирт, дружеский, таинственный…):",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.scenario_story_alt)
+async def admin_char_create_scenario_story_alt(message: Message, state: FSMContext) -> None:
+    await state.update_data(scenario_story_alt=(message.text or "").strip())
+    await state.set_state(AdminCharacterStates.scenario_communication)
+    await message.answer(
+        "5/7 <b>Тип общения</b> в диалоге (флирт, дружеский, таинственный…):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
 
 @router.message(AdminCharacterStates.scenario_communication)
 async def admin_char_create_scenario_communication(message: Message, state: FSMContext) -> None:
-    await state.update_data(scenario_communication=(message.text or "").strip())
+    comm = (message.text or "").strip()
+    await state.update_data(scenario_communication=comm)
+    await state.set_state(AdminCharacterStates.scenario_communication_alt)
+    await _wizard_reply(
+        message,
+        f"6/7 {alt_text_prompt(comm, field_ru='тип общения', field_en='communication style')}",
+        cancel_target="adm:chars",
+    )
+
+
+@router.message(AdminCharacterStates.scenario_communication_alt, Command("skip"))
+async def admin_char_create_scenario_communication_alt_skip(message: Message, state: FSMContext) -> None:
+    await state.update_data(scenario_communication_alt="")
     await state.set_state(AdminCharacterStates.scenario_opening)
     await message.answer(
-        "5/5 <b>Стартовое сообщение</b> персонажа (или /skip):",
+        "7/7 <b>Стартовое сообщение</b> персонажа (или /skip):",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.scenario_communication_alt)
+async def admin_char_create_scenario_communication_alt(message: Message, state: FSMContext) -> None:
+    await state.update_data(scenario_communication_alt=(message.text or "").strip())
+    await state.set_state(AdminCharacterStates.scenario_opening)
+    await message.answer(
+        "7/7 <b>Стартовое сообщение</b> персонажа (или /skip):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -598,7 +643,9 @@ async def _finish_scenario_during_create(
                 title=data["scenario_title"],
                 title_alt=data.get("scenario_title_alt") or None,
                 story=data.get("scenario_story", ""),
+                story_alt=data.get("scenario_story_alt") or None,
                 communication_style=data.get("scenario_communication", ""),
+                communication_style_alt=data.get("scenario_communication_alt") or None,
                 opening_message=opening_message,
             )
             count = len(await BotCharacterService(session).list_scenarios(char_id))
@@ -622,7 +669,7 @@ async def _start_narrator_wizard(message: Message, state: FSMContext, char_id: U
     await state.set_state(AdminCharacterStates.narrator_name)
     await message.answer(
         f"<b>Рассказчик {narrator_num}</b>\n\n"
-        "1/4 <b>Название</b> (например: «Классический», «Mystic»):",
+        "1/5 <b>Название</b> (например: «Классический», «Mystic»):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -651,7 +698,7 @@ async def admin_char_create_narrator_name(message: Message, state: FSMContext) -
     await state.update_data(narrator_name=name)
     await state.set_state(AdminCharacterStates.narrator_name_alt)
     await message.answer(
-        f"2/4 {alt_field_prompt(name, ru_label='название', en_label='name')}",
+        f"2/5 {alt_field_prompt(name, ru_label='название', en_label='name')}",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -661,7 +708,7 @@ async def admin_char_create_narrator_name_alt_skip(message: Message, state: FSMC
     await state.update_data(narrator_name_alt="")
     await state.set_state(AdminCharacterStates.narrator_description)
     await message.answer(
-        "3/4 <b>Описание</b> рассказчика:",
+        "3/5 <b>Описание</b> рассказчика:",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -671,17 +718,39 @@ async def admin_char_create_narrator_name_alt(message: Message, state: FSMContex
     await state.update_data(narrator_name_alt=(message.text or "").strip())
     await state.set_state(AdminCharacterStates.narrator_description)
     await message.answer(
-        "3/4 <b>Описание</b> рассказчика:",
+        "3/5 <b>Описание</b> рассказчика:",
         reply_markup=cancel_kb("adm:chars"),
     )
 
 
 @router.message(AdminCharacterStates.narrator_description)
 async def admin_char_create_narrator_description(message: Message, state: FSMContext) -> None:
-    await state.update_data(narrator_description=(message.text or "").strip())
+    desc = (message.text or "").strip()
+    await state.update_data(narrator_description=desc)
+    await state.set_state(AdminCharacterStates.narrator_description_alt)
+    await _wizard_reply(
+        message,
+        f"4/5 {alt_text_prompt(desc, field_ru='описание рассказчика', field_en='narrator description')}",
+        cancel_target="adm:chars",
+    )
+
+
+@router.message(AdminCharacterStates.narrator_description_alt, Command("skip"))
+async def admin_char_create_narrator_description_alt_skip(message: Message, state: FSMContext) -> None:
+    await state.update_data(narrator_description_alt="")
     await state.set_state(AdminCharacterStates.narrator_price)
     await message.answer(
-        "4/4 <b>Цена в сердцах</b> за сообщение (число, 0 = 1 сердце):",
+        "5/5 <b>Цена в сердцах</b> за сообщение (число, 0 = 1 сердце):",
+        reply_markup=cancel_kb("adm:chars"),
+    )
+
+
+@router.message(AdminCharacterStates.narrator_description_alt)
+async def admin_char_create_narrator_description_alt(message: Message, state: FSMContext) -> None:
+    await state.update_data(narrator_description_alt=(message.text or "").strip())
+    await state.set_state(AdminCharacterStates.narrator_price)
+    await message.answer(
+        "5/5 <b>Цена в сердцах</b> за сообщение (число, 0 = 1 сердце):",
         reply_markup=cancel_kb("adm:chars"),
     )
 
@@ -709,6 +778,7 @@ async def _finish_narrator_during_create(message: Message, state: FSMContext, pr
                 name=data["narrator_name"],
                 name_alt=data.get("narrator_name_alt") or None,
                 description=data.get("narrator_description", ""),
+                description_alt=data.get("narrator_description_alt") or None,
                 price=price,
             )
             count = len(await BotCharacterService(session).list_narrators(char_id))
@@ -1168,7 +1238,7 @@ async def admin_scenario_add_start(callback: CallbackQuery, state: FSMContext) -
     await state.set_state(AdminScenarioStates.title)
     await state.update_data(scenario_character_id=char_id)
     await callback.message.edit_text(
-        "<b>Новый сценарий</b>\n\n1/4 <b>Название</b> сценария:",
+        "<b>Новый сценарий</b>\n\n1/7 <b>Название</b> сценария:",
         reply_markup=cancel_kb(f"adm:char:scenarios:{char_id}"),
     )
     await callback.answer()
@@ -1181,21 +1251,69 @@ async def admin_scenario_title(message: Message, state: FSMContext) -> None:
         await message.answer("Название обязательно.")
         return
     await state.update_data(scenario_title=title)
+    await state.set_state(AdminScenarioStates.title_alt)
+    data = await state.get_data()
+    await message.answer(
+        f"2/7 {alt_field_prompt(title, ru_label='название', en_label='title')}",
+        reply_markup=cancel_kb(f"adm:char:scenarios:{data['scenario_character_id']}"),
+    )
+
+
+@router.message(AdminScenarioStates.title_alt, Command("skip"))
+async def admin_scenario_title_alt_skip(message: Message, state: FSMContext) -> None:
+    await state.update_data(scenario_title_alt="")
     await state.set_state(AdminScenarioStates.story)
     data = await state.get_data()
     await message.answer(
-        "2/4 <b>История / контекст</b> сценария (что произошло, сеттинг):",
+        "3/7 <b>История / контекст</b> сценария (что произошло, сеттинг):",
+        reply_markup=cancel_kb(f"adm:char:scenarios:{data['scenario_character_id']}"),
+    )
+
+
+@router.message(AdminScenarioStates.title_alt)
+async def admin_scenario_title_alt(message: Message, state: FSMContext) -> None:
+    await state.update_data(scenario_title_alt=(message.text or "").strip())
+    await state.set_state(AdminScenarioStates.story)
+    data = await state.get_data()
+    await message.answer(
+        "3/7 <b>История / контекст</b> сценария (что произошло, сеттинг):",
         reply_markup=cancel_kb(f"adm:char:scenarios:{data['scenario_character_id']}"),
     )
 
 
 @router.message(AdminScenarioStates.story)
 async def admin_scenario_story(message: Message, state: FSMContext) -> None:
-    await state.update_data(scenario_story=(message.text or "").strip())
+    story = (message.text or "").strip()
+    await state.update_data(scenario_story=story)
+    await state.set_state(AdminScenarioStates.story_alt)
+    data = await state.get_data()
+    cancel = f"adm:char:scenarios:{data['scenario_character_id']}"
+    await _wizard_reply(
+        message,
+        f"4/7 {alt_text_prompt(story, field_ru='история / контекст', field_en='story / context')}",
+        cancel_target=cancel,
+    )
+
+
+@router.message(AdminScenarioStates.story_alt, Command("skip"))
+async def admin_scenario_story_alt_skip(message: Message, state: FSMContext) -> None:
+    await state.update_data(scenario_story_alt="")
     await state.set_state(AdminScenarioStates.communication_style)
     data = await state.get_data()
     await message.answer(
-        "3/4 <b>Тип общения</b> в этом диалоге\n"
+        "5/7 <b>Тип общения</b> в этом диалоге\n"
+        "(формальный, флирт, дружеский, таинственный и т.д.):",
+        reply_markup=cancel_kb(f"adm:char:scenarios:{data['scenario_character_id']}"),
+    )
+
+
+@router.message(AdminScenarioStates.story_alt)
+async def admin_scenario_story_alt(message: Message, state: FSMContext) -> None:
+    await state.update_data(scenario_story_alt=(message.text or "").strip())
+    await state.set_state(AdminScenarioStates.communication_style)
+    data = await state.get_data()
+    await message.answer(
+        "5/7 <b>Тип общения</b> в этом диалоге\n"
         "(формальный, флирт, дружеский, таинственный и т.д.):",
         reply_markup=cancel_kb(f"adm:char:scenarios:{data['scenario_character_id']}"),
     )
@@ -1203,11 +1321,36 @@ async def admin_scenario_story(message: Message, state: FSMContext) -> None:
 
 @router.message(AdminScenarioStates.communication_style)
 async def admin_scenario_communication(message: Message, state: FSMContext) -> None:
-    await state.update_data(scenario_communication=(message.text or "").strip())
+    comm = (message.text or "").strip()
+    await state.update_data(scenario_communication=comm)
+    await state.set_state(AdminScenarioStates.communication_style_alt)
+    data = await state.get_data()
+    cancel = f"adm:char:scenarios:{data['scenario_character_id']}"
+    await _wizard_reply(
+        message,
+        f"6/7 {alt_text_prompt(comm, field_ru='тип общения', field_en='communication style')}",
+        cancel_target=cancel,
+    )
+
+
+@router.message(AdminScenarioStates.communication_style_alt, Command("skip"))
+async def admin_scenario_communication_alt_skip(message: Message, state: FSMContext) -> None:
+    await state.update_data(scenario_communication_alt="")
     await state.set_state(AdminScenarioStates.opening_message)
     data = await state.get_data()
     await message.answer(
-        "4/4 <b>Стартовое сообщение</b> персонажа в сценарии (или /skip):",
+        "7/7 <b>Стартовое сообщение</b> персонажа в сценарии (или /skip):",
+        reply_markup=cancel_kb(f"adm:char:scenarios:{data['scenario_character_id']}"),
+    )
+
+
+@router.message(AdminScenarioStates.communication_style_alt)
+async def admin_scenario_communication_alt(message: Message, state: FSMContext) -> None:
+    await state.update_data(scenario_communication_alt=(message.text or "").strip())
+    await state.set_state(AdminScenarioStates.opening_message)
+    data = await state.get_data()
+    await message.answer(
+        "7/7 <b>Стартовое сообщение</b> персонажа в сценарии (или /skip):",
         reply_markup=cancel_kb(f"adm:char:scenarios:{data['scenario_character_id']}"),
     )
 
@@ -1234,8 +1377,11 @@ async def _save_new_scenario(message: Message, state: FSMContext, opening_messag
                 admin_id,
                 char_id,
                 title=data["scenario_title"],
+                title_alt=data.get("scenario_title_alt") or None,
                 story=data.get("scenario_story", ""),
+                story_alt=data.get("scenario_story_alt") or None,
                 communication_style=data.get("scenario_communication", ""),
+                communication_style_alt=data.get("scenario_communication_alt") or None,
                 opening_message=opening_message,
             )
     except ValidationError as exc:
@@ -1267,6 +1413,248 @@ async def admin_scenario_view(callback: CallbackQuery) -> None:
         reply_markup=scenario_item_menu(str(sc.id), str(sc.character_id)),
     )
     await callback.answer()
+
+
+async def _show_scenario_view(message: Message, scenario_id: UUID) -> None:
+    async with bot_session() as session:
+        from app.repositories.character_scenario_repository import CharacterScenarioRepository
+
+        sc = await CharacterScenarioRepository(session).get_by_id(scenario_id)
+        if not sc:
+            await message.answer("Сценарий не найден.")
+            return
+    await message.answer(
+        _format_scenario(sc),
+        reply_markup=scenario_item_menu(str(sc.id), str(sc.character_id)),
+    )
+
+
+async def _apply_scenario_update(
+    message: Message,
+    state: FSMContext,
+    scenario_id: UUID,
+    **fields,
+) -> None:
+    admin_id = await _admin_id(message.from_user.id)
+    if not admin_id:
+        await message.answer("Нет прав администратора.")
+        return
+    try:
+        async with bot_session() as session:
+            await BotCharacterService(session).update_scenario(admin_id, scenario_id, **fields)
+    except ValidationError as exc:
+        await message.answer(str(exc.message))
+        return
+    except Exception as exc:
+        await message.answer(f"Ошибка: {exc}")
+        return
+    await state.clear()
+    await message.answer("Сохранено.")
+    await _show_scenario_view(message, scenario_id)
+
+
+@router.callback_query(F.data.regexp(r"^adm:scen:edit:[0-9a-f-]{36}$"))
+async def admin_scenario_edit_menu(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
+    scenario_id = callback.data.split(":")[-1]
+    async with bot_session() as session:
+        from app.repositories.character_scenario_repository import CharacterScenarioRepository
+
+        sc = await CharacterScenarioRepository(session).get_by_id(UUID(scenario_id))
+        if not sc:
+            await callback.answer("Не найден", show_alert=True)
+            return
+    await callback.message.edit_text(
+        f"<b>Редактирование</b> — {sc.title}\n\nВыберите поле:",
+        reply_markup=scenario_edit_menu(scenario_id),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("adm:scen:edit:title:"))
+async def admin_scenario_edit_title_start(callback: CallbackQuery, state: FSMContext) -> None:
+    scenario_id = callback.data.split(":")[-1]
+    await state.set_state(AdminScenarioStates.edit_title)
+    await state.update_data(edit_scenario_id=scenario_id)
+    await callback.message.edit_text(
+        "Введите новое <b>название</b> сценария:",
+        reply_markup=cancel_kb(f"adm:scen:edit:{scenario_id}"),
+    )
+    await callback.answer()
+
+
+@router.message(AdminScenarioStates.edit_title)
+async def admin_scenario_edit_title_save(message: Message, state: FSMContext) -> None:
+    title = (message.text or "").strip()
+    if not title:
+        await message.answer("Название обязательно.")
+        return
+    data = await state.get_data()
+    scenario_id = data["edit_scenario_id"]
+    await state.update_data(pending_title=title)
+    await state.set_state(AdminScenarioStates.edit_title_alt)
+    await message.answer(
+        alt_field_prompt(title, ru_label="название", en_label="title"),
+        reply_markup=cancel_kb(f"adm:scen:edit:{scenario_id}"),
+    )
+
+
+@router.message(AdminScenarioStates.edit_title_alt, Command("skip"))
+async def admin_scenario_edit_title_alt_skip(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    await _apply_scenario_update(
+        message,
+        state,
+        UUID(data["edit_scenario_id"]),
+        title=data["pending_title"],
+        title_alt=None,
+    )
+
+
+@router.message(AdminScenarioStates.edit_title_alt)
+async def admin_scenario_edit_title_alt_save(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    await _apply_scenario_update(
+        message,
+        state,
+        UUID(data["edit_scenario_id"]),
+        title=data["pending_title"],
+        title_alt=(message.text or "").strip() or None,
+    )
+
+
+@router.callback_query(F.data.startswith("adm:scen:edit:story:"))
+async def admin_scenario_edit_story_start(callback: CallbackQuery, state: FSMContext) -> None:
+    scenario_id = callback.data.split(":")[-1]
+    await state.set_state(AdminScenarioStates.edit_story)
+    await state.update_data(edit_scenario_id=scenario_id)
+    await callback.message.edit_text(
+        "Введите новую <b>историю / контекст</b> сценария:",
+        reply_markup=cancel_kb(f"adm:scen:edit:{scenario_id}"),
+    )
+    await callback.answer()
+
+
+@router.message(AdminScenarioStates.edit_story)
+async def admin_scenario_edit_story_save(message: Message, state: FSMContext) -> None:
+    story = (message.text or "").strip()
+    data = await state.get_data()
+    scenario_id = data["edit_scenario_id"]
+    await state.update_data(pending_story=story)
+    await state.set_state(AdminScenarioStates.edit_story_alt)
+    await _wizard_reply(
+        message,
+        alt_text_prompt(story, field_ru="история / контекст", field_en="story / context"),
+        cancel_target=f"adm:scen:edit:{scenario_id}",
+    )
+
+
+@router.message(AdminScenarioStates.edit_story_alt, Command("skip"))
+async def admin_scenario_edit_story_alt_skip(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    await _apply_scenario_update(
+        message,
+        state,
+        UUID(data["edit_scenario_id"]),
+        story=data["pending_story"],
+        story_alt=None,
+    )
+
+
+@router.message(AdminScenarioStates.edit_story_alt)
+async def admin_scenario_edit_story_alt_save(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    await _apply_scenario_update(
+        message,
+        state,
+        UUID(data["edit_scenario_id"]),
+        story=data["pending_story"],
+        story_alt=(message.text or "").strip() or None,
+    )
+
+
+@router.callback_query(F.data.startswith("adm:scen:edit:comm:"))
+async def admin_scenario_edit_comm_start(callback: CallbackQuery, state: FSMContext) -> None:
+    scenario_id = callback.data.split(":")[-1]
+    await state.set_state(AdminScenarioStates.edit_communication)
+    await state.update_data(edit_scenario_id=scenario_id)
+    await callback.message.edit_text(
+        "Введите новый <b>тип общения</b> в диалоге:",
+        reply_markup=cancel_kb(f"adm:scen:edit:{scenario_id}"),
+    )
+    await callback.answer()
+
+
+@router.message(AdminScenarioStates.edit_communication)
+async def admin_scenario_edit_comm_save(message: Message, state: FSMContext) -> None:
+    comm = (message.text or "").strip()
+    data = await state.get_data()
+    scenario_id = data["edit_scenario_id"]
+    await state.update_data(pending_communication=comm)
+    await state.set_state(AdminScenarioStates.edit_communication_alt)
+    await _wizard_reply(
+        message,
+        alt_text_prompt(comm, field_ru="тип общения", field_en="communication style"),
+        cancel_target=f"adm:scen:edit:{scenario_id}",
+    )
+
+
+@router.message(AdminScenarioStates.edit_communication_alt, Command("skip"))
+async def admin_scenario_edit_comm_alt_skip(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    await _apply_scenario_update(
+        message,
+        state,
+        UUID(data["edit_scenario_id"]),
+        communication_style=data["pending_communication"],
+        communication_style_alt=None,
+    )
+
+
+@router.message(AdminScenarioStates.edit_communication_alt)
+async def admin_scenario_edit_comm_alt_save(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    await _apply_scenario_update(
+        message,
+        state,
+        UUID(data["edit_scenario_id"]),
+        communication_style=data["pending_communication"],
+        communication_style_alt=(message.text or "").strip() or None,
+    )
+
+
+@router.callback_query(F.data.startswith("adm:scen:edit:opening:"))
+async def admin_scenario_edit_opening_start(callback: CallbackQuery, state: FSMContext) -> None:
+    scenario_id = callback.data.split(":")[-1]
+    await state.set_state(AdminScenarioStates.edit_opening)
+    await state.update_data(edit_scenario_id=scenario_id)
+    await callback.message.edit_text(
+        "Введите новое <b>стартовое сообщение</b> (или /skip чтобы очистить):",
+        reply_markup=cancel_kb(f"adm:scen:edit:{scenario_id}"),
+    )
+    await callback.answer()
+
+
+@router.message(AdminScenarioStates.edit_opening, Command("skip"))
+async def admin_scenario_edit_opening_skip(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    await _apply_scenario_update(
+        message,
+        state,
+        UUID(data["edit_scenario_id"]),
+        opening_message="",
+    )
+
+
+@router.message(AdminScenarioStates.edit_opening)
+async def admin_scenario_edit_opening_save(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    await _apply_scenario_update(
+        message,
+        state,
+        UUID(data["edit_scenario_id"]),
+        opening_message=(message.text or "").strip(),
+    )
 
 
 @router.callback_query(F.data.startswith("adm:scen:del:"))
@@ -1327,7 +1715,7 @@ async def admin_narrator_add_start(callback: CallbackQuery, state: FSMContext) -
     await state.set_state(AdminNarratorStates.name)
     await state.update_data(narrator_character_id=char_id)
     await callback.message.edit_text(
-        "<b>Новый рассказчик</b>\n\n1/3 <b>Название</b>:",
+        "<b>Новый рассказчик</b>\n\n1/5 <b>Название</b>:",
         reply_markup=cancel_kb(f"adm:char:narrators:{char_id}"),
     )
     await callback.answer()
@@ -1340,21 +1728,68 @@ async def admin_narrator_name(message: Message, state: FSMContext) -> None:
         await message.answer("Название обязательно.")
         return
     await state.update_data(narrator_name=name)
+    await state.set_state(AdminNarratorStates.name_alt)
+    data = await state.get_data()
+    await message.answer(
+        f"2/5 {alt_field_prompt(name, ru_label='название', en_label='name')}",
+        reply_markup=cancel_kb(f"adm:char:narrators:{data['narrator_character_id']}"),
+    )
+
+
+@router.message(AdminNarratorStates.name_alt, Command("skip"))
+async def admin_narrator_name_alt_skip(message: Message, state: FSMContext) -> None:
+    await state.update_data(narrator_name_alt="")
     await state.set_state(AdminNarratorStates.description)
     data = await state.get_data()
     await message.answer(
-        "2/3 <b>Описание</b> рассказчика:",
+        "3/5 <b>Описание</b> рассказчика:",
+        reply_markup=cancel_kb(f"adm:char:narrators:{data['narrator_character_id']}"),
+    )
+
+
+@router.message(AdminNarratorStates.name_alt)
+async def admin_narrator_name_alt(message: Message, state: FSMContext) -> None:
+    await state.update_data(narrator_name_alt=(message.text or "").strip())
+    await state.set_state(AdminNarratorStates.description)
+    data = await state.get_data()
+    await message.answer(
+        "3/5 <b>Описание</b> рассказчика:",
         reply_markup=cancel_kb(f"adm:char:narrators:{data['narrator_character_id']}"),
     )
 
 
 @router.message(AdminNarratorStates.description)
 async def admin_narrator_description(message: Message, state: FSMContext) -> None:
-    await state.update_data(narrator_description=(message.text or "").strip())
+    desc = (message.text or "").strip()
+    await state.update_data(narrator_description=desc)
+    await state.set_state(AdminNarratorStates.description_alt)
+    data = await state.get_data()
+    cancel = f"adm:char:narrators:{data['narrator_character_id']}"
+    await _wizard_reply(
+        message,
+        f"4/5 {alt_text_prompt(desc, field_ru='описание рассказчика', field_en='narrator description')}",
+        cancel_target=cancel,
+    )
+
+
+@router.message(AdminNarratorStates.description_alt, Command("skip"))
+async def admin_narrator_description_alt_skip(message: Message, state: FSMContext) -> None:
+    await state.update_data(narrator_description_alt="")
     await state.set_state(AdminNarratorStates.price)
     data = await state.get_data()
     await message.answer(
-        "3/3 <b>Цена в сердцах</b> (число, 0 = бесплатно):",
+        "5/5 <b>Цена в сердцах</b> (число, 0 = бесплатно):",
+        reply_markup=cancel_kb(f"adm:char:narrators:{data['narrator_character_id']}"),
+    )
+
+
+@router.message(AdminNarratorStates.description_alt)
+async def admin_narrator_description_alt(message: Message, state: FSMContext) -> None:
+    await state.update_data(narrator_description_alt=(message.text or "").strip())
+    await state.set_state(AdminNarratorStates.price)
+    data = await state.get_data()
+    await message.answer(
+        "5/5 <b>Цена в сердцах</b> (число, 0 = бесплатно):",
         reply_markup=cancel_kb(f"adm:char:narrators:{data['narrator_character_id']}"),
     )
 
@@ -1379,6 +1814,7 @@ async def admin_narrator_price(message: Message, state: FSMContext) -> None:
                 name=data["narrator_name"],
                 name_alt=data.get("narrator_name_alt") or None,
                 description=data.get("narrator_description", ""),
+                description_alt=data.get("narrator_description_alt") or None,
                 price=price,
             )
     except ValidationError as exc:

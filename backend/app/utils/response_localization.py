@@ -54,12 +54,31 @@ def character_detail_response(c: Character, locale: str | AppLocale) -> Characte
 
 def scenario_response(s: CharacterScenario, locale: str | AppLocale) -> CharacterScenarioResponse:
     base = CharacterScenarioResponse.model_validate(s)
-    return base.model_copy(update={"title": pick_localized(s.title, s.title_alt, locale)})
+    return base.model_copy(
+        update={
+            "title": pick_localized(s.title, s.title_alt, locale),
+            "story": pick_localized(s.story, getattr(s, "story_alt", None), locale),
+            "communication_style": pick_localized(
+                s.communication_style,
+                getattr(s, "communication_style_alt", None),
+                locale,
+            ),
+        }
+    )
 
 
 def narrator_response(n: CharacterNarrator, locale: str | AppLocale) -> CharacterNarratorResponse:
     base = CharacterNarratorResponse.model_validate(n)
-    return base.model_copy(update={"name": pick_localized(n.name, n.name_alt, locale)})
+    return base.model_copy(
+        update={
+            "name": pick_localized(n.name, n.name_alt, locale),
+            "description": pick_localized(
+                n.description,
+                getattr(n, "description_alt", None),
+                locale,
+            ),
+        }
+    )
 
 
 def shop_product_response(p: ShopProduct, locale: str | AppLocale) -> ShopProductResponse:
