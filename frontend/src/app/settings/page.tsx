@@ -6,6 +6,7 @@ import { useUserStore } from "@/store/user-store";
 import { ListPanel } from "@/components/shared/ListPanel";
 import { chatSeparatorStyle } from "@/lib/theme";
 import { useTranslation } from "@/hooks/use-translation";
+import { useToast } from "@/hooks/use-toast";
 import { userService } from "@/services/api";
 import { onLocaleChanged } from "@/lib/locale-sync";
 import type { AppLocale } from "@/lib/i18n/translations";
